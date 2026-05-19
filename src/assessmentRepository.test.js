@@ -146,6 +146,18 @@ describe('remote assessment repository wiring', () => {
       if (url.endsWith('/records') && !options.method) {
         return createJsonResponse({ records: [] });
       }
+      if (url.endsWith('/records/remote-record-1/verification')) {
+        return createJsonResponse({
+          verificationLogs: [
+            {
+              id: 'verification-1',
+              status: 'completed',
+              riskTags: ['行政处罚'],
+              rawResultCount: 2
+            }
+          ]
+        });
+      }
       return createJsonResponse(null, 204);
     };
     const repository = createRemoteAssessmentRepository({
@@ -162,6 +174,7 @@ describe('remote assessment repository wiring', () => {
     await repository.saveDraft(form);
     const record = await repository.saveRecord({ form, result });
     const records = await repository.listRecords();
+    const verificationLogs = await repository.listVerificationLogs(record.id);
 
     expect(record).toMatchObject({
       id: 'remote-record-1',
@@ -170,10 +183,19 @@ describe('remote assessment repository wiring', () => {
       result
     });
     expect(records).toEqual([]);
+    expect(verificationLogs).toEqual([
+      {
+        id: 'verification-1',
+        status: 'completed',
+        riskTags: ['行政处罚'],
+        rawResultCount: 2
+      }
+    ]);
     expect(calls.map((call) => call.url)).toEqual([
       'https://credit-api.example.com/draft',
       'https://credit-api.example.com/records',
-      'https://credit-api.example.com/records'
+      'https://credit-api.example.com/records',
+      'https://credit-api.example.com/records/remote-record-1/verification'
     ]);
     expect(calls.every((call) => call.options.headers.apikey === 'sb_publishable_test')).toBe(true);
     expect(calls.every((call) => call.options.headers['x-client-instance-id'] === 'client-1')).toBe(true);
