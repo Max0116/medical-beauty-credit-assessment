@@ -2,7 +2,7 @@
 
 一个面向内部业务风控场景的手机端 H5 工具，用于评估下游医美机构是否可以给予账期、最长账期、建议额度、是否需要特批，以及系统给出判断的原因。
 
-当前版本是产品化基线版本：已具备可交互评估流程、核心风控规则、移动端 UI、通过数据访问层封装的本地/远端持久化入口；数据库、联网核验、登录权限和审批流将按路线图分阶段接入。
+当前版本是产品化基线版本：已具备可交互评估流程、核心风控规则、移动端 UI、通过数据访问层封装的本地/远端持久化入口；登录权限、审批流和管理端报表将按路线图分阶段接入。
 
 ## 产品目标
 
@@ -20,15 +20,16 @@
 - localStorage 自动保存最近草稿。
 - 保存当前评估记录并查看历史记录。
 - `assessmentRepository` 数据访问层，支持默认本地模式和通过环境变量开启的远端 API 模式。
-- 公共信用联网核验模块预留。
+- 远端模式显示同步状态，并在保存失败时保留本机兜底记录。
+- Supabase Edge Function 保存评估记录，并触发智谱联网核验日志。
+- 结果页可查看后台联网核验状态：`pending` / `completed` / `failed` 等。
 - 规则单元测试覆盖关键验收项。
 
 ## 当前限制
 
-- 默认仍未接真实数据库，未配置远端 API 时评估记录只保存在当前浏览器。
-- 远端持久化 adapter 已预留，需要后端或数据库服务实现约定 API。
 - 暂未登录，暂无角色权限。
-- 暂未接真实公共信用/处罚/失信查询接口。
+- 未配置远端 API 时评估记录只保存在当前浏览器。
+- 联网核验结果仍是辅助核验日志，尚未自动回写风控表单字段或自动改判。
 - 暂无正式特批审批流，只显示“需特批”和原因标签。
 - 暂无管理端报表。
 
@@ -164,7 +165,7 @@ PR4 开始提供 Supabase 落地文件：
 
 ```bash
 ZHIPUAI_API_KEY=你的智谱 API Key
-ALLOWED_ORIGINS=https://max0116.github.io,http://localhost:5173,http://localhost:5174
+ALLOWED_ORIGINS=https://max0116.github.io,http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174
 ASSESSMENT_PUBLISHABLE_KEYS={"default":"sb_publishable_xxx"}
 ASSESSMENT_SERVICE_ROLE_KEY=service_role_jwt_xxx
 ASSESSMENT_SECRET_KEYS={"default":"sb_secret_xxx"}

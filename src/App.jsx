@@ -3,7 +3,10 @@ import {
   AlertTriangle,
   BadgeCheck,
   CheckCircle2,
+  CircleDashed,
   ClipboardCheck,
+  Cloud,
+  CloudOff,
   Copy,
   Database,
   FileText,
@@ -23,7 +26,11 @@ import {
   QUALIFICATION_LABELS,
   evaluateCredit
 } from './riskEngine';
-import { createConfiguredAssessmentRepository } from './assessmentRepository';
+import {
+  createConfiguredAssessmentRepository,
+  createLocalAssessmentRepository,
+  REPOSITORY_MODES
+} from './assessmentRepository';
 
 const tabs = [
   { id: 'basic', label: '基础', icon: FileText },
@@ -37,14 +44,27 @@ const formatMoney = (value) => `¥${Math.round(Number(value) || 0).toLocaleStrin
 
 function App() {
   const assessmentRepository = useMemo(() => createConfiguredAssessmentRepository(), []);
+  const localFallbackRepository = useMemo(() => createLocalAssessmentRepository(), []);
   const [activeTab, setActiveTab] = useState('basic');
   const [form, setForm] = useState(DEFAULT_FORM);
   const [history, setHistory] = useState([]);
   const [isRepositoryReady, setIsRepositoryReady] = useState(false);
   const [repositoryStatus, setRepositoryStatus] = useState('loading');
+  const [repositoryMessage, setRepositoryMessage] = useState('正在载入评估数据');
+  const [lastSyncedAt, setLastSyncedAt] = useState('');
+  const [activeRecordId, setActiveRecordId] = useState('');
+  const [verificationLogs, setVerificationLogs] = useState([]);
+  const [verificationLogStatus, setVerificationLogStatus] = useState('idle');
   const [toast, setToast] = useState('');
   const result = useMemo(() => evaluateCredit(form), [form]);
   const activeStepIndex = tabs.findIndex((tab) => tab.id === activeTab);
+  const isRemoteMode = assessmentRepository.mode === REPOSITORY_MODES.remote;
+
+  const markRepositorySynced = (message = '已同步到远端') => {
+    setRepositoryStatus('synced');
+    setRepositoryMessage(message);
+    setLastSyncedAt(new Date().toISOString());
+  };
 
   useEffect(() => {
     let isActive = true;
@@ -58,11 +78,16 @@ function App() {
         if (!isActive) return;
         setForm(savedDraft);
         setHistory(savedHistory);
-        setRepositoryStatus('ready');
+        markRepositorySynced(isRemoteMode ? '远端数据已载入' : '本地数据已载入');
       } catch {
         if (!isActive) return;
-        setRepositoryStatus('error');
-        setToast('数据载入失败，已使用默认表单');
+        const fallbackDraft = localFallbackRepository.loadDraft();
+        const fallbackHistory = localFallbackRepository.listRecords();
+        setForm(fallbackDraft);
+        setHistory(fallbackHistory);
+        setRepositoryStatus(isRemoteMode ? 'failed' : 'error');
+        setRepositoryMessage(isRemoteMode ? '远端载入失败，已使用本机缓存' : '数据载入失败，已使用默认表单');
+        setToast(isRemoteMode ? '远端载入失败，已切到本机缓存' : '数据载入失败，已使用默认表单');
       } finally {
         if (isActive) setIsRepositoryReady(true);
       }
@@ -73,23 +98,35 @@ function App() {
     return () => {
       isActive = false;
     };
-  }, [assessmentRepository]);
+  }, [assessmentRepository, isRemoteMode, localFallbackRepository]);
 
   useEffect(() => {
     if (!isRepositoryReady) return undefined;
 
     const timer = window.setTimeout(async () => {
       try {
-        setRepositoryStatus('saving');
+        setRepositoryStatus(isRemoteMode ? 'syncing' : 'saving');
+        setRepositoryMessage(isRemoteMode ? '正在同步草稿' : '正在保存草稿');
+        if (isRemoteMode) {
+          localFallbackRepository.saveDraft(form);
+        }
         await assessmentRepository.saveDraft(form);
-        setRepositoryStatus('ready');
+        if (!isRemoteMode) localFallbackRepository.saveDraft(form);
+        markRepositorySynced(isRemoteMode ? '草稿已同步' : '草稿已保存');
       } catch {
-        setRepositoryStatus('error');
+        if (isRemoteMode) {
+          localFallbackRepository.saveDraft(form);
+          setRepositoryStatus('failed');
+          setRepositoryMessage('远端草稿同步失败，本机已保留');
+        } else {
+          setRepositoryStatus('error');
+          setRepositoryMessage('本机草稿保存失败');
+        }
       }
     }, assessmentRepository.mode === 'remote' ? 500 : 0);
 
     return () => window.clearTimeout(timer);
-  }, [assessmentRepository, form, isRepositoryReady]);
+  }, [assessmentRepository, form, isRemoteMode, isRepositoryReady, localFallbackRepository]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -111,28 +148,66 @@ function App() {
 
   const saveRecord = async () => {
     try {
-      setRepositoryStatus('saving');
-      await assessmentRepository.saveRecord({ form, result });
+      setRepositoryStatus(isRemoteMode ? 'syncing' : 'saving');
+      setRepositoryMessage(isRemoteMode ? '正在保存并同步评估记录' : '正在保存评估记录');
+      const savedRecord = await assessmentRepository.saveRecord({ form, result });
+      if (isRemoteMode) {
+        localFallbackRepository.saveDraft(form);
+        localFallbackRepository.saveRecordSnapshot(savedRecord);
+      }
       setHistory(await assessmentRepository.listRecords());
-      setRepositoryStatus('ready');
-      setToast('已保存当前评估记录');
+      setActiveRecordId(savedRecord.id);
+      markRepositorySynced(isRemoteMode ? '评估记录已同步' : '评估记录已保存');
+      setToast(isRemoteMode ? '已保存并同步当前评估记录' : '已保存当前评估记录');
       setActiveTab('result');
+      refreshVerificationLogs(savedRecord.id);
+      if (isRemoteMode) {
+        window.setTimeout(() => refreshVerificationLogs(savedRecord.id, { silent: true }), 3500);
+      }
     } catch {
-      setRepositoryStatus('error');
-      setToast('保存失败，请检查持久化配置');
+      if (isRemoteMode) {
+        const fallbackRecord = localFallbackRepository.saveRecord({ form, result });
+        localFallbackRepository.saveDraft(form);
+        setHistory(localFallbackRepository.listRecords());
+        setActiveRecordId(fallbackRecord.id);
+        setVerificationLogs([]);
+        setVerificationLogStatus('unavailable');
+        setRepositoryStatus('failed');
+        setRepositoryMessage('远端保存失败，本机已保存');
+        setToast('远端保存失败，记录已保存在本机');
+        setActiveTab('result');
+      } else {
+        setRepositoryStatus('error');
+        setRepositoryMessage('本机保存失败');
+        setToast('保存失败，请检查本机存储');
+      }
     }
   };
 
   const resetForm = async () => {
     try {
-      setRepositoryStatus('saving');
+      setRepositoryStatus(isRemoteMode ? 'syncing' : 'saving');
+      setRepositoryMessage(isRemoteMode ? '正在重置远端草稿' : '正在重置表单');
+      localFallbackRepository.resetDraft();
       setForm(await assessmentRepository.resetDraft());
-      setRepositoryStatus('ready');
+      setActiveRecordId('');
+      setVerificationLogs([]);
+      setVerificationLogStatus('idle');
+      markRepositorySynced(isRemoteMode ? '表单已重置并同步' : '表单已重置');
       setToast('表单已重置为示例状态');
       setActiveTab('basic');
     } catch {
-      setRepositoryStatus('error');
-      setToast('重置失败，请检查持久化配置');
+      if (isRemoteMode) {
+        setForm(localFallbackRepository.resetDraft());
+        setRepositoryStatus('failed');
+        setRepositoryMessage('远端重置失败，本机表单已重置');
+        setToast('远端重置失败，本机表单已重置');
+        setActiveTab('basic');
+      } else {
+        setRepositoryStatus('error');
+        setRepositoryMessage('重置失败');
+        setToast('重置失败，请检查持久化配置');
+      }
     }
   };
 
@@ -140,10 +215,48 @@ function App() {
     try {
       const storedRecord = await assessmentRepository.loadRecord(record.id) || record;
       setForm(storedRecord.form);
+      setActiveRecordId(storedRecord.id);
       setToast('已载入历史记录');
       setActiveTab('result');
+      refreshVerificationLogs(storedRecord.id);
     } catch {
-      setToast('载入失败，请稍后重试');
+      const fallbackRecord = localFallbackRepository.loadRecord(record.id) || record;
+      if (fallbackRecord?.form) {
+        setForm(fallbackRecord.form);
+        setActiveRecordId(fallbackRecord.id);
+        setVerificationLogStatus(isRemoteMode ? 'unavailable' : 'idle');
+        setToast(isRemoteMode ? '远端载入失败，已载入本机记录' : '已载入本机记录');
+        setActiveTab('result');
+      } else {
+        setToast('载入失败，请稍后重试');
+      }
+    }
+  };
+
+  const refreshVerificationLogs = async (recordId = activeRecordId, options = {}) => {
+    if (!recordId) {
+      setVerificationLogs([]);
+      setVerificationLogStatus('idle');
+      return;
+    }
+
+    if (!isRemoteMode) {
+      setVerificationLogs([]);
+      setVerificationLogStatus('unavailable');
+      return;
+    }
+
+    try {
+      if (!options.silent) setVerificationLogStatus('loading');
+      const logs = await assessmentRepository.listVerificationLogs(recordId);
+      setVerificationLogs(logs);
+      setVerificationLogStatus('ready');
+    } catch {
+      if (!options.silent) {
+        setVerificationLogs([]);
+        setVerificationLogStatus('error');
+        setToast('核验日志读取失败');
+      }
     }
   };
 
@@ -210,7 +323,12 @@ function App() {
           </button>
         </div>
 
-        <RepositoryStatusBadge mode={assessmentRepository.mode} status={repositoryStatus} />
+        <RepositoryStatusBadge
+          mode={assessmentRepository.mode}
+          status={repositoryStatus}
+          message={repositoryMessage}
+          lastSyncedAt={lastSyncedAt}
+        />
 
         <section className="content-panel">
           {activeTab === 'basic' && (
@@ -226,7 +344,16 @@ function App() {
             <VerifyStep form={form} updateField={updateField} result={result} copyKeyword={copyKeyword} />
           )}
           {activeTab === 'result' && (
-            <ResultStep result={result} history={history} loadRecord={loadRecord} />
+            <ResultStep
+              result={result}
+              history={history}
+              loadRecord={loadRecord}
+              activeRecordId={activeRecordId}
+              verificationLogs={verificationLogs}
+              verificationLogStatus={verificationLogStatus}
+              refreshVerificationLogs={() => refreshVerificationLogs()}
+              isRemoteMode={isRemoteMode}
+            />
           )}
         </section>
 
@@ -239,19 +366,28 @@ function App() {
   );
 }
 
-function RepositoryStatusBadge({ mode, status }) {
+function RepositoryStatusBadge({ mode, status, message, lastSyncedAt }) {
   const modeLabel = mode === 'remote' ? '远端持久化' : '本地持久化';
+  const StatusIcon = status === 'failed' || status === 'error' ? CloudOff : status === 'syncing' || status === 'saving' || status === 'loading' ? CircleDashed : Cloud;
   const statusLabel = {
     loading: '载入中',
+    syncing: '同步中',
     saving: '同步中',
-    ready: '已就绪',
-    error: '需检查'
-  }[status] || '已就绪';
+    synced: '已同步',
+    failed: '同步失败',
+    error: '同步失败'
+  }[status] || '已同步';
+  const syncedTime = lastSyncedAt
+    ? new Date(lastSyncedAt).toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' })
+    : '';
 
   return (
     <div className={`repository-status ${status}`}>
-      <Database size={15} />
-      <span>{modeLabel}</span>
+      <StatusIcon size={15} />
+      <div>
+        <span>{modeLabel}</span>
+        <small>{message || (syncedTime ? `最近同步 ${syncedTime}` : '等待同步')}</small>
+      </div>
       <strong>{statusLabel}</strong>
     </div>
   );
@@ -491,7 +627,16 @@ function VerifyStep({ form, updateField, result, copyKeyword }) {
   );
 }
 
-function ResultStep({ result, history, loadRecord }) {
+function ResultStep({
+  result,
+  history,
+  loadRecord,
+  activeRecordId,
+  verificationLogs,
+  verificationLogStatus,
+  refreshVerificationLogs,
+  isRemoteMode
+}) {
   const riskItems = [
     ...result.redlineReasons,
     ...result.capReasons,
@@ -547,7 +692,71 @@ function ResultStep({ result, history, loadRecord }) {
         <p>{result.finalGrade === 'E' ? '先补齐准入红线问题，再重新评估。' : result.needsApproval ? '进入特批流程，并补充人工核验截图和业务说明。' : '可按系统建议账期与额度推进授信。'}</p>
       </div>
 
+      <VerificationLogPanel
+        activeRecordId={activeRecordId}
+        logs={verificationLogs}
+        status={verificationLogStatus}
+        onRefresh={refreshVerificationLogs}
+        isRemoteMode={isRemoteMode}
+      />
+
       <HistoryList history={history} loadRecord={loadRecord} />
+    </div>
+  );
+}
+
+function VerificationLogPanel({ activeRecordId, logs, status, onRefresh, isRemoteMode }) {
+  const latestLog = logs[0];
+  const statusText = {
+    pending: '等待核验',
+    running: '核验中',
+    completed: '已完成',
+    failed: '失败',
+    skipped: '已跳过'
+  };
+  const panelText = !isRemoteMode
+    ? '本地模式不产生后台核验日志。'
+    : !activeRecordId
+      ? '保存评估记录后，会在这里显示后台联网核验状态。'
+      : status === 'loading'
+        ? '正在读取后台核验日志。'
+        : status === 'error'
+          ? '核验日志读取失败，请稍后重试。'
+          : status === 'unavailable'
+            ? '当前记录保存在本机，暂无远端核验日志。'
+            : !latestLog
+              ? '已提交保存，后台核验日志生成中。'
+              : `最近一次核验：${statusText[latestLog.status] || latestLog.status}`;
+
+  return (
+    <div className={`verification-log-panel ${status}`}>
+      <div className="verification-log-header">
+        <div>
+          <Search size={17} />
+          <strong>后台联网核验</strong>
+        </div>
+        <button type="button" onClick={onRefresh} disabled={!isRemoteMode || !activeRecordId || status === 'loading'}>
+          刷新
+        </button>
+      </div>
+      <p>{panelText}</p>
+      {logs.length > 0 && (
+        <div className="verification-log-list">
+          {logs.map((log) => (
+            <div className="verification-log-item" key={log.id}>
+              <div>
+                <b className={`verification-status ${log.status}`}>{statusText[log.status] || log.status}</b>
+                <span>{log.provider || 'zhipu_web_search'} · {log.rawResultCount || 0} 条结果</span>
+              </div>
+              {log.riskTags?.length > 0 && <TagStrip items={log.riskTags} tone="warning" />}
+              {log.errorMessage && <FieldAlert tone="warning" text={log.errorMessage} />}
+              {log.queryKeywords?.length > 0 && (
+                <small>{log.queryKeywords.slice(0, 3).join(' / ')}</small>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -47,14 +47,14 @@ Deno.serve(async (request) => {
   try {
     validateRequest(request, origin);
     const clientInstanceId = validateClientInstanceId(request.headers.get("x-client-instance-id"));
-    const { resource, id } = parseRoute(new URL(request.url));
+    const { resource, id, action } = parseRoute(new URL(request.url));
 
     if (resource === "draft") {
       return await handleDraft(request, clientInstanceId, corsHeaders);
     }
 
     if (resource === "records") {
-      return await handleRecords(request, clientInstanceId, id, corsHeaders);
+      return await handleRecords(request, clientInstanceId, id, corsHeaders, action);
     }
 
     return json({ error: "Not found" }, 404, corsHeaders);
@@ -104,7 +104,26 @@ async function handleDraft(request: Request, clientInstanceId: string, corsHeade
   return json({ error: "Method not allowed" }, 405, corsHeaders);
 }
 
-async function handleRecords(request: Request, clientInstanceId: string, recordId: string | null, corsHeaders: HeadersInit) {
+async function handleRecords(
+  request: Request,
+  clientInstanceId: string,
+  recordId: string | null,
+  corsHeaders: HeadersInit,
+  action: string | null
+) {
+  if (request.method === "GET" && recordId && action === "verification") {
+    const { data, error } = await supabase
+      .from("verification_logs")
+      .select("*")
+      .eq("client_instance_id", clientInstanceId)
+      .eq("assessment_record_id", recordId)
+      .order("created_at", { ascending: false })
+      .limit(6);
+
+    if (error) throw error;
+    return json({ verificationLogs: (data || []).map(mapVerificationLogRow) }, 200, corsHeaders);
+  }
+
   if (request.method === "GET" && recordId) {
     const { data, error } = await supabase
       .from("assessment_records")
@@ -302,7 +321,8 @@ function parseRoute(url: URL) {
   const route = functionIndex >= 0 ? segments.slice(functionIndex + 1) : segments;
   return {
     resource: route[0] || "",
-    id: route[1] || null
+    id: route[1] || null,
+    action: route[2] || null
   };
 }
 
@@ -368,6 +388,24 @@ function mapRecordRow(row: Record<string, unknown>): AssessmentRecord {
     updatedAt: String(row.updated_at),
     form: row.form_snapshot as Record<string, unknown>,
     result: row.result_snapshot as Record<string, unknown>
+  };
+}
+
+function mapVerificationLogRow(row: Record<string, unknown>) {
+  return {
+    id: String(row.id),
+    recordId: String(row.assessment_record_id || ""),
+    provider: String(row.provider || ""),
+    status: String(row.status || ""),
+    queryKeywords: Array.isArray(row.query_keywords) ? row.query_keywords.map(String) : [],
+    riskTags: asStringArray(row.risk_tags),
+    extractedFlags: row.extracted_flags || {},
+    rawResultCount: Array.isArray(row.raw_results) ? row.raw_results.length : 0,
+    errorMessage: row.error_message ? String(row.error_message) : "",
+    startedAt: row.started_at ? String(row.started_at) : "",
+    finishedAt: row.finished_at ? String(row.finished_at) : "",
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at)
   };
 }
 

@@ -307,6 +307,7 @@ button {
 .history-item:active,
 .switch-row:active,
 .keyword-list button:active,
+.verification-log-header button:active,
 .verification-module button:active {
   transform: scale(0.98);
 }
@@ -316,6 +317,7 @@ button {
 .ghost-button:focus-visible,
 .switch-row:focus-visible,
 .history-item:focus-visible,
+.verification-log-header button:focus-visible,
 .verification-module button:focus-visible,
 .keyword-list button:focus-visible,
 input:focus-visible,
@@ -352,25 +354,47 @@ textarea:focus-visible {
   flex: 0 0 auto;
 }
 
-.repository-status span {
+.repository-status > div {
   min-width: 0;
   flex: 1;
 }
 
+.repository-status span,
+.repository-status small {
+  display: block;
+}
+
+.repository-status span {
+  color: var(--ink);
+}
+
+.repository-status small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
 .repository-status strong {
   color: var(--purple-700);
+  white-space: nowrap;
 }
 
 .repository-status.loading strong,
+.repository-status.syncing strong,
 .repository-status.saving strong {
   color: var(--amber);
 }
 
+.repository-status.failed,
 .repository-status.error {
   border-color: rgba(201, 72, 87, 0.22);
   background: rgba(255, 245, 247, 0.88);
 }
 
+.repository-status.failed svg,
+.repository-status.failed strong,
 .repository-status.error svg,
 .repository-status.error strong {
   color: var(--danger);
@@ -685,6 +709,7 @@ textarea:focus {
 .approval-box,
 .next-actions,
 .history-panel,
+.verification-log-panel,
 .verification-module,
 .keyword-list,
 .risk-list {
@@ -702,6 +727,7 @@ textarea:focus {
 .approval-box strong,
 .next-actions strong,
 .history-title strong,
+.verification-log-header strong,
 .verification-module strong {
   display: block;
   color: var(--ink);
@@ -710,6 +736,7 @@ textarea:focus {
 
 .approval-box > span,
 .verification-module span,
+.verification-log-panel p,
 .next-actions p,
 .empty-text {
   display: block;
@@ -740,7 +767,8 @@ textarea:focus {
 }
 
 .verification-module button,
-.keyword-list button {
+.keyword-list button,
+.verification-log-header button {
   border: 0;
   border-radius: 12px;
   color: var(--purple-700);
@@ -750,6 +778,76 @@ textarea:focus {
   min-height: 44px;
   padding: 9px 10px;
   transition: transform 150ms ease, background 150ms ease, box-shadow 150ms ease;
+}
+
+.verification-log-header button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.verification-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.verification-log-header > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.verification-log-header svg {
+  color: var(--purple-700);
+  flex: 0 0 auto;
+}
+
+.verification-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.verification-log-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 14px;
+  background: #f8f5ff;
+  padding: 11px;
+}
+
+.verification-log-item > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.verification-log-item span,
+.verification-log-item small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.verification-status {
+  color: var(--purple-700);
+  font-size: 13px;
+}
+
+.verification-status.completed {
+  color: var(--success);
+}
+
+.verification-status.pending,
+.verification-status.running {
+  color: var(--amber);
+}
+
+.verification-status.failed {
+  color: var(--danger);
 }
 
 .keyword-list {

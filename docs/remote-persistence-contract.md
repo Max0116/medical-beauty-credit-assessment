@@ -17,7 +17,7 @@ VITE_ASSESSMENT_API_TIMEOUT_MS=8000
 Edge Function 需要配置：
 
 ```bash
-ALLOWED_ORIGINS=https://<github-user>.github.io,http://localhost:5173,http://localhost:5174
+ALLOWED_ORIGINS=https://<github-user>.github.io,http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174
 ASSESSMENT_PUBLISHABLE_KEYS={"default":"sb_publishable_xxx"}
 ASSESSMENT_SERVICE_ROLE_KEY=service_role_jwt_xxx
 ASSESSMENT_SECRET_KEYS={"default":"sb_secret_xxx"}
@@ -37,6 +37,7 @@ Supabase Edge Function `assessments` 需要实现以下 JSON API：
 | `GET` | `/records` | 读取历史评估记录 |
 | `POST` | `/records` | 保存评估记录 |
 | `GET` | `/records/:id` | 读取单条评估记录 |
+| `GET` | `/records/:id/verification` | 读取后台联网核验日志 |
 
 ## 请求头
 
@@ -109,6 +110,24 @@ content-type: application/json
 ```json
 {
   "record": {}
+}
+```
+
+```json
+{
+  "verificationLogs": [
+    {
+      "id": "uuid",
+      "recordId": "record-id",
+      "provider": "zhipu_web_search",
+      "status": "pending | running | completed | failed | skipped",
+      "queryKeywords": [],
+      "riskTags": [],
+      "rawResultCount": 0,
+      "errorMessage": "",
+      "createdAt": "2026-05-19T00:00:00.000Z"
+    }
+  ]
 }
 ```
 

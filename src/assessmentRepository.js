@@ -111,15 +111,24 @@ const requestJson = async ({
       signal: controller?.signal
     });
 
-    if (!response.ok) {
-      throw new Error(`Remote assessment repository request failed with status ${response.status}.`);
-    }
-
     if (response.status === 204) return null;
     const text = await response.text();
+    if (!response.ok) {
+      const message = parseRemoteErrorMessage(text) || `远端服务返回 ${response.status}`;
+      throw new Error(message);
+    }
     return text ? JSON.parse(text) : null;
   } finally {
     if (timeout) globalThis.clearTimeout(timeout);
+  }
+};
+
+const parseRemoteErrorMessage = (text) => {
+  if (!text) return '';
+  try {
+    return JSON.parse(text)?.error || '';
+  } catch {
+    return '';
   }
 };
 
@@ -180,16 +189,22 @@ export function createLocalAssessmentRepository({
     return Array.isArray(records) ? records : [];
   };
 
-  const saveRecord = ({ form, result }) => {
-    const record = createAssessmentRecord({ form, result, now, id });
-    const nextRecords = [record, ...listRecords()].slice(0, maxRecords);
+  const saveRecordSnapshot = (record) => {
+    const nextRecords = [record, ...listRecords().filter((item) => item.id !== record.id)].slice(0, maxRecords);
     safeWriteJson(storage, STORAGE_KEYS.history, nextRecords);
     return record;
+  };
+
+  const saveRecord = ({ form, result }) => {
+    const record = createAssessmentRecord({ form, result, now, id });
+    return saveRecordSnapshot(record);
   };
 
   const loadRecord = (recordId) => {
     return listRecords().find((record) => record.id === recordId) || null;
   };
+
+  const listVerificationLogs = () => [];
 
   return {
     mode: REPOSITORY_MODES.local,
@@ -198,7 +213,9 @@ export function createLocalAssessmentRepository({
     resetDraft,
     listRecords,
     saveRecord,
-    loadRecord
+    saveRecordSnapshot,
+    loadRecord,
+    listVerificationLogs
   };
 }
 
@@ -255,6 +272,12 @@ export function createRemoteAssessmentRepository({
     return unwrapRecord(payload);
   };
 
+  const listVerificationLogs = async (recordId) => {
+    if (!recordId) return [];
+    const payload = await request(`/records/${encodeURIComponent(recordId)}/verification`);
+    return Array.isArray(payload?.verificationLogs) ? payload.verificationLogs : [];
+  };
+
   return {
     mode: REPOSITORY_MODES.remote,
     loadDraft,
@@ -262,7 +285,8 @@ export function createRemoteAssessmentRepository({
     resetDraft,
     listRecords,
     saveRecord,
-    loadRecord
+    loadRecord,
+    listVerificationLogs
   };
 }
 
