@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildVerificationSummary, extractVerificationEvidence } from './verificationEvidence.ts';
+import { buildVerificationSummary, extractBusinessProfile, extractVerificationEvidence } from './verificationEvidence.ts';
 
 describe('verification evidence extraction', () => {
   it('does not treat risk words in query keywords as evidence', () => {
@@ -55,5 +55,39 @@ describe('verification evidence extraction', () => {
     expect(riskTags).toContain('严重违法失信');
     expect(summary.verificationSummary.judgment).toBe('redline_suspected');
     expect(summary.verificationSummary.suggestedPublicCreditStatus).toBe('serious');
+  });
+
+  it('extracts unified social credit code candidates only from matched institution results', () => {
+    const rawResults = [
+      {
+        result: {
+          title: '杭州星澜医疗美容诊所工商信息',
+          content: '杭州星澜医疗美容诊所统一社会信用代码 91330100MA2B123456。',
+          media: '企业信息示例',
+          link: 'https://example.com/profile'
+        }
+      },
+      {
+        result: {
+          title: '其他机构工商信息',
+          content: '其他机构统一社会信用代码 91330100MA2B999999。',
+          media: '企业信息示例',
+          link: 'https://example.com/other'
+        }
+      }
+    ];
+
+    const profile = extractBusinessProfile('杭州星澜医疗美容诊所', rawResults);
+    const summary = buildVerificationSummary({
+      status: 'completed',
+      institutionName: '杭州星澜医疗美容诊所',
+      rawResults,
+      riskTags: [],
+      evidence: []
+    });
+
+    expect(profile.creditCodeCandidates).toHaveLength(1);
+    expect(profile.creditCodeCandidates[0].value).toBe('91330100MA2B123456');
+    expect(summary.verificationSummary.businessProfile.creditCodeCandidates[0].value).toBe('91330100MA2B123456');
   });
 });

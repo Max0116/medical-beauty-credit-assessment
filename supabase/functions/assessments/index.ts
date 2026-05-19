@@ -280,7 +280,7 @@ async function createVerificationLog({
   const startedAt = new Date().toISOString();
 
   try {
-    const rawResults = await runZhipuSearch(queryKeywords.slice(0, 5), clientInstanceId);
+    const rawResults = await runZhipuSearch(queryKeywords.slice(0, 7), clientInstanceId);
     const evidence = extractVerificationEvidence(institutionName, rawResults);
     const riskTags = [...new Set(evidence.map((item) => item.category))];
     const extractedFlags = buildVerificationSummary({ status: "completed", institutionName, rawResults, riskTags, evidence });
@@ -571,6 +571,8 @@ function mapVerificationReviewRow(row: Record<string, unknown>) {
 function buildVerificationKeywords(institutionName: string) {
   const name = institutionName.trim() || "机构名称";
   return [
+    `${name} 统一社会信用代码`,
+    `${name} 工商信息`,
     `${name} 行政处罚`,
     `${name} 被执行人`,
     `${name} 失信被执行人`,
