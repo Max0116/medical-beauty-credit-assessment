@@ -17,15 +17,12 @@ import {
 } from 'lucide-react';
 import {
   BUSINESS_STAGE_LABELS,
-  DEFAULT_FORM,
   PAYMENT_LABELS,
   PUBLIC_CREDIT_LABELS,
   QUALIFICATION_LABELS,
   evaluateCredit
 } from './riskEngine';
-
-const DRAFT_KEY = 'medicalBeautyCreditAssessment:lastDraft';
-const HISTORY_KEY = 'medicalBeautyCreditAssessment:history';
+import { createLocalAssessmentRepository } from './assessmentRepository';
 
 const tabs = [
   { id: 'basic', label: '基础', icon: FileText },
@@ -37,26 +34,18 @@ const tabs = [
 
 const formatMoney = (value) => `¥${Math.round(Number(value) || 0).toLocaleString('zh-CN')}`;
 
-const readStorage = (key, fallback) => {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch {
-    return fallback;
-  }
-};
-
 function App() {
+  const assessmentRepository = useMemo(() => createLocalAssessmentRepository(), []);
   const [activeTab, setActiveTab] = useState('basic');
-  const [form, setForm] = useState(() => readStorage(DRAFT_KEY, DEFAULT_FORM));
-  const [history, setHistory] = useState(() => readStorage(HISTORY_KEY, []));
+  const [form, setForm] = useState(() => assessmentRepository.loadDraft());
+  const [history, setHistory] = useState(() => assessmentRepository.listRecords());
   const [toast, setToast] = useState('');
   const result = useMemo(() => evaluateCredit(form), [form]);
   const activeStepIndex = tabs.findIndex((tab) => tab.id === activeTab);
 
   useEffect(() => {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(form));
-  }, [form]);
+    assessmentRepository.saveDraft(form);
+  }, [assessmentRepository, form]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -77,31 +66,21 @@ function App() {
   };
 
   const saveRecord = () => {
-    const record = {
-      id: crypto.randomUUID(),
-      institutionName: form.institutionName || '未命名机构',
-      finalGrade: result.finalGrade,
-      finalDecision: result.finalDecision,
-      maxTermDays: result.maxTermDays,
-      suggestedLimit: result.suggestedLimit,
-      createdAt: new Date().toISOString(),
-      form
-    };
-    const nextHistory = [record, ...history].slice(0, 12);
-    setHistory(nextHistory);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(nextHistory));
+    assessmentRepository.saveRecord({ form, result });
+    setHistory(assessmentRepository.listRecords());
     setToast('已保存当前评估记录');
     setActiveTab('result');
   };
 
   const resetForm = () => {
-    setForm(DEFAULT_FORM);
+    setForm(assessmentRepository.resetDraft());
     setToast('表单已重置为示例状态');
     setActiveTab('basic');
   };
 
   const loadRecord = (record) => {
-    setForm(record.form);
+    const storedRecord = assessmentRepository.loadRecord(record.id) || record;
+    setForm(storedRecord.form);
     setToast('已载入历史记录');
     setActiveTab('result');
   };
