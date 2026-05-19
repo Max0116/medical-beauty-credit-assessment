@@ -69,7 +69,7 @@ PR 检查由 `.github/workflows/ci.yml` 自动执行：
 默认不需要环境变量，系统使用 localStorage。需要接入远端数据库或 API 时，复制 `.env.example` 并配置：
 
 ```bash
-VITE_ASSESSMENT_API_URL=https://<project-ref>.functions.supabase.co/assessments
+VITE_ASSESSMENT_API_URL=https://<project-ref>.supabase.co/functions/v1/assessments
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
 VITE_ASSESSMENT_API_TIMEOUT_MS=8000
 ```
@@ -88,7 +88,7 @@ docs/remote-persistence-contract.md
 
 1. 推送到 `main` 分支。
 2. GitHub Actions 执行 `.github/workflows/deploy-pages.yml`。
-3. Actions 内执行 `npm ci`、`npm test`、`GITHUB_PAGES=true npm run build`。
+3. Actions 内执行 `npm ci`、`npm test`、`npm run build`，并从 GitHub Actions Variables 注入 `VITE_ASSESSMENT_API_URL`、`VITE_SUPABASE_PUBLISHABLE_KEY`、`VITE_ASSESSMENT_API_TIMEOUT_MS`。
 4. 将 `dist` 发布到 GitHub Pages。
 
 计划线上地址：
@@ -113,9 +113,12 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `docs/product-roadmap.md`：产品化开发路线图。
 - `docs/database-integration-prompt.md`：后续数据库接入提示词与表结构建议。
 - `docs/remote-persistence-contract.md`：远端持久化 API 契约。
+- `docs/ai-verification-plan.md`：智谱联网核验与多 AI Provider 规划。
 - `.env.example`：远端持久化环境变量示例。
 - `.github/workflows/ci.yml`：PR 自动测试与构建。
 - `.github/workflows/deploy-pages.yml`：GitHub Pages 自动部署。
+- `supabase/migrations/`：Supabase 数据表迁移。
+- `supabase/functions/assessments/`：评估记录持久化与后台核验 Edge Function。
 
 ## 产品化路线
 
@@ -147,3 +150,29 @@ docs/product-roadmap.md
 - `loadRecord`
 
 下一阶段接数据库时，应优先让 Supabase Edge Function 实现 `docs/remote-persistence-contract.md` 中的 API 契约，避免把 Supabase service role、SQL 或权限逻辑写进 `App.jsx`。
+
+## Supabase 接入
+
+PR4 开始提供 Supabase 落地文件：
+
+- `assessment_records`：保存评估记录快照。
+- `assessment_drafts`：保存浏览器实例的最近草稿。
+- `verification_logs`：保存后台联网核验日志。
+- `assessments` Edge Function：提供 `/draft`、`/records`、`/records/:id` API。
+
+需要在 Supabase Function Secrets 中配置：
+
+```bash
+ZHIPUAI_API_KEY=你的智谱 API Key
+ALLOWED_ORIGINS=https://max0116.github.io,http://localhost:5173,http://localhost:5174
+ASSESSMENT_PUBLISHABLE_KEYS={"default":"sb_publishable_xxx"}
+ASSESSMENT_SERVICE_ROLE_KEY=service_role_jwt_xxx
+ASSESSMENT_SECRET_KEYS={"default":"sb_secret_xxx"}
+```
+
+本地前端 `.env` 只放 publishable / anon key，不放 service role：
+
+```bash
+VITE_ASSESSMENT_API_URL=https://<project-ref>.supabase.co/functions/v1/assessments
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
+```

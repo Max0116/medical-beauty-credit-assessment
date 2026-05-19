@@ -7,12 +7,23 @@ PR3 引入的是前端数据访问层到 Supabase 远端持久化的适配边界
 ## 环境变量
 
 ```bash
-VITE_ASSESSMENT_API_URL=https://<project-ref>.functions.supabase.co/assessments
+VITE_ASSESSMENT_API_URL=https://<project-ref>.supabase.co/functions/v1/assessments
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
 VITE_ASSESSMENT_API_TIMEOUT_MS=8000
 ```
 
 `VITE_SUPABASE_PUBLISHABLE_KEY` 只能是 Supabase publishable key 或 legacy anon key。`service_role` / secret key 只能放在 Supabase Edge Function secrets 中。
+
+Edge Function 需要配置：
+
+```bash
+ALLOWED_ORIGINS=https://<github-user>.github.io,http://localhost:5173,http://localhost:5174
+ASSESSMENT_PUBLISHABLE_KEYS={"default":"sb_publishable_xxx"}
+ASSESSMENT_SERVICE_ROLE_KEY=service_role_jwt_xxx
+ASSESSMENT_SECRET_KEYS={"default":"sb_secret_xxx"}
+```
+
+Supabase CLI 不允许自定义 secrets 使用 `SUPABASE_` 前缀，因此业务自定义 key 白名单使用 `ASSESSMENT_` 前缀。函数会优先使用 Edge Runtime 内置的 `SUPABASE_SERVICE_ROLE_KEY`；如果当前项目或运行环境没有内置该变量，可以用 `ASSESSMENT_SERVICE_ROLE_KEY` 显式配置 legacy service role JWT。`ASSESSMENT_SECRET_KEYS` 仅作为新版 server key 预留后备，不应暴露给 H5 前端。
 
 ## API 端点
 
@@ -164,5 +175,6 @@ PR4 应增加：
 - `supabase/migrations/*_create_assessment_records.sql`
 - Edge Function 单元或 smoke 测试脚本
 - GitHub Actions 中 Supabase 函数部署所需的 secrets 说明
+- `docs/ai-verification-plan.md`
 
 正式生产前还需要补充用户身份、机构权限、审计日志、服务端规则校验和联网核验留痕。
