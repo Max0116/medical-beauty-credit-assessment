@@ -1,5 +1,6 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "@supabase/supabase-js";
+import { createOfficialRegistryConfig, queryOfficialRegistry } from "./officialRegistry.ts";
 import { buildVerificationSummary, extractVerificationEvidence } from "./verificationEvidence.ts";
 
 type AssessmentRecord = {
@@ -44,6 +45,13 @@ const ASSESSMENT_SERVICE_ROLE_KEY = Deno.env.get("ASSESSMENT_SERVICE_ROLE_KEY") 
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ASSESSMENT_SERVICE_ROLE_KEY;
 const LEGACY_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const ZHIPUAI_API_KEY = Deno.env.get("ZHIPUAI_API_KEY") || "";
+const OFFICIAL_REGISTRY_CONFIG = createOfficialRegistryConfig({
+  endpoint: Deno.env.get("OFFICIAL_REGISTRY_API_URL") || "",
+  apiKey: Deno.env.get("OFFICIAL_REGISTRY_API_KEY") || "",
+  provider: Deno.env.get("OFFICIAL_REGISTRY_PROVIDER") || "",
+  authHeaderName: Deno.env.get("OFFICIAL_REGISTRY_AUTH_HEADER_NAME") || "",
+  authHeaderPrefix: Deno.env.get("OFFICIAL_REGISTRY_AUTH_HEADER_PREFIX") || ""
+});
 const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") || "")
   .split(",")
   .map((origin) => origin.trim())
@@ -264,6 +272,14 @@ async function createVerificationLog({
     return;
   }
 
+  const startedAt = new Date().toISOString();
+  const officialRegistry = await queryOfficialRegistry({
+    config: OFFICIAL_REGISTRY_CONFIG,
+    institutionName,
+    creditCode: String(form.creditCode || ""),
+    clientInstanceId
+  });
+
   if (!ZHIPUAI_API_KEY) {
     await insertVerificationLog(
       recordId,
@@ -271,19 +287,24 @@ async function createVerificationLog({
       queryKeywords,
       "pending",
       [],
-      buildVerificationSummary({ status: "pending", institutionName, rawResults: [], riskTags: [], evidence: [] }),
+      buildVerificationSummary({
+        status: "pending",
+        institutionName,
+        rawResults: [],
+        riskTags: [],
+        evidence: [],
+        officialRegistry
+      }),
       ["未配置 ZHIPUAI_API_KEY"]
     );
     return;
   }
 
-  const startedAt = new Date().toISOString();
-
   try {
     const rawResults = await runZhipuSearch(queryKeywords.slice(0, 7), clientInstanceId);
     const evidence = extractVerificationEvidence(institutionName, rawResults);
     const riskTags = [...new Set(evidence.map((item) => item.category))];
-    const extractedFlags = buildVerificationSummary({ status: "completed", institutionName, rawResults, riskTags, evidence });
+    const extractedFlags = buildVerificationSummary({ status: "completed", institutionName, rawResults, riskTags, evidence, officialRegistry });
 
     await insertVerificationLog(recordId, clientInstanceId, queryKeywords, "completed", rawResults, extractedFlags, riskTags, startedAt);
   } catch (error) {
@@ -294,7 +315,7 @@ async function createVerificationLog({
       queryKeywords,
       "failed",
       [],
-      buildVerificationSummary({ status: "failed", institutionName, rawResults: [], riskTags: [], evidence: [], errorMessage: message }),
+      buildVerificationSummary({ status: "failed", institutionName, rawResults: [], riskTags: [], evidence: [], officialRegistry, errorMessage: message }),
       [],
       startedAt,
       message
@@ -571,8 +592,6 @@ function mapVerificationReviewRow(row: Record<string, unknown>) {
 function buildVerificationKeywords(institutionName: string) {
   const name = institutionName.trim() || "机构名称";
   return [
-    `${name} 统一社会信用代码`,
-    `${name} 工商信息`,
     `${name} 行政处罚`,
     `${name} 被执行人`,
     `${name} 失信被执行人`,

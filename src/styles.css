@@ -946,6 +946,41 @@ textarea:focus {
   gap: 8px;
 }
 
+.official-registry-status {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-radius: 14px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(222, 207, 255, 0.82);
+}
+
+.official-registry-status span,
+.official-registry-status small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.official-registry-status strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.official-registry-status.completed strong {
+  color: var(--green);
+}
+
+.official-registry-status.failed strong {
+  color: var(--red);
+}
+
+.official-registry-status.unconfigured strong,
+.official-registry-status.empty strong {
+  color: var(--amber);
+}
+
 .verification-apply-button,
 .verification-refresh-button {
   width: 100%;
