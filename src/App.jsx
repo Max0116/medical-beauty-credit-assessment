@@ -41,6 +41,16 @@ const tabs = [
 ];
 
 const formatMoney = (value) => `¥${Math.round(Number(value) || 0).toLocaleString('zh-CN')}`;
+const formatDateTime = (value) => {
+  if (!value) return '';
+  return new Date(value).toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+};
 
 const VERIFICATION_REVIEW_ACTION_LABELS = {
   accept_suggestion: '采用系统建议',
@@ -792,7 +802,15 @@ function VerifyStep({
 
   return (
     <div className="step-stack">
-      <SectionTitle icon={Search} title="公共信用与核验" />
+      <SectionTitle icon={Search} title="公共风险核验" />
+      <VerificationWorkbenchHeader
+        activeRecordId={activeRecordId}
+        summary={latestSummary}
+        latestLog={latestLog}
+        status={verificationLogStatus}
+        isRemoteMode={isRemoteMode}
+        reviewCount={verificationReviews.length}
+      />
       <CreditVerificationPanel
         activeRecordId={activeRecordId}
         summary={latestSummary}
@@ -814,44 +832,41 @@ function VerifyStep({
         form={form}
         updateField={updateField}
       />
-      <SelectField
-        label="公共信用状态"
-        value={form.publicCreditStatus}
-        onChange={(value) => updateField('publicCreditStatus', value)}
-        options={PUBLIC_CREDIT_LABELS}
+      <ManualRiskInputPanel
+        form={form}
+        updateField={updateField}
       />
-      <SwitchField label="命中失信被执行人" checked={form.dishonestyHit} onChange={(value) => updateField('dishonestyHit', value)} danger />
-      <SwitchField label="命中严重违法失信" checked={form.seriousIllegalHit} onChange={(value) => updateField('seriousIllegalHit', value)} danger />
-      <SwitchField label="存在重大医美处罚" checked={form.majorMedicalPenalty} onChange={(value) => updateField('majorMedicalPenalty', value)} />
-      <SwitchField label="疑似超范围 / 生活美容注射" checked={form.outOfScopeOperation} onChange={(value) => updateField('outOfScopeOperation', value)} danger />
-      {(form.dishonestyHit || form.seriousIllegalHit || form.outOfScopeOperation || form.publicCreditStatus === 'serious') && (
-        <FieldAlert tone="danger" text="公共信用或经营范围命中红线，系统会停止常规授信。" />
-      )}
-      {(form.publicCreditStatus === 'unknown' || form.majorMedicalPenalty) && (
-        <FieldAlert tone="warning" text="未查询公共信用或存在重大医美处罚，需要人工核验和特批说明。" />
-      )}
-      <TextAreaField label="查询备注" value={form.verificationNotes} onChange={(value) => updateField('verificationNotes', value)} placeholder="记录人工查询渠道、截图编号或待补资料" />
+      <VerificationKeywordPanel result={result} copyKeyword={copyKeyword} />
+    </div>
+  );
+}
 
-      <div className="verification-module">
+function VerificationWorkbenchHeader({ activeRecordId, summary, latestLog, status, isRemoteMode, reviewCount }) {
+  const progress = getVerificationProgress({ activeRecordId, status, summary });
+  const statusLabel = getVerificationStatusLabel({ activeRecordId, status, summary });
+  const latestAt = latestLog?.finishedAt || latestLog?.createdAt || '';
+  const tone = getVerificationTone(summary?.riskLevel, status);
+
+  return (
+    <div className={`verification-workbench ${tone}`}>
+      <div className="verification-workbench-head">
         <div>
-          <Database size={17} />
-          <strong>智谱联网核验</strong>
-          <span>保存评估后自动查询机构相关失信、处罚、经营异常线索</span>
+          <CircleDashed size={18} />
+          <span>智谱公开信息核验</span>
         </div>
-        <button type="button" onClick={() => updateField('publicCreditStatus', 'normal')}>
-          标记已人工查询
-        </button>
+        <strong>{isRemoteMode ? statusLabel : '本地模式不发起联网核验'}</strong>
       </div>
-
-      <div className="keyword-list">
-        <span className="field-label">推荐查询关键词</span>
-        {result.queryKeywords.map((item) => (
-          <button type="button" key={item} onClick={() => copyKeyword(item)}>
-            <Copy size={14} />
-            {item}
-          </button>
-        ))}
+      <div className="verification-progress-row">
+        <span>进度 {progress}%</span>
+        <i><b style={{ width: `${progress}%` }} /></i>
       </div>
+      <div className="verification-meta-grid">
+        <Metric label="核验方式" value="轻量搜索" />
+        <Metric label="预计成本" value="约 ¥0.07" />
+        <Metric label="最近核验" value={latestAt ? formatDateTime(latestAt) : '未生成'} />
+        <Metric label="确认日志" value={`${reviewCount} 条`} />
+      </div>
+      <small>联网结果仅作为公共风险线索；只有保存人工确认日志后，才会写入公共信用字段。</small>
     </div>
   );
 }
@@ -884,7 +899,7 @@ function CreditVerificationPanel({ activeRecordId, summary, logs, status, onRefr
       <div className="credit-verification-head">
         <div>
           <Search size={18} />
-          <span>自动征信核验</span>
+          <span>公共风险线索</span>
         </div>
         <strong>{headline}</strong>
       </div>
@@ -893,6 +908,7 @@ function CreditVerificationPanel({ activeRecordId, summary, logs, status, onRefr
         <div className="verification-advice">
           <span>系统建议</span>
           <strong>{summary.recommendation}</strong>
+          {canApplySuggestion && <small>请在下方“核验人工确认”里采用建议或人工改判，保存后再写入公共信用状态。</small>}
         </div>
       )}
       <div className="verification-facts">
@@ -901,11 +917,7 @@ function CreditVerificationPanel({ activeRecordId, summary, logs, status, onRefr
       </div>
       <OfficialRegistryStatus businessProfile={businessProfile} candidateCount={creditCodeCandidates.length} />
       {summary?.riskTags?.length > 0 && <TagStrip items={summary.riskTags} tone="warning" />}
-      {canApplySuggestion && (
-        <button className="verification-apply-button" type="button" onClick={() => updateField('publicCreditStatus', suggestedStatus)}>
-          按建议标记为「{suggestedStatusLabel}」
-        </button>
-      )}
+      {canApplySuggestion && <FieldAlert tone="warning" text={`当前建议为“${suggestedStatusLabel}”，需通过人工确认日志采用，不会自动改写风控输入。`} />}
       {creditCodeCandidates.length > 0 && (
         <div className="credit-code-suggestions compact">
           <span className="field-label">官方企业信用代码候选</span>
@@ -925,6 +937,12 @@ function CreditVerificationPanel({ activeRecordId, summary, logs, status, onRefr
       <button className="verification-refresh-button" type="button" onClick={onRefresh} disabled={!isRemoteMode || !activeRecordId || status === 'loading'}>
         刷新核验结果
       </button>
+      {summary?.status === 'completed' && !summary?.evidenceSummaries?.length && (
+        <div className="verification-empty-state">
+          <CheckCircle2 size={16} />
+          <span>未发现与机构名称直接匹配的明显负面风险线索。</span>
+        </div>
+      )}
       {summary?.evidenceSummaries?.length > 0 && (
         <div className="evidence-list">
           {summary.evidenceSummaries.slice(0, 4).map((item) => (
@@ -944,14 +962,71 @@ function CreditVerificationPanel({ activeRecordId, summary, logs, status, onRefr
 function OfficialRegistryStatus({ businessProfile, candidateCount }) {
   const registryStatus = businessProfile?.registryStatus || 'unconfigured';
   const statusLabel = getOfficialRegistryStatusLabel(registryStatus);
-  const message = businessProfile?.registryMessage || '未配置官方企业信用接口';
+  const message = registryStatus === 'unconfigured'
+    ? '尚未接入企查查 / 天眼查等授权工商接口，不影响轻量联网核验'
+    : businessProfile?.registryMessage || '未配置官方企业信用接口';
   const provider = businessProfile?.registryProvider || 'official_registry';
 
   return (
     <div className={`official-registry-status ${registryStatus}`}>
-      <span>官方企业信用接口</span>
+      <span>授权工商深度核验</span>
       <strong>{statusLabel}</strong>
       <small>{message} · 候选 {candidateCount} 个 · {provider}</small>
+    </div>
+  );
+}
+
+function ManualRiskInputPanel({ form, updateField }) {
+  return (
+    <div className="manual-risk-panel">
+      <div className="verification-log-header">
+        <div>
+          <ShieldCheck size={17} />
+          <strong>人工确认后的风控输入</strong>
+        </div>
+      </div>
+      <p>以下字段会影响最终授信判断。联网搜索只提供线索，请在人工确认或授权接口核实后再调整。</p>
+      <SelectField
+        label="公共信用状态"
+        value={form.publicCreditStatus}
+        onChange={(value) => updateField('publicCreditStatus', value)}
+        options={PUBLIC_CREDIT_LABELS}
+      />
+      <SwitchField label="命中失信被执行人" checked={form.dishonestyHit} onChange={(value) => updateField('dishonestyHit', value)} danger />
+      <SwitchField label="命中严重违法失信" checked={form.seriousIllegalHit} onChange={(value) => updateField('seriousIllegalHit', value)} danger />
+      <SwitchField label="存在重大医美处罚" checked={form.majorMedicalPenalty} onChange={(value) => updateField('majorMedicalPenalty', value)} />
+      <SwitchField label="疑似超范围 / 生活美容注射" checked={form.outOfScopeOperation} onChange={(value) => updateField('outOfScopeOperation', value)} danger />
+      {(form.dishonestyHit || form.seriousIllegalHit || form.outOfScopeOperation || form.publicCreditStatus === 'serious') && (
+        <FieldAlert tone="danger" text="公共信用或经营范围命中红线，系统会停止常规授信。" />
+      )}
+      {(form.publicCreditStatus === 'unknown' || form.majorMedicalPenalty) && (
+        <FieldAlert tone="warning" text="未查询公共信用或存在重大医美处罚，需要人工核验和特批说明。" />
+      )}
+      <TextAreaField label="查询备注" value={form.verificationNotes} onChange={(value) => updateField('verificationNotes', value)} placeholder="记录人工查询渠道、截图编号或待补资料" />
+    </div>
+  );
+}
+
+function VerificationKeywordPanel({ result, copyKeyword }) {
+  return (
+    <div className="verification-module">
+      <div>
+        <Database size={17} />
+        <strong>查询关键词</strong>
+        <span>默认使用智谱 search_std 查询 7 个风险关键词，约 ¥0.07 / 机构。</span>
+      </div>
+      <button type="button" onClick={() => copyKeyword(result.queryKeywords.join('\n'))}>
+        复制全部
+      </button>
+      <div className="keyword-list">
+        <span className="field-label">推荐查询关键词</span>
+        {result.queryKeywords.map((item) => (
+          <button type="button" key={item} onClick={() => copyKeyword(item)}>
+            <Copy size={14} />
+            {item}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1259,7 +1334,7 @@ function getOfficialRegistryStatusLabel(status) {
     completed: '已返回工商候选',
     empty: '未返回匹配候选',
     failed: '接口查询失败',
-    unconfigured: '接口未配置'
+    unconfigured: '待接入'
   })[status] || '等待接口结果';
 }
 

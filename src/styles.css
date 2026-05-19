@@ -852,10 +852,12 @@ textarea:focus {
 .approval-box,
 .next-actions,
 .history-panel,
+.verification-workbench,
 .credit-verification-panel,
 .verification-result-summary,
 .verification-log-panel,
 .verification-review-panel,
+.manual-risk-panel,
 .verification-module,
 .keyword-list,
 .risk-list {
@@ -868,6 +870,77 @@ textarea:focus {
 .approval-box {
   background: var(--amber-bg);
   border-color: rgba(167, 102, 19, 0.2);
+}
+
+.verification-workbench {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: linear-gradient(135deg, rgba(248, 245, 255, 0.95), rgba(255, 255, 255, 0.82));
+}
+
+.verification-workbench.warning {
+  background: var(--amber-bg);
+  border-color: rgba(167, 102, 19, 0.2);
+}
+
+.verification-workbench.danger {
+  background: var(--red-bg);
+  border-color: rgba(184, 50, 67, 0.2);
+}
+
+.verification-workbench-head,
+.verification-progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.verification-workbench-head div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--purple-700);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.verification-workbench-head strong {
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.verification-progress-row span,
+.verification-workbench > small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.verification-progress-row i {
+  height: 8px;
+  min-width: 120px;
+  flex: 1 1 auto;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(222, 207, 255, 0.9);
+}
+
+.verification-progress-row b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--purple-500);
+}
+
+.verification-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .credit-verification-panel {
@@ -940,6 +1013,12 @@ textarea:focus {
   font-weight: 900;
 }
 
+.verification-advice small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .verification-facts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1002,6 +1081,19 @@ textarea:focus {
   opacity: 0.5;
 }
 
+.verification-empty-state {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 14px;
+  padding: 10px;
+  color: var(--green);
+  background: rgba(255, 255, 255, 0.66);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.4;
+}
+
 .verification-apply-button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
@@ -1059,6 +1151,7 @@ textarea:focus {
 .verification-module span,
 .verification-log-panel p,
 .verification-review-panel p,
+.manual-risk-panel p,
 .next-actions p,
 .empty-text {
   display: block;
@@ -1069,10 +1162,10 @@ textarea:focus {
 }
 
 .verification-module {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
+  align-items: start;
 }
 
 .verification-module div {
@@ -1086,6 +1179,13 @@ textarea:focus {
 .verification-module div svg {
   grid-row: span 2;
   color: var(--purple-700);
+}
+
+.verification-module .keyword-list {
+  grid-column: 1 / -1;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .verification-module button,
