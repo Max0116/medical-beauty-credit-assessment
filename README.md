@@ -2,7 +2,7 @@
 
 一个面向内部业务风控场景的手机端 H5 工具，用于评估下游医美机构是否可以给予账期、最长账期、建议额度、是否需要特批，以及系统给出判断的原因。
 
-当前版本是产品化基线版本：已具备可交互评估流程、核心风控规则、移动端 UI、localStorage 保存和历史记录；数据库、联网核验、登录权限和审批流将按路线图分阶段接入。
+当前版本是产品化基线版本：已具备可交互评估流程、核心风控规则、移动端 UI、通过数据访问层封装的 localStorage 保存和历史记录；数据库、联网核验、登录权限和审批流将按路线图分阶段接入。
 
 ## 产品目标
 
@@ -19,6 +19,7 @@
 - 准入红线、评分体系、等级封顶、额度和特批规则。
 - localStorage 自动保存最近草稿。
 - 保存当前评估记录并查看历史记录。
+- `assessmentRepository` 数据访问层，后续可替换为 Supabase 或其他数据库适配器。
 - 公共信用联网核验模块预留。
 - 规则单元测试覆盖关键验收项。
 
@@ -82,6 +83,8 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 
 - `src/riskEngine.js`：唯一风控规则入口。
 - `src/riskEngine.test.js`：核心规则测试。
+- `src/assessmentRepository.js`：评估草稿与历史记录的数据访问层，当前默认使用 localStorage。
+- `src/assessmentRepository.test.js`：数据访问层单元测试。
 - `src/App.jsx`：H5 应用主界面和交互。
 - `src/styles.css`：移动端 UI 样式。
 - `docs/product-roadmap.md`：产品化开发路线图。
@@ -105,3 +108,16 @@ docs/product-roadmap.md
 5. 人工/联网核验留痕。
 6. 特批流程 MVP。
 7. 登录权限与内部发布。
+
+## 数据接入边界
+
+当前 UI 不直接读写 `localStorage`。页面只调用 `src/assessmentRepository.js` 暴露的方法：
+
+- `loadDraft`
+- `saveDraft`
+- `resetDraft`
+- `listRecords`
+- `saveRecord`
+- `loadRecord`
+
+下一阶段接数据库时，应新增数据库 adapter 或替换 repository 内部实现，避免把 Supabase SDK、SQL 或权限逻辑写进 `App.jsx`。
