@@ -17,12 +17,13 @@ import {
 } from 'lucide-react';
 import {
   BUSINESS_STAGE_LABELS,
+  DEFAULT_FORM,
   PAYMENT_LABELS,
   PUBLIC_CREDIT_LABELS,
   QUALIFICATION_LABELS,
   evaluateCredit
 } from './riskEngine';
-import { createLocalAssessmentRepository } from './assessmentRepository';
+import { createConfiguredAssessmentRepository } from './assessmentRepository';
 
 const tabs = [
   { id: 'basic', label: '基础', icon: FileText },
@@ -35,17 +36,60 @@ const tabs = [
 const formatMoney = (value) => `¥${Math.round(Number(value) || 0).toLocaleString('zh-CN')}`;
 
 function App() {
-  const assessmentRepository = useMemo(() => createLocalAssessmentRepository(), []);
+  const assessmentRepository = useMemo(() => createConfiguredAssessmentRepository(), []);
   const [activeTab, setActiveTab] = useState('basic');
-  const [form, setForm] = useState(() => assessmentRepository.loadDraft());
-  const [history, setHistory] = useState(() => assessmentRepository.listRecords());
+  const [form, setForm] = useState(DEFAULT_FORM);
+  const [history, setHistory] = useState([]);
+  const [isRepositoryReady, setIsRepositoryReady] = useState(false);
+  const [repositoryStatus, setRepositoryStatus] = useState('loading');
   const [toast, setToast] = useState('');
   const result = useMemo(() => evaluateCredit(form), [form]);
   const activeStepIndex = tabs.findIndex((tab) => tab.id === activeTab);
 
   useEffect(() => {
-    assessmentRepository.saveDraft(form);
-  }, [assessmentRepository, form]);
+    let isActive = true;
+
+    const hydrateRepositoryState = async () => {
+      try {
+        const [savedDraft, savedHistory] = await Promise.all([
+          assessmentRepository.loadDraft(),
+          assessmentRepository.listRecords()
+        ]);
+        if (!isActive) return;
+        setForm(savedDraft);
+        setHistory(savedHistory);
+        setRepositoryStatus('ready');
+      } catch {
+        if (!isActive) return;
+        setRepositoryStatus('error');
+        setToast('数据载入失败，已使用默认表单');
+      } finally {
+        if (isActive) setIsRepositoryReady(true);
+      }
+    };
+
+    hydrateRepositoryState();
+
+    return () => {
+      isActive = false;
+    };
+  }, [assessmentRepository]);
+
+  useEffect(() => {
+    if (!isRepositoryReady) return undefined;
+
+    const timer = window.setTimeout(async () => {
+      try {
+        setRepositoryStatus('saving');
+        await assessmentRepository.saveDraft(form);
+        setRepositoryStatus('ready');
+      } catch {
+        setRepositoryStatus('error');
+      }
+    }, assessmentRepository.mode === 'remote' ? 500 : 0);
+
+    return () => window.clearTimeout(timer);
+  }, [assessmentRepository, form, isRepositoryReady]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -65,24 +109,42 @@ function App() {
     });
   };
 
-  const saveRecord = () => {
-    assessmentRepository.saveRecord({ form, result });
-    setHistory(assessmentRepository.listRecords());
-    setToast('已保存当前评估记录');
-    setActiveTab('result');
+  const saveRecord = async () => {
+    try {
+      setRepositoryStatus('saving');
+      await assessmentRepository.saveRecord({ form, result });
+      setHistory(await assessmentRepository.listRecords());
+      setRepositoryStatus('ready');
+      setToast('已保存当前评估记录');
+      setActiveTab('result');
+    } catch {
+      setRepositoryStatus('error');
+      setToast('保存失败，请检查持久化配置');
+    }
   };
 
-  const resetForm = () => {
-    setForm(assessmentRepository.resetDraft());
-    setToast('表单已重置为示例状态');
-    setActiveTab('basic');
+  const resetForm = async () => {
+    try {
+      setRepositoryStatus('saving');
+      setForm(await assessmentRepository.resetDraft());
+      setRepositoryStatus('ready');
+      setToast('表单已重置为示例状态');
+      setActiveTab('basic');
+    } catch {
+      setRepositoryStatus('error');
+      setToast('重置失败，请检查持久化配置');
+    }
   };
 
-  const loadRecord = (record) => {
-    const storedRecord = assessmentRepository.loadRecord(record.id) || record;
-    setForm(storedRecord.form);
-    setToast('已载入历史记录');
-    setActiveTab('result');
+  const loadRecord = async (record) => {
+    try {
+      const storedRecord = await assessmentRepository.loadRecord(record.id) || record;
+      setForm(storedRecord.form);
+      setToast('已载入历史记录');
+      setActiveTab('result');
+    } catch {
+      setToast('载入失败，请稍后重试');
+    }
   };
 
   const copyKeyword = async (keyword) => {
@@ -148,6 +210,8 @@ function App() {
           </button>
         </div>
 
+        <RepositoryStatusBadge mode={assessmentRepository.mode} status={repositoryStatus} />
+
         <section className="content-panel">
           {activeTab === 'basic' && (
             <BasicStep form={form} updateField={updateField} result={result} />
@@ -172,6 +236,24 @@ function App() {
         </div>
       </section>
     </main>
+  );
+}
+
+function RepositoryStatusBadge({ mode, status }) {
+  const modeLabel = mode === 'remote' ? '远端持久化' : '本地持久化';
+  const statusLabel = {
+    loading: '载入中',
+    saving: '同步中',
+    ready: '已就绪',
+    error: '需检查'
+  }[status] || '已就绪';
+
+  return (
+    <div className={`repository-status ${status}`}>
+      <Database size={15} />
+      <span>{modeLabel}</span>
+      <strong>{statusLabel}</strong>
+    </div>
   );
 }
 

@@ -2,7 +2,7 @@
 
 一个面向内部业务风控场景的手机端 H5 工具，用于评估下游医美机构是否可以给予账期、最长账期、建议额度、是否需要特批，以及系统给出判断的原因。
 
-当前版本是产品化基线版本：已具备可交互评估流程、核心风控规则、移动端 UI、通过数据访问层封装的 localStorage 保存和历史记录；数据库、联网核验、登录权限和审批流将按路线图分阶段接入。
+当前版本是产品化基线版本：已具备可交互评估流程、核心风控规则、移动端 UI、通过数据访问层封装的本地/远端持久化入口；数据库、联网核验、登录权限和审批流将按路线图分阶段接入。
 
 ## 产品目标
 
@@ -19,13 +19,14 @@
 - 准入红线、评分体系、等级封顶、额度和特批规则。
 - localStorage 自动保存最近草稿。
 - 保存当前评估记录并查看历史记录。
-- `assessmentRepository` 数据访问层，后续可替换为 Supabase 或其他数据库适配器。
+- `assessmentRepository` 数据访问层，支持默认本地模式和通过环境变量开启的远端 API 模式。
 - 公共信用联网核验模块预留。
 - 规则单元测试覆盖关键验收项。
 
 ## 当前限制
 
-- 暂未接数据库，评估记录只保存在当前浏览器。
+- 默认仍未接真实数据库，未配置远端 API 时评估记录只保存在当前浏览器。
+- 远端持久化 adapter 已预留，需要后端或数据库服务实现约定 API。
 - 暂未登录，暂无角色权限。
 - 暂未接真实公共信用/处罚/失信查询接口。
 - 暂无正式特批审批流，只显示“需特批”和原因标签。
@@ -55,6 +56,28 @@ http://你的局域网 IP:5173/
 ```bash
 npm test
 npm run build
+```
+
+PR 检查由 `.github/workflows/ci.yml` 自动执行：
+
+- `npm ci`
+- `npm test`
+- `npm run build`
+
+## 远端持久化配置
+
+默认不需要环境变量，系统使用 localStorage。需要接入远端数据库或 API 时，复制 `.env.example` 并配置：
+
+```bash
+VITE_ASSESSMENT_API_URL=https://<project-ref>.functions.supabase.co/assessments
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
+VITE_ASSESSMENT_API_TIMEOUT_MS=8000
+```
+
+配置 `VITE_ASSESSMENT_API_URL` 后，前端会自动切换为 Supabase Edge Function 远端持久化模式。`VITE_SUPABASE_PUBLISHABLE_KEY` 只能填写 publishable / anon key，不能填写 `service_role` / secret key。API 契约见：
+
+```text
+docs/remote-persistence-contract.md
 ```
 
 ## 在线部署
@@ -89,6 +112,9 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `src/styles.css`：移动端 UI 样式。
 - `docs/product-roadmap.md`：产品化开发路线图。
 - `docs/database-integration-prompt.md`：后续数据库接入提示词与表结构建议。
+- `docs/remote-persistence-contract.md`：远端持久化 API 契约。
+- `.env.example`：远端持久化环境变量示例。
+- `.github/workflows/ci.yml`：PR 自动测试与构建。
 - `.github/workflows/deploy-pages.yml`：GitHub Pages 自动部署。
 
 ## 产品化路线
@@ -103,7 +129,7 @@ docs/product-roadmap.md
 
 1. 项目基线与在线静态部署。
 2. 数据访问层抽象。
-3. 数据库保存评估记录。
+3. 数据库适配器与远端持久化接入。
 4. 评估详情与历史记录产品化。
 5. 人工/联网核验留痕。
 6. 特批流程 MVP。
@@ -120,4 +146,4 @@ docs/product-roadmap.md
 - `saveRecord`
 - `loadRecord`
 
-下一阶段接数据库时，应新增数据库 adapter 或替换 repository 内部实现，避免把 Supabase SDK、SQL 或权限逻辑写进 `App.jsx`。
+下一阶段接数据库时，应优先让 Supabase Edge Function 实现 `docs/remote-persistence-contract.md` 中的 API 契约，避免把 Supabase service role、SQL 或权限逻辑写进 `App.jsx`。

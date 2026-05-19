@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_FORM, evaluateCredit } from './riskEngine';
 import {
+  createConfiguredAssessmentRepository,
   createAssessmentRecord,
-  createLocalAssessmentRepository
+  createLocalAssessmentRepository,
+  createRemoteAssessmentRepository,
+  getAssessmentRepositoryRuntimeConfig
 } from './assessmentRepository';
 
 const createMemoryStorage = (initial = {}) => {
@@ -97,4 +100,89 @@ describe('createLocalAssessmentRepository', () => {
 
     expect(repository.listRecords()).toEqual([]);
   });
+});
+
+describe('remote assessment repository wiring', () => {
+  it('keeps local mode when no remote endpoint is configured', () => {
+    expect(getAssessmentRepositoryRuntimeConfig({})).toMatchObject({
+      mode: 'local',
+      remoteBaseUrl: ''
+    });
+  });
+
+  it('selects remote mode from Vite environment config', () => {
+    expect(getAssessmentRepositoryRuntimeConfig({
+      VITE_ASSESSMENT_API_URL: ' https://credit-api.example.com ',
+      VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test',
+      VITE_ASSESSMENT_API_TIMEOUT_MS: '12000'
+    })).toEqual({
+      mode: 'remote',
+      remoteBaseUrl: 'https://credit-api.example.com',
+      remotePublishableKey: 'sb_publishable_test',
+      remoteTimeoutMs: 12000
+    });
+  });
+
+  it('creates a local repository from config by default', () => {
+    const repository = createConfiguredAssessmentRepository({
+      env: {},
+      storage: createMemoryStorage()
+    });
+
+    expect(repository.mode).toBe('local');
+    expect(repository.loadDraft()).toEqual(DEFAULT_FORM);
+  });
+
+  it('calls the remote persistence contract with auth and normalized payloads', async () => {
+    const calls = [];
+    const fetchImpl = async (url, options = {}) => {
+      calls.push({ url, options });
+      if (url.endsWith('/draft') && options.method === 'PUT') {
+        return createJsonResponse({ form: JSON.parse(options.body).form });
+      }
+      if (url.endsWith('/records') && options.method === 'POST') {
+        return createJsonResponse({ record: JSON.parse(options.body).record });
+      }
+      if (url.endsWith('/records') && !options.method) {
+        return createJsonResponse({ records: [] });
+      }
+      return createJsonResponse(null, 204);
+    };
+    const repository = createRemoteAssessmentRepository({
+      baseUrl: 'https://credit-api.example.com/',
+      publishableKey: 'sb_publishable_test',
+      clientInstanceId: 'client-1',
+      fetchImpl,
+      now: () => new Date('2026-05-19T08:00:00.000Z'),
+      id: () => 'remote-record-1'
+    });
+    const form = { ...DEFAULT_FORM, institutionName: '远端测试机构' };
+    const result = evaluateCredit(form);
+
+    await repository.saveDraft(form);
+    const record = await repository.saveRecord({ form, result });
+    const records = await repository.listRecords();
+
+    expect(record).toMatchObject({
+      id: 'remote-record-1',
+      institutionName: '远端测试机构',
+      form,
+      result
+    });
+    expect(records).toEqual([]);
+    expect(calls.map((call) => call.url)).toEqual([
+      'https://credit-api.example.com/draft',
+      'https://credit-api.example.com/records',
+      'https://credit-api.example.com/records'
+    ]);
+    expect(calls.every((call) => call.options.headers.apikey === 'sb_publishable_test')).toBe(true);
+    expect(calls.every((call) => call.options.headers['x-client-instance-id'] === 'client-1')).toBe(true);
+    expect(calls.every((call) => !call.options.headers.Authorization)).toBe(true);
+  });
+});
+
+const createJsonResponse = (body, status = 200) => ({
+  ok: status >= 200 && status < 300,
+  status,
+  text: async () => (body === null ? '' : JSON.stringify(body))
 });
