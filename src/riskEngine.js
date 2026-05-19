@@ -1,5 +1,5 @@
 export const DEFAULT_FORM = {
-  institutionName: '杭州星澜医疗美容诊所',
+  institutionName: '',
   creditCode: '',
   businessStage: 'over6Months',
   hasPaidOrders: true,

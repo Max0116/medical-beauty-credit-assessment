@@ -113,9 +113,12 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `docs/product-roadmap.md`：产品化开发路线图。
 - `docs/database-integration-prompt.md`：后续数据库接入提示词与表结构建议。
 - `docs/remote-persistence-contract.md`：远端持久化 API 契约。
+- `docs/ai-verification-plan.md`：智谱联网核验与多 AI Provider 规划。
 - `.env.example`：远端持久化环境变量示例。
 - `.github/workflows/ci.yml`：PR 自动测试与构建。
 - `.github/workflows/deploy-pages.yml`：GitHub Pages 自动部署。
+- `supabase/migrations/`：Supabase 数据表迁移。
+- `supabase/functions/assessments/`：评估记录持久化与后台核验 Edge Function。
 
 ## 产品化路线
 
@@ -147,3 +150,26 @@ docs/product-roadmap.md
 - `loadRecord`
 
 下一阶段接数据库时，应优先让 Supabase Edge Function 实现 `docs/remote-persistence-contract.md` 中的 API 契约，避免把 Supabase service role、SQL 或权限逻辑写进 `App.jsx`。
+
+## Supabase 接入
+
+PR4 开始提供 Supabase 落地文件：
+
+- `assessment_records`：保存评估记录快照。
+- `assessment_drafts`：保存浏览器实例的最近草稿。
+- `verification_logs`：保存后台联网核验日志。
+- `assessments` Edge Function：提供 `/draft`、`/records`、`/records/:id` API。
+
+需要在 Supabase Function Secrets 中配置：
+
+```bash
+ZHIPUAI_API_KEY=你的智谱 API Key
+ALLOWED_ORIGINS=https://max0116.github.io,http://localhost:5173,http://localhost:5174
+```
+
+本地前端 `.env` 只放 publishable / anon key，不放 service role：
+
+```bash
+VITE_ASSESSMENT_API_URL=https://<project-ref>.functions.supabase.co/assessments
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
+```

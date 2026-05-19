@@ -164,5 +164,6 @@ PR4 应增加：
 - `supabase/migrations/*_create_assessment_records.sql`
 - Edge Function 单元或 smoke 测试脚本
 - GitHub Actions 中 Supabase 函数部署所需的 secrets 说明
+- `docs/ai-verification-plan.md`
 
 正式生产前还需要补充用户身份、机构权限、审计日志、服务端规则校验和联网核验留痕。

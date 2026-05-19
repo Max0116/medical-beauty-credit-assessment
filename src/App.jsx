@@ -325,7 +325,12 @@ function BasicStep({ form, updateField, result }) {
   return (
     <div className="step-stack">
       <SectionTitle icon={FileText} title="机构基础信息" />
-      <TextField label="机构名称" value={form.institutionName} onChange={(value) => updateField('institutionName', value)} />
+      <TextField
+        label="机构名称"
+        value={form.institutionName}
+        onChange={(value) => updateField('institutionName', value)}
+        placeholder="例如：杭州星澜医疗美容诊所"
+      />
       <TextField label="统一社会信用代码" value={form.creditCode} onChange={(value) => updateField('creditCode', value)} placeholder="可暂不填写" />
       <SelectField
         label="经营 / 合作阶段"
