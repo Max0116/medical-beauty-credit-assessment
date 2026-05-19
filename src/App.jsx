@@ -689,21 +689,21 @@ function BasicStep({
 
 function CreditCodeSuggestions({ candidates, hasActiveRecord, onApply }) {
   if (!hasActiveRecord) {
-    return <FieldAlert tone="warning" text="填写机构名称后点击“保存并核验”，系统会尝试从公开联网结果中识别统一社会信用代码候选。" />;
+    return <FieldAlert tone="warning" text="填写机构名称后点击“保存并核验”，系统会尝试通过官方企业信用接口识别统一社会信用代码候选。" />;
   }
 
   if (!candidates.length) {
-    return <FieldAlert tone="warning" text="暂未识别到可信统一社会信用代码候选，可继续人工填写或等待后续接入官方企业信用接口。" />;
+    return <FieldAlert tone="warning" text="官方企业信用接口暂未返回统一社会信用代码候选，可继续人工填写或确认接口配置。" />;
   }
 
   return (
     <div className="credit-code-suggestions">
-      <span className="field-label">联网识别候选</span>
+      <span className="field-label">官方企业信用候选</span>
       {candidates.map((candidate) => (
         <div className="credit-code-candidate" key={`${candidate.value}-${candidate.url || candidate.title}`}>
           <div>
             <strong>{candidate.value}</strong>
-            <small>{[candidate.source, candidate.title].filter(Boolean).join(' · ') || '公开来源'}</small>
+            <small>{[candidate.source, candidate.title].filter(Boolean).join(' · ') || '官方企业信用接口'}</small>
           </div>
           <button type="button" onClick={() => onApply(candidate.value)}>
             采用
@@ -863,6 +863,7 @@ function CreditVerificationPanel({ activeRecordId, summary, logs, status, onRefr
   const suggestedStatusLabel = suggestedStatus ? PUBLIC_CREDIT_LABELS[suggestedStatus] : '';
   const canApplySuggestion = suggestedStatus && suggestedStatus !== 'unknown';
   const creditCodeCandidates = getCreditCodeCandidates(summary);
+  const businessProfile = summary?.businessProfile || null;
 
   const headline = !isRemoteMode
     ? '当前为本地模式，未发起联网核验'
@@ -898,6 +899,7 @@ function CreditVerificationPanel({ activeRecordId, summary, logs, status, onRefr
         <Metric label="搜索结果" value={`${summary?.sourceCount ?? latestLog?.rawResultCount ?? 0} 条`} />
         <Metric label="匹配证据" value={`${summary?.matchedSourceCount ?? 0} 条`} />
       </div>
+      <OfficialRegistryStatus businessProfile={businessProfile} candidateCount={creditCodeCandidates.length} />
       {summary?.riskTags?.length > 0 && <TagStrip items={summary.riskTags} tone="warning" />}
       {canApplySuggestion && (
         <button className="verification-apply-button" type="button" onClick={() => updateField('publicCreditStatus', suggestedStatus)}>
@@ -906,12 +908,12 @@ function CreditVerificationPanel({ activeRecordId, summary, logs, status, onRefr
       )}
       {creditCodeCandidates.length > 0 && (
         <div className="credit-code-suggestions compact">
-          <span className="field-label">识别到统一社会信用代码候选</span>
+          <span className="field-label">官方企业信用代码候选</span>
           {creditCodeCandidates.map((candidate) => (
             <div className="credit-code-candidate" key={`${candidate.value}-${candidate.url || candidate.title}`}>
               <div>
                 <strong>{candidate.value}</strong>
-                <small>{candidate.source || '公开来源'}</small>
+                <small>{candidate.source || '官方企业信用接口'}</small>
               </div>
               <button type="button" onClick={() => updateField('creditCode', candidate.value)}>
                 采用
@@ -935,6 +937,21 @@ function CreditVerificationPanel({ activeRecordId, summary, logs, status, onRefr
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function OfficialRegistryStatus({ businessProfile, candidateCount }) {
+  const registryStatus = businessProfile?.registryStatus || 'unconfigured';
+  const statusLabel = getOfficialRegistryStatusLabel(registryStatus);
+  const message = businessProfile?.registryMessage || '未配置官方企业信用接口';
+  const provider = businessProfile?.registryProvider || 'official_registry';
+
+  return (
+    <div className={`official-registry-status ${registryStatus}`}>
+      <span>官方企业信用接口</span>
+      <strong>{statusLabel}</strong>
+      <small>{message} · 候选 {candidateCount} 个 · {provider}</small>
     </div>
   );
 }
@@ -1235,6 +1252,15 @@ function getVerificationSummary(log) {
 function getCreditCodeCandidates(summary) {
   const candidates = summary?.businessProfile?.creditCodeCandidates;
   return Array.isArray(candidates) ? candidates : [];
+}
+
+function getOfficialRegistryStatusLabel(status) {
+  return ({
+    completed: '已返回工商候选',
+    empty: '未返回匹配候选',
+    failed: '接口查询失败',
+    unconfigured: '接口未配置'
+  })[status] || '等待接口结果';
 }
 
 function VerificationLogSummaryText({ log }) {

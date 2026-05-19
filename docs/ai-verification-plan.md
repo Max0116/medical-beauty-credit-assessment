@@ -23,7 +23,7 @@
 - 核验页会展示自动征信判断、搜索结果数、匹配证据数、风险标签和证据链接，并允许业务人员手动采用公共信用状态建议。
 - 核验页支持人工确认闭环：记录采用系统建议、人工改判或仅复核留痕，保存复核人、确认后的公共信用状态、证据链接 / 截图编号、复核说明、核验快照和时间戳。
 - 基础页在填写机构名称后提供“保存并核验”快捷动作；保存后全局顶部展示当前机构、核验状态和进度条。
-- 统一社会信用代码第一版从联网搜索结果中提取候选值，并由业务人员点击采用；后续应优先接入官方企业信用接口完成精确补全。
+- 统一社会信用代码从服务端官方企业信用接口提取候选值，并由业务人员点击采用；未配置官方接口时不再从智谱搜索摘要中猜测补全。
 
 ## 证据判断原则
 
@@ -43,7 +43,7 @@
 
 ## 智谱 Web Search 接入
 
-官方接口：
+智谱 Web Search 官方接口：
 
 ```http
 POST https://open.bigmodel.cn/api/paas/v4/web_search
@@ -67,8 +67,6 @@ Content-Type: application/json
 沿用前端当前生成规则：
 
 - 机构名称 + 行政处罚
-- 机构名称 + 统一社会信用代码
-- 机构名称 + 工商信息
 - 机构名称 + 被执行人
 - 机构名称 + 失信被执行人
 - 机构名称 + 医疗美容处罚
@@ -76,7 +74,31 @@ Content-Type: application/json
 - 机构名称 + 经营异常
 - 机构名称 + 严重违法失信
 
-第一版后台核验最多取前 5 个关键词，避免一次保存触发过多外部请求。
+后台核验最多取前 7 个关键词，避免一次保存触发过多外部请求。统一社会信用代码和工商信息补全改由官方企业信用接口负责，不再进入智谱关键词列表。
+
+## 官方企业信用接口适配
+
+PR8 将统一社会信用代码补全从“联网搜索摘要提取”改为“服务端官方 / 授权企业信用接口适配”。Edge Function 通过以下 secrets 连接接口：
+
+```bash
+OFFICIAL_REGISTRY_API_URL=https://registry-provider.example.com/search
+OFFICIAL_REGISTRY_API_KEY=provider_secret
+OFFICIAL_REGISTRY_PROVIDER=official_registry
+OFFICIAL_REGISTRY_AUTH_HEADER_NAME=Authorization
+OFFICIAL_REGISTRY_AUTH_HEADER_PREFIX=Bearer
+```
+
+请求由 Edge Function 发起，不暴露给 H5。默认 POST JSON：
+
+```json
+{
+  "keyword": "机构名称或统一社会信用代码",
+  "institutionName": "机构名称",
+  "creditCode": "已有统一社会信用代码"
+}
+```
+
+适配器兼容常见响应字段，例如 `name` / `enterpriseName`、`creditCode` / `unifiedSocialCreditCode`、`regStatus`、`legalPerson`、`address`、`businessScope`。如果具体供应商字段不同，应只改 `supabase/functions/assessments/officialRegistry.ts` 的映射层，不改前端。
 
 ## 多 AI / 多搜索源规划
 
@@ -125,6 +147,6 @@ Provider 输出统一为：
 
 1. 手动触发补跑：支持对某条评估记录重新核验。
 2. Provider 抽象：把智谱调用拆成独立 adapter，方便接入其他 AI API。
-3. 官方接口优先级：接入企业信用、执行信息、卫健委处罚等可信接口后，用官方结果覆盖 AI 搜索线索。
+3. 官方接口深化：继续接执行信息、卫健委处罚等可信接口，用官方结果覆盖 AI 搜索线索。
 4. 附件闭环：把截图编号升级为 Supabase Storage 附件上传和访问控制。
 5. 审批闭环：把复核人扩展为特批审批人、审批意见和审批状态流转。

@@ -158,12 +158,20 @@ content-type: application/json
         "sourceCount": 0,
         "matchedSourceCount": 0,
         "businessProfile": {
+          "registryProvider": "official_registry",
+          "registryStatus": "completed | empty | failed | unconfigured",
+          "registryMessage": "官方企业信用接口已返回候选",
           "creditCodeCandidates": [
             {
               "value": "91330100MA2B123456",
-              "source": "公开来源",
-              "title": "机构工商信息",
-              "url": "https://..."
+              "source": "official_registry",
+              "title": "机构名称",
+              "url": "https://...",
+              "name": "机构名称",
+              "registrationStatus": "存续",
+              "legalRepresentative": "张三",
+              "registeredAddress": "注册地址",
+              "businessScope": "经营范围"
             }
           ]
         },
@@ -202,7 +210,7 @@ content-type: application/json
 
 `verificationSummary` 是给业务 UI 使用的结构化核验判断。后端必须避免把查询关键词本身当作风险命中；只有搜索结果标题或正文能匹配机构名称，并且结果正文出现风险语义时，才应生成 `riskTags` 和 `evidenceSummaries`。核验结论用于人工复核和公共信用字段建议，不在当前阶段自动改写风控评分或红线判断。
 
-`businessProfile.creditCodeCandidates` 是从公开联网结果中识别到的统一社会信用代码候选，只能作为“候选补全”。前端必须让业务人员点击采用，不能静默覆盖表单字段。正式生产阶段建议改接官方企业信用接口。
+`businessProfile.creditCodeCandidates` 来自服务端官方 / 授权企业信用接口，只能作为“候选补全”。前端必须让业务人员点击采用，不能静默覆盖表单字段。未配置 `OFFICIAL_REGISTRY_API_URL` 时，`registryStatus` 为 `unconfigured`，不得再从智谱搜索摘要中猜测统一社会信用代码。
 
 ## 鉴权
 

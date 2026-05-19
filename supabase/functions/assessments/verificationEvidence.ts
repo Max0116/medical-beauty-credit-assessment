@@ -1,3 +1,5 @@
+import type { OfficialRegistryResult } from "./officialRegistry.ts";
+
 export type VerificationEvidence = {
   category: string;
   title: string;
@@ -12,9 +14,17 @@ type BusinessProfileCandidate = {
   source: string;
   title: string;
   url: string;
+  name?: string;
+  registrationStatus?: string;
+  legalRepresentative?: string;
+  registeredAddress?: string;
+  businessScope?: string;
 };
 
 type BusinessProfile = {
+  registryProvider: string;
+  registryStatus: string;
+  registryMessage: string;
   creditCodeCandidates: BusinessProfileCandidate[];
 };
 
@@ -100,6 +110,7 @@ export function buildVerificationSummary({
   rawResults,
   riskTags,
   evidence,
+  officialRegistry,
   errorMessage = ""
 }: {
   status: string;
@@ -107,12 +118,13 @@ export function buildVerificationSummary({
   rawResults: unknown[];
   riskTags: string[];
   evidence: VerificationEvidence[];
+  officialRegistry?: OfficialRegistryResult;
   errorMessage?: string;
 }) {
   const sourceCount = rawResults.length;
   const evidenceCount = evidence.length;
   const judgment = getVerificationJudgment(status, riskTags, evidenceCount);
-  const businessProfile = extractBusinessProfile(institutionName, rawResults);
+  const businessProfile = buildBusinessProfile(officialRegistry);
 
   return {
     dishonestyHit: riskTags.includes("失信被执行人"),
@@ -142,28 +154,25 @@ export function buildVerificationSummary({
   };
 }
 
-export function extractBusinessProfile(institutionName: string, rawResults: unknown[]): BusinessProfile {
-  const seenCodes = new Set<string>();
-  const creditCodeCandidates = rawResults
-    .map((item) => normalizeSearchResult(item))
-    .filter((item) => item && isInstitutionMatch(institutionName, `${item.title} ${item.content}`))
-    .flatMap((item) => {
-      const matches = `${item.title} ${item.content}`.match(/[0-9A-Z]{18}/gi) || [];
-      return matches.map((value) => ({
-        value: value.toUpperCase(),
-        source: item.media,
-        title: item.title,
-        url: item.link
-      }));
-    })
-    .filter((item) => {
-      if (seenCodes.has(item.value)) return false;
-      seenCodes.add(item.value);
-      return true;
-    })
-    .slice(0, 3);
-
-  return { creditCodeCandidates };
+export function buildBusinessProfile(officialRegistry?: OfficialRegistryResult): BusinessProfile {
+  return {
+    registryProvider: officialRegistry?.provider || "official_registry",
+    registryStatus: officialRegistry?.status || "unconfigured",
+    registryMessage: officialRegistry?.message || "未配置官方企业信用接口",
+    creditCodeCandidates: (officialRegistry?.candidates || [])
+      .filter((item) => item.creditCode)
+      .map((item) => ({
+        value: item.creditCode,
+        source: item.source || officialRegistry?.provider || "official_registry",
+        title: item.name,
+        url: item.sourceUrl,
+        name: item.name,
+        registrationStatus: item.registrationStatus,
+        legalRepresentative: item.legalRepresentative,
+        registeredAddress: item.registeredAddress,
+        businessScope: item.businessScope
+      }))
+  };
 }
 
 function getVerificationJudgment(status: string, riskTags: string[], evidenceCount: number) {

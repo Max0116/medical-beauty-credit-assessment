@@ -100,8 +100,6 @@ const roundCurrency = (value) => Math.round(numberValue(value));
 const getQueryKeywords = (name) => {
   const baseName = (name || '机构名称').trim() || '机构名称';
   return [
-    `${baseName} 统一社会信用代码`,
-    `${baseName} 工商信息`,
     `${baseName} 行政处罚`,
     `${baseName} 被执行人`,
     `${baseName} 失信被执行人`,
