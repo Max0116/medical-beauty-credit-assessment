@@ -59,6 +59,7 @@ function App() {
   const result = useMemo(() => evaluateCredit(form), [form]);
   const activeStepIndex = tabs.findIndex((tab) => tab.id === activeTab);
   const isRemoteMode = assessmentRepository.mode === REPOSITORY_MODES.remote;
+  const latestVerificationSummary = getVerificationSummary(verificationLogs[0]);
 
   const markRepositorySynced = (message = '已同步到远端') => {
     setRepositoryStatus('synced');
@@ -158,11 +159,12 @@ function App() {
       setHistory(await assessmentRepository.listRecords());
       setActiveRecordId(savedRecord.id);
       markRepositorySynced(isRemoteMode ? '评估记录已同步' : '评估记录已保存');
-      setToast(isRemoteMode ? '已保存并同步当前评估记录' : '已保存当前评估记录');
-      setActiveTab('result');
+      setToast(isRemoteMode ? '已保存，正在自动联网核验' : '已保存当前评估记录');
+      setActiveTab(isRemoteMode ? 'verify' : 'result');
       refreshVerificationLogs(savedRecord.id);
       if (isRemoteMode) {
         window.setTimeout(() => refreshVerificationLogs(savedRecord.id, { silent: true }), 3500);
+        window.setTimeout(() => refreshVerificationLogs(savedRecord.id, { silent: true }), 7500);
       }
     } catch {
       if (isRemoteMode) {
@@ -341,7 +343,17 @@ function App() {
             <PaymentStep form={form} updateField={updateField} />
           )}
           {activeTab === 'verify' && (
-            <VerifyStep form={form} updateField={updateField} result={result} copyKeyword={copyKeyword} />
+            <VerifyStep
+              form={form}
+              updateField={updateField}
+              result={result}
+              copyKeyword={copyKeyword}
+              activeRecordId={activeRecordId}
+              verificationLogs={verificationLogs}
+              verificationLogStatus={verificationLogStatus}
+              refreshVerificationLogs={() => refreshVerificationLogs()}
+              isRemoteMode={isRemoteMode}
+            />
           )}
           {activeTab === 'result' && (
             <ResultStep
@@ -353,6 +365,7 @@ function App() {
               verificationLogStatus={verificationLogStatus}
               refreshVerificationLogs={() => refreshVerificationLogs()}
               isRemoteMode={isRemoteMode}
+              latestVerificationSummary={latestVerificationSummary}
             />
           )}
         </section>
@@ -581,10 +594,31 @@ function PaymentStep({ form, updateField }) {
   );
 }
 
-function VerifyStep({ form, updateField, result, copyKeyword }) {
+function VerifyStep({
+  form,
+  updateField,
+  result,
+  copyKeyword,
+  activeRecordId,
+  verificationLogs,
+  verificationLogStatus,
+  refreshVerificationLogs,
+  isRemoteMode
+}) {
+  const latestSummary = getVerificationSummary(verificationLogs[0]);
+
   return (
     <div className="step-stack">
       <SectionTitle icon={Search} title="公共信用与核验" />
+      <CreditVerificationPanel
+        activeRecordId={activeRecordId}
+        summary={latestSummary}
+        logs={verificationLogs}
+        status={verificationLogStatus}
+        onRefresh={refreshVerificationLogs}
+        isRemoteMode={isRemoteMode}
+        updateField={updateField}
+      />
       <SelectField
         label="公共信用状态"
         value={form.publicCreditStatus}
@@ -606,8 +640,8 @@ function VerifyStep({ form, updateField, result, copyKeyword }) {
       <div className="verification-module">
         <div>
           <Database size={17} />
-          <strong>联网核验预留</strong>
-          <span>后续可接企业信用、执行信息、卫健委处罚接口</span>
+          <strong>智谱联网核验</strong>
+          <span>保存评估后自动查询机构相关失信、处罚、经营异常线索</span>
         </div>
         <button type="button" onClick={() => updateField('publicCreditStatus', 'normal')}>
           标记已人工查询
@@ -627,6 +661,72 @@ function VerifyStep({ form, updateField, result, copyKeyword }) {
   );
 }
 
+function CreditVerificationPanel({ activeRecordId, summary, logs, status, onRefresh, isRemoteMode, updateField }) {
+  const latestLog = logs[0];
+  const tone = getVerificationTone(summary?.riskLevel, status);
+  const suggestedStatus = summary?.suggestedPublicCreditStatus;
+  const suggestedStatusLabel = suggestedStatus ? PUBLIC_CREDIT_LABELS[suggestedStatus] : '';
+  const canApplySuggestion = suggestedStatus && suggestedStatus !== 'unknown';
+
+  const headline = !isRemoteMode
+    ? '当前为本地模式，未发起联网核验'
+    : !activeRecordId
+      ? '保存评估后自动开始联网核验'
+      : status === 'loading'
+        ? '正在读取核验结果'
+        : summary?.judgmentLabel || (latestLog ? '核验结果整理中' : '已提交核验，等待结果');
+
+  const description = summary?.conclusion || (
+    activeRecordId
+      ? '后台已收到保存记录，稍后会显示智谱查询后的结构化判断。'
+      : '请先填写机构名称并保存当前评估，系统会自动查询推荐关键词。'
+  );
+
+  return (
+    <div className={`credit-verification-panel ${tone}`}>
+      <div className="credit-verification-head">
+        <div>
+          <Search size={18} />
+          <span>自动征信核验</span>
+        </div>
+        <strong>{headline}</strong>
+      </div>
+      <p>{description}</p>
+      {summary?.recommendation && (
+        <div className="verification-advice">
+          <span>系统建议</span>
+          <strong>{summary.recommendation}</strong>
+        </div>
+      )}
+      <div className="verification-facts">
+        <Metric label="搜索结果" value={`${summary?.sourceCount ?? latestLog?.rawResultCount ?? 0} 条`} />
+        <Metric label="匹配证据" value={`${summary?.matchedSourceCount ?? 0} 条`} />
+      </div>
+      {summary?.riskTags?.length > 0 && <TagStrip items={summary.riskTags} tone="warning" />}
+      {canApplySuggestion && (
+        <button className="verification-apply-button" type="button" onClick={() => updateField('publicCreditStatus', suggestedStatus)}>
+          按建议标记为「{suggestedStatusLabel}」
+        </button>
+      )}
+      <button className="verification-refresh-button" type="button" onClick={onRefresh} disabled={!isRemoteMode || !activeRecordId || status === 'loading'}>
+        刷新核验结果
+      </button>
+      {summary?.evidenceSummaries?.length > 0 && (
+        <div className="evidence-list">
+          {summary.evidenceSummaries.slice(0, 4).map((item) => (
+            <a className="evidence-item" href={item.url || '#'} target="_blank" rel="noreferrer" key={`${item.category}-${item.url || item.title}`}>
+              <span>{item.category}</span>
+              <strong>{item.title || '未命名来源'}</strong>
+              <small>{[item.source, item.publishDate].filter(Boolean).join(' · ') || '来源待确认'}</small>
+              {item.snippet && <p>{item.snippet}</p>}
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ResultStep({
   result,
   history,
@@ -635,7 +735,8 @@ function ResultStep({
   verificationLogs,
   verificationLogStatus,
   refreshVerificationLogs,
-  isRemoteMode
+  isRemoteMode,
+  latestVerificationSummary
 }) {
   const riskItems = [
     ...result.redlineReasons,
@@ -686,6 +787,14 @@ function ResultStep({
         <span className="field-label">系统原因</span>
         <TagStrip items={riskItems.length ? riskItems : ['未发现明显风险标签']} />
       </div>
+
+      {latestVerificationSummary && (
+        <div className={`verification-result-summary ${getVerificationTone(latestVerificationSummary.riskLevel)}`}>
+          <strong>联网核验判断：{latestVerificationSummary.judgmentLabel}</strong>
+          <p>{latestVerificationSummary.conclusion}</p>
+          {latestVerificationSummary.riskTags?.length > 0 && <TagStrip items={latestVerificationSummary.riskTags} tone="warning" />}
+        </div>
+      )}
 
       <div className="next-actions">
         <strong>后续建议</strong>
@@ -748,6 +857,7 @@ function VerificationLogPanel({ activeRecordId, logs, status, onRefresh, isRemot
                 <b className={`verification-status ${log.status}`}>{statusText[log.status] || log.status}</b>
                 <span>{log.provider || 'zhipu_web_search'} · {log.rawResultCount || 0} 条结果</span>
               </div>
+              <VerificationLogSummaryText log={log} />
               {log.riskTags?.length > 0 && <TagStrip items={log.riskTags} tone="warning" />}
               {log.errorMessage && <FieldAlert tone="warning" text={log.errorMessage} />}
               {log.queryKeywords?.length > 0 && (
@@ -759,6 +869,22 @@ function VerificationLogPanel({ activeRecordId, logs, status, onRefresh, isRemot
       )}
     </div>
   );
+}
+
+function getVerificationSummary(log) {
+  return log?.verificationSummary || log?.extractedFlags?.verificationSummary || null;
+}
+
+function VerificationLogSummaryText({ log }) {
+  const summary = getVerificationSummary(log);
+  if (!summary?.judgmentLabel) return null;
+  return <small>{summary.judgmentLabel}：{summary.conclusion}</small>;
+}
+
+function getVerificationTone(riskLevel, status) {
+  if (status === 'error' || riskLevel === 'high') return 'danger';
+  if (status === 'loading' || riskLevel === 'unknown' || riskLevel === 'medium') return 'warning';
+  return 'stable';
 }
 
 function HistoryList({ history, loadRecord }) {

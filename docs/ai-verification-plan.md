@@ -13,12 +13,30 @@
 - `outOfScopeOperation`
 - `verificationNotes`
 
-## 当前 PR4 落地范围
+## 当前已落地范围
 
 - 新增 `verification_logs` 表。
 - 保存评估记录时自动创建核验日志。
 - 如果 Supabase Edge Function 配置了 `ZHIPUAI_API_KEY`，保存记录后通过 `EdgeRuntime.waitUntil` 触发后台智谱 Web Search。
 - 如果没有配置智谱 API Key，核验日志保持 `pending`，后续可人工或定时任务补跑。
+- 后台会把智谱搜索结果整理为 `verificationSummary`，包括 `judgment`、`judgmentLabel`、`riskLevel`、`conclusion`、`recommendation`、`suggestedPublicCreditStatus` 和 `evidenceSummaries`。
+- 核验页会展示自动征信判断、搜索结果数、匹配证据数、风险标签和证据链接，并允许业务人员手动采用公共信用状态建议。
+
+## 证据判断原则
+
+后台核验不能把查询关键词本身当作风险命中。比如搜索词包含“失信被执行人”，但搜索结果标题和正文没有匹配机构名称时，不生成风险标签。
+
+当前规则只在同时满足以下条件时生成风险证据：
+
+1. 搜索结果标题或正文能匹配机构名称，或匹配去除“有限公司 / 医疗美容诊所 / 门诊部 / 医院”等后缀后的核心名称。
+2. 搜索结果标题或正文出现风险语义：失信被执行人、严重违法失信、被执行人、行政处罚、医美处罚、非法行医、经营异常。
+
+判断分为：
+
+- `clear`：未发现与机构名称直接匹配的明显负面结果。
+- `review_required`：发现被执行人、行政处罚、经营异常等需人工复核线索。
+- `redline_suspected`：发现失信、严重违法失信、非法行医、医美处罚等疑似红线线索。
+- `pending` / `failed` / `skipped`：核验等待、失败或未发起。
 
 ## 智谱 Web Search 接入
 
@@ -78,8 +96,11 @@ Provider 输出统一为：
   "riskTags": [],
   "extractedFlags": {
     "dishonestyHit": false,
+    "seriousIllegalHit": false,
     "majorMedicalPenalty": false,
-    "sourceCount": 0
+    "sourceCount": 0,
+    "matchedSourceCount": 0,
+    "verificationSummary": {}
   }
 }
 ```
@@ -92,11 +113,12 @@ Provider 输出统一为：
 - AI 提取出的 `riskTags` 只能作为“待核验风险标签”。
 - 生产阶段必须增加审计日志、操作人、复核人和证据截图。
 
-## PR5 建议
+## 后续建议
 
-PR5 可以继续做：
+后续可以继续做：
 
-1. 核验结果 UI：在“核验”页展示后台查询状态、风险标签和原始链接。
-2. 手动触发补跑：支持对某条评估记录重新核验。
-3. 人工确认映射：把核验日志映射为表单字段，但需要业务人员确认。
-4. Provider 抽象：把智谱调用拆成独立 adapter，方便接入其他 AI API。
+1. 手动触发补跑：支持对某条评估记录重新核验。
+2. 人工确认映射：把核验日志映射为表单字段，但需要业务人员确认和留痕。
+3. Provider 抽象：把智谱调用拆成独立 adapter，方便接入其他 AI API。
+4. 官方接口优先级：接入企业信用、执行信息、卫健委处罚等可信接口后，用官方结果覆盖 AI 搜索线索。
+5. 审计闭环：记录采用建议、人工改判、证据截图、复核人和审批人。
