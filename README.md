@@ -22,14 +22,16 @@
 - `assessmentRepository` 数据访问层，支持默认本地模式和通过环境变量开启的远端 API 模式。
 - 远端模式显示同步状态，并在保存失败时保留本机兜底记录。
 - Supabase Edge Function 保存评估记录，并触发智谱联网核验日志。
+- 核验页可查看智谱联网核验的结构化判断、建议、风险证据和原始来源链接。
 - 结果页可查看后台联网核验状态：`pending` / `completed` / `failed` 等。
+- 后台核验只把“机构名称匹配 + 搜索结果正文命中风险语义”识别为风险证据，避免把查询关键词本身误判为风险。
 - 规则单元测试覆盖关键验收项。
 
 ## 当前限制
 
 - 暂未登录，暂无角色权限。
 - 未配置远端 API 时评估记录只保存在当前浏览器。
-- 联网核验结果仍是辅助核验日志，尚未自动回写风控表单字段或自动改判。
+- 联网核验结果仍是辅助核验日志；核验页可一键采用公共信用建议，但不会自动改写风控评分或红线判断。
 - 暂无正式特批审批流，只显示“需特批”和原因标签。
 - 暂无管理端报表。
 
@@ -111,6 +113,8 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `src/assessmentRepository.test.js`：数据访问层单元测试。
 - `src/App.jsx`：H5 应用主界面和交互。
 - `src/styles.css`：移动端 UI 样式。
+- `supabase/functions/assessments/verificationEvidence.ts`：智谱搜索结果的机构匹配、风险证据抽取和结构化核验判断。
+- `supabase/functions/assessments/verificationEvidence.test.js`：联网核验误判回归测试。
 - `docs/product-roadmap.md`：产品化开发路线图。
 - `docs/database-integration-prompt.md`：后续数据库接入提示词与表结构建议。
 - `docs/remote-persistence-contract.md`：远端持久化 API 契约。

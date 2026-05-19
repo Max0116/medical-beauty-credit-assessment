@@ -1,5 +1,6 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "@supabase/supabase-js";
+import { buildVerificationSummary, extractVerificationEvidence } from "./verificationEvidence.ts";
 
 type AssessmentRecord = {
   id: string;
@@ -195,12 +196,28 @@ async function createVerificationLog({
   const institutionName = String(form.institutionName || "").trim();
 
   if (!institutionName) {
-    await insertVerificationLog(recordId, clientInstanceId, queryKeywords, "skipped", [], {}, ["机构名称为空，跳过后台核验"]);
+    await insertVerificationLog(
+      recordId,
+      clientInstanceId,
+      queryKeywords,
+      "skipped",
+      [],
+      buildVerificationSummary({ status: "skipped", institutionName, rawResults: [], riskTags: [], evidence: [] }),
+      ["机构名称为空，跳过后台核验"]
+    );
     return;
   }
 
   if (!ZHIPUAI_API_KEY) {
-    await insertVerificationLog(recordId, clientInstanceId, queryKeywords, "pending", [], {}, ["未配置 ZHIPUAI_API_KEY"]);
+    await insertVerificationLog(
+      recordId,
+      clientInstanceId,
+      queryKeywords,
+      "pending",
+      [],
+      buildVerificationSummary({ status: "pending", institutionName, rawResults: [], riskTags: [], evidence: [] }),
+      ["未配置 ZHIPUAI_API_KEY"]
+    );
     return;
   }
 
@@ -208,25 +225,23 @@ async function createVerificationLog({
 
   try {
     const rawResults = await runZhipuSearch(queryKeywords.slice(0, 5), clientInstanceId);
-    const riskTags = extractRiskTags(rawResults);
-    const extractedFlags = {
-      dishonestyHit: riskTags.some((tag) => tag.includes("失信") || tag.includes("被执行人")),
-      majorMedicalPenalty: riskTags.some((tag) => tag.includes("行政处罚") || tag.includes("医美处罚") || tag.includes("非法行医")),
-      sourceCount: rawResults.length
-    };
+    const evidence = extractVerificationEvidence(institutionName, rawResults);
+    const riskTags = [...new Set(evidence.map((item) => item.category))];
+    const extractedFlags = buildVerificationSummary({ status: "completed", institutionName, rawResults, riskTags, evidence });
 
     await insertVerificationLog(recordId, clientInstanceId, queryKeywords, "completed", rawResults, extractedFlags, riskTags, startedAt);
   } catch (error) {
+    const message = error instanceof Error ? error.message : "智谱联网核验失败";
     await insertVerificationLog(
       recordId,
       clientInstanceId,
       queryKeywords,
       "failed",
       [],
-      {},
+      buildVerificationSummary({ status: "failed", institutionName, rawResults: [], riskTags: [], evidence: [], errorMessage: message }),
       [],
       startedAt,
-      error instanceof Error ? error.message : "智谱联网核验失败"
+      message
     );
   }
 }
@@ -392,6 +407,10 @@ function mapRecordRow(row: Record<string, unknown>): AssessmentRecord {
 }
 
 function mapVerificationLogRow(row: Record<string, unknown>) {
+  const extractedFlags = row.extracted_flags && typeof row.extracted_flags === "object"
+    ? row.extracted_flags as Record<string, unknown>
+    : {};
+
   return {
     id: String(row.id),
     recordId: String(row.assessment_record_id || ""),
@@ -399,7 +418,8 @@ function mapVerificationLogRow(row: Record<string, unknown>) {
     status: String(row.status || ""),
     queryKeywords: Array.isArray(row.query_keywords) ? row.query_keywords.map(String) : [],
     riskTags: asStringArray(row.risk_tags),
-    extractedFlags: row.extracted_flags || {},
+    extractedFlags,
+    verificationSummary: extractedFlags.verificationSummary || null,
     rawResultCount: Array.isArray(row.raw_results) ? row.raw_results.length : 0,
     errorMessage: row.error_message ? String(row.error_message) : "",
     startedAt: row.started_at ? String(row.started_at) : "",
@@ -420,21 +440,6 @@ function buildVerificationKeywords(institutionName: string) {
     `${name} 经营异常`,
     `${name} 严重违法失信`
   ];
-}
-
-function extractRiskTags(rawResults: unknown[]) {
-  const text = JSON.stringify(rawResults);
-  return [
-    ["失信被执行人", /失信被执行人|失信/i],
-    ["被执行人", /被执行人/i],
-    ["行政处罚", /行政处罚|处罚决定/i],
-    ["医美处罚", /医疗美容处罚|医美处罚/i],
-    ["非法行医", /非法行医/i],
-    ["经营异常", /经营异常/i],
-    ["严重违法失信", /严重违法失信/i]
-  ]
-    .filter(([, pattern]) => (pattern as RegExp).test(text))
-    .map(([label]) => String(label));
 }
 
 function runInBackground(task: Promise<unknown>) {

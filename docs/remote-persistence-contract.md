@@ -125,11 +125,25 @@ content-type: application/json
       "riskTags": [],
       "rawResultCount": 0,
       "errorMessage": "",
+      "verificationSummary": {
+        "judgment": "clear | review_required | redline_suspected | pending | failed | skipped",
+        "judgmentLabel": "未发现明显风险",
+        "riskLevel": "low | medium | high | unknown",
+        "conclusion": "已完成联网查询，未发现与该机构名称直接匹配的明显负面风险结果。",
+        "recommendation": "可将公共信用状态暂按“正常”处理，但仍建议保留人工抽查记录。",
+        "suggestedPublicCreditStatus": "normal | unknown | medium | serious",
+        "sourceCount": 0,
+        "matchedSourceCount": 0,
+        "riskTags": [],
+        "evidenceSummaries": []
+      },
       "createdAt": "2026-05-19T00:00:00.000Z"
     }
   ]
 }
 ```
+
+`verificationSummary` 是给业务 UI 使用的结构化核验判断。后端必须避免把查询关键词本身当作风险命中；只有搜索结果标题或正文能匹配机构名称，并且结果正文出现风险语义时，才应生成 `riskTags` 和 `evidenceSummaries`。核验结论用于人工复核和公共信用字段建议，不在当前阶段自动改写风控评分或红线判断。
 
 ## 鉴权
 

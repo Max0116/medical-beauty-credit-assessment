@@ -17,6 +17,7 @@
   --surface: #ffffff;
   --green: #188262;
   --green-bg: #eaf8f2;
+  --success: #188262;
   --amber: #a76613;
   --amber-bg: #fff4df;
   --red: #b83243;
@@ -308,7 +309,10 @@ button {
 .switch-row:active,
 .keyword-list button:active,
 .verification-log-header button:active,
-.verification-module button:active {
+.verification-module button:active,
+.verification-apply-button:active,
+.verification-refresh-button:active,
+.evidence-item:active {
   transform: scale(0.98);
 }
 
@@ -319,6 +323,9 @@ button {
 .history-item:focus-visible,
 .verification-log-header button:focus-visible,
 .verification-module button:focus-visible,
+.verification-apply-button:focus-visible,
+.verification-refresh-button:focus-visible,
+.evidence-item:focus-visible,
 .keyword-list button:focus-visible,
 input:focus-visible,
 select:focus-visible,
@@ -397,7 +404,7 @@ textarea:focus-visible {
 .repository-status.failed strong,
 .repository-status.error svg,
 .repository-status.error strong {
-  color: var(--danger);
+  color: var(--red);
 }
 
 .primary-button,
@@ -709,6 +716,8 @@ textarea:focus {
 .approval-box,
 .next-actions,
 .history-panel,
+.credit-verification-panel,
+.verification-result-summary,
 .verification-log-panel,
 .verification-module,
 .keyword-list,
@@ -722,6 +731,141 @@ textarea:focus {
 .approval-box {
   background: var(--amber-bg);
   border-color: rgba(167, 102, 19, 0.2);
+}
+
+.credit-verification-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.credit-verification-panel.stable,
+.verification-result-summary.stable {
+  background: var(--green-bg);
+  border-color: rgba(24, 130, 98, 0.2);
+}
+
+.credit-verification-panel.warning,
+.verification-result-summary.warning {
+  background: var(--amber-bg);
+  border-color: rgba(167, 102, 19, 0.2);
+}
+
+.credit-verification-panel.danger,
+.verification-result-summary.danger {
+  background: var(--red-bg);
+  border-color: rgba(184, 50, 67, 0.2);
+}
+
+.credit-verification-head {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.credit-verification-head div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--purple-700);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.credit-verification-head strong,
+.verification-advice strong,
+.verification-result-summary strong {
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.credit-verification-panel p,
+.verification-result-summary p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.verification-advice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-radius: 14px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.verification-advice span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.verification-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.verification-apply-button,
+.verification-refresh-button {
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  min-height: 44px;
+  color: #fff;
+  background: var(--purple-700);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.verification-refresh-button {
+  color: var(--purple-700);
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.verification-refresh-button:disabled {
+  opacity: 0.5;
+}
+
+.evidence-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.evidence-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-radius: 14px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.7);
+  color: inherit;
+  text-decoration: none;
+}
+
+.evidence-item span {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: var(--amber);
+  background: rgba(255, 244, 223, 0.86);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.evidence-item strong {
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.evidence-item small {
+  color: var(--muted);
+  font-size: 11px;
 }
 
 .approval-box strong,
@@ -847,7 +991,7 @@ textarea:focus {
 }
 
 .verification-status.failed {
-  color: var(--danger);
+  color: var(--red);
 }
 
 .keyword-list {
