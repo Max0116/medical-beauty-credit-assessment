@@ -113,12 +113,12 @@ describe('remote assessment repository wiring', () => {
   it('selects remote mode from Vite environment config', () => {
     expect(getAssessmentRepositoryRuntimeConfig({
       VITE_ASSESSMENT_API_URL: ' https://credit-api.example.com ',
-      VITE_ASSESSMENT_API_KEY: 'secret-token',
+      VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test',
       VITE_ASSESSMENT_API_TIMEOUT_MS: '12000'
     })).toEqual({
       mode: 'remote',
       remoteBaseUrl: 'https://credit-api.example.com',
-      remoteApiKey: 'secret-token',
+      remotePublishableKey: 'sb_publishable_test',
       remoteTimeoutMs: 12000
     });
   });
@@ -150,7 +150,8 @@ describe('remote assessment repository wiring', () => {
     };
     const repository = createRemoteAssessmentRepository({
       baseUrl: 'https://credit-api.example.com/',
-      apiKey: 'secret-token',
+      publishableKey: 'sb_publishable_test',
+      clientInstanceId: 'client-1',
       fetchImpl,
       now: () => new Date('2026-05-19T08:00:00.000Z'),
       id: () => 'remote-record-1'
@@ -174,7 +175,9 @@ describe('remote assessment repository wiring', () => {
       'https://credit-api.example.com/records',
       'https://credit-api.example.com/records'
     ]);
-    expect(calls.every((call) => call.options.headers.Authorization === 'Bearer secret-token')).toBe(true);
+    expect(calls.every((call) => call.options.headers.apikey === 'sb_publishable_test')).toBe(true);
+    expect(calls.every((call) => call.options.headers['x-client-instance-id'] === 'client-1')).toBe(true);
+    expect(calls.every((call) => !call.options.headers.Authorization)).toBe(true);
   });
 });
 

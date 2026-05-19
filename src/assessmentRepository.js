@@ -2,7 +2,8 @@ import { DEFAULT_FORM } from './riskEngine';
 
 export const STORAGE_KEYS = {
   draft: 'medicalBeautyCreditAssessment:lastDraft',
-  history: 'medicalBeautyCreditAssessment:history'
+  history: 'medicalBeautyCreditAssessment:history',
+  clientInstanceId: 'medicalBeautyCreditAssessment:clientInstanceId'
 };
 
 const DEFAULT_MAX_RECORDS = 12;
@@ -47,6 +48,15 @@ const createId = () => {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
+const getDefaultClientInstanceId = (storage = getDefaultStorage()) => {
+  const existingId = storage?.getItem(STORAGE_KEYS.clientInstanceId);
+  if (existingId) return existingId;
+
+  const nextId = createId();
+  storage?.setItem(STORAGE_KEYS.clientInstanceId, nextId);
+  return nextId;
+};
+
 const getDefaultFetch = () => {
   if (typeof globalThis !== 'undefined' && globalThis.fetch) {
     return globalThis.fetch.bind(globalThis);
@@ -73,7 +83,8 @@ const parsePositiveNumber = (value, fallback) => {
 
 const requestJson = async ({
   baseUrl,
-  apiKey = '',
+  publishableKey = '',
+  clientInstanceId = '',
   fetchImpl = getDefaultFetch(),
   timeoutMs = DEFAULT_REMOTE_TIMEOUT_MS,
   path,
@@ -90,7 +101,8 @@ const requestJson = async ({
 
   try {
     const headers = { 'Content-Type': 'application/json' };
-    if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+    if (publishableKey) headers.apikey = publishableKey;
+    if (clientInstanceId) headers['x-client-instance-id'] = clientInstanceId;
 
     const response = await fetchImpl(`${normalizeBaseUrl(baseUrl)}${path}`, {
       method,
@@ -137,13 +149,13 @@ export function createAssessmentRecord({ form, result, now = () => new Date(), i
 
 export function getAssessmentRepositoryRuntimeConfig(env = getViteEnv()) {
   const remoteBaseUrl = normalizeBaseUrl(env.VITE_ASSESSMENT_API_URL || '');
-  const remoteApiKey = String(env.VITE_ASSESSMENT_API_KEY || '').trim();
+  const remotePublishableKey = String(env.VITE_SUPABASE_PUBLISHABLE_KEY || '').trim();
   const remoteTimeoutMs = parsePositiveNumber(env.VITE_ASSESSMENT_API_TIMEOUT_MS, DEFAULT_REMOTE_TIMEOUT_MS);
 
   return {
     mode: remoteBaseUrl ? REPOSITORY_MODES.remote : REPOSITORY_MODES.local,
     remoteBaseUrl,
-    remoteApiKey,
+    remotePublishableKey,
     remoteTimeoutMs
   };
 }
@@ -192,7 +204,8 @@ export function createLocalAssessmentRepository({
 
 export function createRemoteAssessmentRepository({
   baseUrl,
-  apiKey = '',
+  publishableKey = '',
+  clientInstanceId = getDefaultClientInstanceId(),
   fetchImpl,
   timeoutMs = DEFAULT_REMOTE_TIMEOUT_MS,
   now,
@@ -200,7 +213,8 @@ export function createRemoteAssessmentRepository({
 } = {}) {
   const request = (path, options = {}) => requestJson({
     baseUrl,
-    apiKey,
+    publishableKey,
+    clientInstanceId,
     fetchImpl,
     timeoutMs,
     path,
@@ -231,7 +245,7 @@ export function createRemoteAssessmentRepository({
     const record = createAssessmentRecord({ form, result, now, id });
     const payload = await request('/records', {
       method: 'POST',
-      body: { form, result, record }
+      body: { form, result, record, clientInstanceId }
     });
     return unwrapRecord(payload) || record;
   };
@@ -264,7 +278,8 @@ export function createConfiguredAssessmentRepository({
   if (config.mode === REPOSITORY_MODES.remote) {
     return createRemoteAssessmentRepository({
       baseUrl: config.remoteBaseUrl,
-      apiKey: config.remoteApiKey,
+      publishableKey: config.remotePublishableKey,
+      clientInstanceId: getDefaultClientInstanceId(storage),
       timeoutMs: config.remoteTimeoutMs,
       fetchImpl,
       now,

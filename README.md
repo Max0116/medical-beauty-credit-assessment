@@ -69,12 +69,12 @@ PR 检查由 `.github/workflows/ci.yml` 自动执行：
 默认不需要环境变量，系统使用 localStorage。需要接入远端数据库或 API 时，复制 `.env.example` 并配置：
 
 ```bash
-VITE_ASSESSMENT_API_URL=https://your-api.example.com
-VITE_ASSESSMENT_API_KEY=optional-bearer-token
+VITE_ASSESSMENT_API_URL=https://<project-ref>.functions.supabase.co/assessments
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
 VITE_ASSESSMENT_API_TIMEOUT_MS=8000
 ```
 
-配置 `VITE_ASSESSMENT_API_URL` 后，前端会自动切换为远端持久化模式。API 契约见：
+配置 `VITE_ASSESSMENT_API_URL` 后，前端会自动切换为 Supabase Edge Function 远端持久化模式。`VITE_SUPABASE_PUBLISHABLE_KEY` 只能填写 publishable / anon key，不能填写 `service_role` / secret key。API 契约见：
 
 ```text
 docs/remote-persistence-contract.md
@@ -146,4 +146,4 @@ docs/product-roadmap.md
 - `saveRecord`
 - `loadRecord`
 
-下一阶段接数据库时，应优先让后端或数据库函数实现 `docs/remote-persistence-contract.md` 中的 API 契约，避免把 Supabase SDK、SQL 或权限逻辑写进 `App.jsx`。
+下一阶段接数据库时，应优先让 Supabase Edge Function 实现 `docs/remote-persistence-contract.md` 中的 API 契约，避免把 Supabase service role、SQL 或权限逻辑写进 `App.jsx`。
