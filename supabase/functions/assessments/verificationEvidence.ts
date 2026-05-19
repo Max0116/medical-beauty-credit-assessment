@@ -7,6 +7,17 @@ export type VerificationEvidence = {
   snippet: string;
 };
 
+type BusinessProfileCandidate = {
+  value: string;
+  source: string;
+  title: string;
+  url: string;
+};
+
+type BusinessProfile = {
+  creditCodeCandidates: BusinessProfileCandidate[];
+};
+
 export function extractVerificationEvidence(institutionName: string, rawResults: unknown[]): VerificationEvidence[] {
   const seen = new Set<string>();
 
@@ -101,6 +112,7 @@ export function buildVerificationSummary({
   const sourceCount = rawResults.length;
   const evidenceCount = evidence.length;
   const judgment = getVerificationJudgment(status, riskTags, evidenceCount);
+  const businessProfile = extractBusinessProfile(institutionName, rawResults);
 
   return {
     dishonestyHit: riskTags.includes("失信被执行人"),
@@ -121,12 +133,37 @@ export function buildVerificationSummary({
       suggestedPublicCreditStatus: getSuggestedPublicCreditStatus(judgment),
       sourceCount,
       matchedSourceCount: evidenceCount,
+      businessProfile,
       riskTags,
       evidenceSummaries: evidence,
       generatedAt: new Date().toISOString(),
       errorMessage
     }
   };
+}
+
+export function extractBusinessProfile(institutionName: string, rawResults: unknown[]): BusinessProfile {
+  const seenCodes = new Set<string>();
+  const creditCodeCandidates = rawResults
+    .map((item) => normalizeSearchResult(item))
+    .filter((item) => item && isInstitutionMatch(institutionName, `${item.title} ${item.content}`))
+    .flatMap((item) => {
+      const matches = `${item.title} ${item.content}`.match(/[0-9A-Z]{18}/gi) || [];
+      return matches.map((value) => ({
+        value: value.toUpperCase(),
+        source: item.media,
+        title: item.title,
+        url: item.link
+      }));
+    })
+    .filter((item) => {
+      if (seenCodes.has(item.value)) return false;
+      seenCodes.add(item.value);
+      return true;
+    })
+    .slice(0, 3);
+
+  return { creditCodeCandidates };
 }
 
 function getVerificationJudgment(status: string, riskTags: string[], evidenceCount: number) {

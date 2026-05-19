@@ -21,6 +21,22 @@ type AssessmentRecord = {
   result: Record<string, unknown>;
 };
 
+type VerificationReview = {
+  id?: string;
+  recordId: string;
+  verificationLogId: string | null;
+  action: string;
+  reviewerName: string;
+  reviewerDecision: string;
+  previousPublicCreditStatus: string;
+  suggestedPublicCreditStatus: string;
+  evidenceUrl: string;
+  evidenceNote: string;
+  verificationSnapshot: Record<string, unknown>;
+  appliedFields: Record<string, unknown>;
+  createdAt?: string;
+};
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const ASSESSMENT_SECRET_KEYS = safeJson<Record<string, string>>(Deno.env.get("ASSESSMENT_SECRET_KEYS"), {});
 const ASSESSMENT_PUBLISHABLE_KEYS = safeJson<Record<string, string>>(Deno.env.get("ASSESSMENT_PUBLISHABLE_KEYS"), {});
@@ -125,6 +141,10 @@ async function handleRecords(
     return json({ verificationLogs: (data || []).map(mapVerificationLogRow) }, 200, corsHeaders);
   }
 
+  if (recordId && action === "verification-reviews") {
+    return await handleVerificationReviews(request, clientInstanceId, recordId, corsHeaders);
+  }
+
   if (request.method === "GET" && recordId) {
     const { data, error } = await supabase
       .from("assessment_records")
@@ -179,6 +199,42 @@ async function handleRecords(
   return json({ error: "Method not allowed" }, 405, corsHeaders);
 }
 
+async function handleVerificationReviews(
+  request: Request,
+  clientInstanceId: string,
+  recordId: string,
+  corsHeaders: HeadersInit
+) {
+  if (request.method === "GET") {
+    const { data, error } = await supabase
+      .from("verification_reviews")
+      .select("*")
+      .eq("client_instance_id", clientInstanceId)
+      .eq("assessment_record_id", recordId)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (error) throw error;
+    return json({ verificationReviews: (data || []).map(mapVerificationReviewRow) }, 200, corsHeaders);
+  }
+
+  if (request.method === "POST") {
+    const body = await readJson(request);
+    const review = normalizeIncomingVerificationReview(body as Record<string, unknown>, recordId);
+
+    const { data, error } = await supabase
+      .from("verification_reviews")
+      .insert(toVerificationReviewRow(review, clientInstanceId))
+      .select("*")
+      .single();
+
+    if (error) throw error;
+    return json({ verificationReview: mapVerificationReviewRow(data) }, 201, corsHeaders);
+  }
+
+  return json({ error: "Method not allowed" }, 405, corsHeaders);
+}
+
 async function createVerificationLog({
   recordId,
   clientInstanceId,
@@ -224,7 +280,7 @@ async function createVerificationLog({
   const startedAt = new Date().toISOString();
 
   try {
-    const rawResults = await runZhipuSearch(queryKeywords.slice(0, 5), clientInstanceId);
+    const rawResults = await runZhipuSearch(queryKeywords.slice(0, 7), clientInstanceId);
     const evidence = extractVerificationEvidence(institutionName, rawResults);
     const riskTags = [...new Set(evidence.map((item) => item.category))];
     const extractedFlags = buildVerificationSummary({ status: "completed", institutionName, rawResults, riskTags, evidence });
@@ -429,9 +485,94 @@ function mapVerificationLogRow(row: Record<string, unknown>) {
   };
 }
 
+function normalizeIncomingVerificationReview(body: Record<string, unknown>, recordId: string): VerificationReview {
+  const action = String(body.action || "").trim();
+  const reviewerName = String(body.reviewerName || "").trim();
+  const reviewerDecision = String(body.reviewerDecision || "").trim();
+  const verificationLogId = String(body.verificationLogId || "").trim();
+  const previousPublicCreditStatus = String(body.previousPublicCreditStatus || "").trim();
+  const suggestedPublicCreditStatus = String(body.suggestedPublicCreditStatus || "").trim();
+  const evidenceUrl = String(body.evidenceUrl || "").trim();
+  const evidenceNote = String(body.evidenceNote || "").trim();
+  const verificationSnapshot = body.verificationSnapshot && typeof body.verificationSnapshot === "object" && !Array.isArray(body.verificationSnapshot)
+    ? body.verificationSnapshot as Record<string, unknown>
+    : {};
+  const appliedFields = body.appliedFields && typeof body.appliedFields === "object" && !Array.isArray(body.appliedFields)
+    ? body.appliedFields as Record<string, unknown>
+    : {};
+
+  if (!["accept_suggestion", "manual_override", "mark_reviewed"].includes(action)) {
+    throw new Error("Invalid verification review action.");
+  }
+  if (!reviewerName) {
+    throw new Error("reviewerName is required.");
+  }
+  if (!["normal", "unknown", "medium", "serious"].includes(reviewerDecision)) {
+    throw new Error("Invalid reviewerDecision.");
+  }
+  if (verificationLogId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(verificationLogId)) {
+    throw new Error("Invalid verificationLogId.");
+  }
+
+  return {
+    recordId,
+    verificationLogId: verificationLogId || null,
+    action,
+    reviewerName,
+    reviewerDecision,
+    previousPublicCreditStatus,
+    suggestedPublicCreditStatus,
+    evidenceUrl,
+    evidenceNote,
+    verificationSnapshot,
+    appliedFields
+  };
+}
+
+function toVerificationReviewRow(review: VerificationReview, clientInstanceId: string) {
+  return {
+    assessment_record_id: review.recordId,
+    verification_log_id: review.verificationLogId,
+    client_instance_id: clientInstanceId,
+    action: review.action,
+    reviewer_name: review.reviewerName,
+    reviewer_decision: review.reviewerDecision,
+    previous_public_credit_status: review.previousPublicCreditStatus || null,
+    suggested_public_credit_status: review.suggestedPublicCreditStatus || null,
+    evidence_url: review.evidenceUrl || null,
+    evidence_note: review.evidenceNote || null,
+    verification_snapshot: review.verificationSnapshot,
+    applied_fields: review.appliedFields
+  };
+}
+
+function mapVerificationReviewRow(row: Record<string, unknown>) {
+  return {
+    id: String(row.id),
+    recordId: String(row.assessment_record_id || ""),
+    verificationLogId: row.verification_log_id ? String(row.verification_log_id) : "",
+    action: String(row.action || ""),
+    reviewerName: String(row.reviewer_name || ""),
+    reviewerDecision: String(row.reviewer_decision || ""),
+    previousPublicCreditStatus: String(row.previous_public_credit_status || ""),
+    suggestedPublicCreditStatus: String(row.suggested_public_credit_status || ""),
+    evidenceUrl: String(row.evidence_url || ""),
+    evidenceNote: String(row.evidence_note || ""),
+    verificationSnapshot: row.verification_snapshot && typeof row.verification_snapshot === "object"
+      ? row.verification_snapshot
+      : {},
+    appliedFields: row.applied_fields && typeof row.applied_fields === "object"
+      ? row.applied_fields
+      : {},
+    createdAt: String(row.created_at)
+  };
+}
+
 function buildVerificationKeywords(institutionName: string) {
   const name = institutionName.trim() || "机构名称";
   return [
+    `${name} 统一社会信用代码`,
+    `${name} 工商信息`,
     `${name} 行政处罚`,
     `${name} 被执行人`,
     `${name} 失信被执行人`,

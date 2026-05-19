@@ -38,6 +38,8 @@ Supabase Edge Function `assessments` 需要实现以下 JSON API：
 | `POST` | `/records` | 保存评估记录 |
 | `GET` | `/records/:id` | 读取单条评估记录 |
 | `GET` | `/records/:id/verification` | 读取后台联网核验日志 |
+| `GET` | `/records/:id/verification-reviews` | 读取核验人工确认日志 |
+| `POST` | `/records/:id/verification-reviews` | 保存核验人工确认日志 |
 
 ## 请求头
 
@@ -71,6 +73,27 @@ content-type: application/json
   "clientInstanceId": "browser-local-uuid"
 }
 ```
+
+### 保存核验人工确认
+
+```json
+{
+  "action": "accept_suggestion | manual_override | mark_reviewed",
+  "reviewerName": "王经理",
+  "reviewerDecision": "normal | unknown | medium | serious",
+  "previousPublicCreditStatus": "unknown",
+  "suggestedPublicCreditStatus": "normal",
+  "verificationLogId": "uuid",
+  "evidenceUrl": "screenshot://2026-05-20-001 或 https://...",
+  "evidenceNote": "采用系统建议，已保留查询截图。",
+  "verificationSnapshot": {},
+  "appliedFields": {
+    "publicCreditStatus": "normal"
+  }
+}
+```
+
+确认日志用于记录人工采用建议、人工改判或仅复核留痕。它可以记录业务人员主动采用的 `publicCreditStatus`，但不允许后端自动改写评分、红线或授信结论。
 
 `record` 是前端已规范化的记录快照，包含：
 
@@ -134,6 +157,16 @@ content-type: application/json
         "suggestedPublicCreditStatus": "normal | unknown | medium | serious",
         "sourceCount": 0,
         "matchedSourceCount": 0,
+        "businessProfile": {
+          "creditCodeCandidates": [
+            {
+              "value": "91330100MA2B123456",
+              "source": "公开来源",
+              "title": "机构工商信息",
+              "url": "https://..."
+            }
+          ]
+        },
         "riskTags": [],
         "evidenceSummaries": []
       },
@@ -143,7 +176,33 @@ content-type: application/json
 }
 ```
 
+```json
+{
+  "verificationReviews": [
+    {
+      "id": "uuid",
+      "recordId": "record-id",
+      "verificationLogId": "uuid",
+      "action": "accept_suggestion",
+      "reviewerName": "王经理",
+      "reviewerDecision": "normal",
+      "previousPublicCreditStatus": "unknown",
+      "suggestedPublicCreditStatus": "normal",
+      "evidenceUrl": "screenshot://2026-05-20-001",
+      "evidenceNote": "采用系统建议，截图已归档。",
+      "verificationSnapshot": {},
+      "appliedFields": {
+        "publicCreditStatus": "normal"
+      },
+      "createdAt": "2026-05-20T00:00:00.000Z"
+    }
+  ]
+}
+```
+
 `verificationSummary` 是给业务 UI 使用的结构化核验判断。后端必须避免把查询关键词本身当作风险命中；只有搜索结果标题或正文能匹配机构名称，并且结果正文出现风险语义时，才应生成 `riskTags` 和 `evidenceSummaries`。核验结论用于人工复核和公共信用字段建议，不在当前阶段自动改写风控评分或红线判断。
+
+`businessProfile.creditCodeCandidates` 是从公开联网结果中识别到的统一社会信用代码候选，只能作为“候选补全”。前端必须让业务人员点击采用，不能静默覆盖表单字段。正式生产阶段建议改接官方企业信用接口。
 
 ## 鉴权
 

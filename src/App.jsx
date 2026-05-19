@@ -42,6 +42,12 @@ const tabs = [
 
 const formatMoney = (value) => `¥${Math.round(Number(value) || 0).toLocaleString('zh-CN')}`;
 
+const VERIFICATION_REVIEW_ACTION_LABELS = {
+  accept_suggestion: '采用系统建议',
+  manual_override: '人工改判',
+  mark_reviewed: '仅记录复核'
+};
+
 function App() {
   const assessmentRepository = useMemo(() => createConfiguredAssessmentRepository(), []);
   const localFallbackRepository = useMemo(() => createLocalAssessmentRepository(), []);
@@ -55,6 +61,8 @@ function App() {
   const [activeRecordId, setActiveRecordId] = useState('');
   const [verificationLogs, setVerificationLogs] = useState([]);
   const [verificationLogStatus, setVerificationLogStatus] = useState('idle');
+  const [verificationReviews, setVerificationReviews] = useState([]);
+  const [verificationReviewStatus, setVerificationReviewStatus] = useState('idle');
   const [toast, setToast] = useState('');
   const result = useMemo(() => evaluateCredit(form), [form]);
   const activeStepIndex = tabs.findIndex((tab) => tab.id === activeTab);
@@ -158,13 +166,18 @@ function App() {
       }
       setHistory(await assessmentRepository.listRecords());
       setActiveRecordId(savedRecord.id);
+      setVerificationLogStatus(isRemoteMode ? 'loading' : 'unavailable');
+      setVerificationReviews([]);
+      setVerificationReviewStatus(isRemoteMode ? 'idle' : 'unavailable');
       markRepositorySynced(isRemoteMode ? '评估记录已同步' : '评估记录已保存');
       setToast(isRemoteMode ? '已保存，正在自动联网核验' : '已保存当前评估记录');
       setActiveTab(isRemoteMode ? 'verify' : 'result');
       refreshVerificationLogs(savedRecord.id);
+      refreshVerificationReviews(savedRecord.id, { silent: true });
       if (isRemoteMode) {
         window.setTimeout(() => refreshVerificationLogs(savedRecord.id, { silent: true }), 3500);
         window.setTimeout(() => refreshVerificationLogs(savedRecord.id, { silent: true }), 7500);
+        window.setTimeout(() => refreshVerificationLogs(savedRecord.id, { silent: true }), 12000);
       }
     } catch {
       if (isRemoteMode) {
@@ -174,6 +187,8 @@ function App() {
         setActiveRecordId(fallbackRecord.id);
         setVerificationLogs([]);
         setVerificationLogStatus('unavailable');
+        setVerificationReviews([]);
+        setVerificationReviewStatus('unavailable');
         setRepositoryStatus('failed');
         setRepositoryMessage('远端保存失败，本机已保存');
         setToast('远端保存失败，记录已保存在本机');
@@ -195,6 +210,8 @@ function App() {
       setActiveRecordId('');
       setVerificationLogs([]);
       setVerificationLogStatus('idle');
+      setVerificationReviews([]);
+      setVerificationReviewStatus('idle');
       markRepositorySynced(isRemoteMode ? '表单已重置并同步' : '表单已重置');
       setToast('表单已重置为示例状态');
       setActiveTab('basic');
@@ -221,12 +238,15 @@ function App() {
       setToast('已载入历史记录');
       setActiveTab('result');
       refreshVerificationLogs(storedRecord.id);
+      refreshVerificationReviews(storedRecord.id);
     } catch {
       const fallbackRecord = localFallbackRepository.loadRecord(record.id) || record;
       if (fallbackRecord?.form) {
         setForm(fallbackRecord.form);
         setActiveRecordId(fallbackRecord.id);
         setVerificationLogStatus(isRemoteMode ? 'unavailable' : 'idle');
+        setVerificationReviews([]);
+        setVerificationReviewStatus(isRemoteMode ? 'unavailable' : 'idle');
         setToast(isRemoteMode ? '远端载入失败，已载入本机记录' : '已载入本机记录');
         setActiveTab('result');
       } else {
@@ -262,6 +282,59 @@ function App() {
     }
   };
 
+  const refreshVerificationReviews = async (recordId = activeRecordId, options = {}) => {
+    if (!recordId) {
+      setVerificationReviews([]);
+      setVerificationReviewStatus('idle');
+      return;
+    }
+
+    if (!isRemoteMode) {
+      setVerificationReviews([]);
+      setVerificationReviewStatus('unavailable');
+      return;
+    }
+
+    try {
+      if (!options.silent) setVerificationReviewStatus('loading');
+      const reviews = await assessmentRepository.listVerificationReviews(recordId);
+      setVerificationReviews(reviews);
+      setVerificationReviewStatus('ready');
+    } catch {
+      if (!options.silent) {
+        setVerificationReviews([]);
+        setVerificationReviewStatus('error');
+        setToast('确认日志读取失败');
+      }
+    }
+  };
+
+  const saveVerificationReview = async (review) => {
+    if (!activeRecordId) {
+      setToast('请先保存评估记录');
+      return null;
+    }
+
+    if (!isRemoteMode) {
+      setToast('本地模式暂不支持保存确认日志');
+      return null;
+    }
+
+    try {
+      setVerificationReviewStatus('saving');
+      const savedReview = await assessmentRepository.saveVerificationReview(activeRecordId, review);
+      setVerificationReviews((current) => [savedReview, ...current.filter((item) => item.id !== savedReview.id)]);
+      setVerificationReviewStatus('ready');
+      markRepositorySynced('核验确认日志已同步');
+      setToast('已保存核验确认日志');
+      return savedReview;
+    } catch {
+      setVerificationReviewStatus('error');
+      setToast('确认日志保存失败，请稍后重试');
+      return null;
+    }
+  };
+
   const copyKeyword = async (keyword) => {
     try {
       await navigator.clipboard?.writeText(keyword);
@@ -293,6 +366,13 @@ function App() {
         </header>
 
         <ResultCard result={result} statusClass={statusClass} />
+
+        <CurrentInstitutionBar
+          form={form}
+          activeRecordId={activeRecordId}
+          verificationLogStatus={verificationLogStatus}
+          latestVerificationSummary={latestVerificationSummary}
+        />
 
         <nav className="tab-bar" aria-label="评估步骤">
           {tabs.map((tab) => {
@@ -334,7 +414,16 @@ function App() {
 
         <section className="content-panel">
           {activeTab === 'basic' && (
-            <BasicStep form={form} updateField={updateField} result={result} />
+            <BasicStep
+              form={form}
+              updateField={updateField}
+              result={result}
+              activeRecordId={activeRecordId}
+              latestVerificationSummary={latestVerificationSummary}
+              verificationLogStatus={verificationLogStatus}
+              onSaveRecord={saveRecord}
+              isRemoteMode={isRemoteMode}
+            />
           )}
           {activeTab === 'purchase' && (
             <PurchaseStep form={form} updateField={updateField} updatePurchase={updatePurchase} result={result} />
@@ -352,6 +441,10 @@ function App() {
               verificationLogs={verificationLogs}
               verificationLogStatus={verificationLogStatus}
               refreshVerificationLogs={() => refreshVerificationLogs()}
+              verificationReviews={verificationReviews}
+              verificationReviewStatus={verificationReviewStatus}
+              refreshVerificationReviews={() => refreshVerificationReviews()}
+              saveVerificationReview={saveVerificationReview}
               isRemoteMode={isRemoteMode}
             />
           )}
@@ -458,6 +551,28 @@ function ResultCard({ result, statusClass }) {
   );
 }
 
+function CurrentInstitutionBar({ form, activeRecordId, verificationLogStatus, latestVerificationSummary }) {
+  const institutionName = form.institutionName?.trim() || '未填写机构名称';
+  const progress = getVerificationProgress({ activeRecordId, status: verificationLogStatus, summary: latestVerificationSummary });
+  const statusLabel = getVerificationStatusLabel({ activeRecordId, status: verificationLogStatus, summary: latestVerificationSummary });
+
+  return (
+    <section className="current-institution-bar" aria-live="polite">
+      <div>
+        <span>当前机构</span>
+        <strong>{institutionName}</strong>
+        {form.creditCode && <small>统一社会信用代码 {form.creditCode}</small>}
+      </div>
+      <div className="verification-mini-status">
+        <span>{statusLabel}</span>
+        <i>
+          <b style={{ width: `${progress}%` }} />
+        </i>
+      </div>
+    </section>
+  );
+}
+
 function Metric({ label, value }) {
   return (
     <div className="metric">
@@ -467,9 +582,29 @@ function Metric({ label, value }) {
   );
 }
 
-function BasicStep({ form, updateField, result }) {
+function BasicStep({
+  form,
+  updateField,
+  result,
+  activeRecordId,
+  latestVerificationSummary,
+  verificationLogStatus,
+  onSaveRecord,
+  isRemoteMode
+}) {
   const termOverLimit = result.requestedTerm > result.maxTermDays && result.finalGrade !== 'E';
   const limitOverAverage = result.requestedLimit > result.stableMonthlyAverage && result.finalGrade !== 'E';
+  const creditCodeCandidates = getCreditCodeCandidates(latestVerificationSummary);
+  const verificationProgress = getVerificationProgress({
+    activeRecordId,
+    status: verificationLogStatus,
+    summary: latestVerificationSummary
+  });
+  const verificationStatusLabel = getVerificationStatusLabel({
+    activeRecordId,
+    status: verificationLogStatus,
+    summary: latestVerificationSummary
+  });
 
   return (
     <div className="step-stack">
@@ -480,7 +615,23 @@ function BasicStep({ form, updateField, result }) {
         onChange={(value) => updateField('institutionName', value)}
         placeholder="例如：杭州星澜医疗美容诊所"
       />
+      <div className="basic-verification-launch">
+        <div>
+          <strong>{isRemoteMode ? '保存并启动后台核验' : '保存当前评估'}</strong>
+          <span>{isRemoteMode ? verificationStatusLabel : '本地模式不会发起联网核验'}</span>
+          <i><b style={{ width: `${verificationProgress}%` }} /></i>
+        </div>
+        <button type="button" onClick={onSaveRecord} disabled={!form.institutionName.trim()}>
+          <Save size={15} />
+          保存并核验
+        </button>
+      </div>
       <TextField label="统一社会信用代码" value={form.creditCode} onChange={(value) => updateField('creditCode', value)} placeholder="可暂不填写" />
+      <CreditCodeSuggestions
+        candidates={creditCodeCandidates}
+        hasActiveRecord={Boolean(activeRecordId)}
+        onApply={(value) => updateField('creditCode', value)}
+      />
       <SelectField
         label="经营 / 合作阶段"
         value={form.businessStage}
@@ -532,6 +683,33 @@ function BasicStep({ form, updateField, result }) {
       <TextAreaField label="备注" value={form.notes} onChange={(value) => updateField('notes', value)} placeholder="可记录业务背景、客户口径、需人工确认事项" />
 
       <TagStrip items={[result.purchaseHealthTip, result.paymentTip, result.creditTip]} />
+    </div>
+  );
+}
+
+function CreditCodeSuggestions({ candidates, hasActiveRecord, onApply }) {
+  if (!hasActiveRecord) {
+    return <FieldAlert tone="warning" text="填写机构名称后点击“保存并核验”，系统会尝试从公开联网结果中识别统一社会信用代码候选。" />;
+  }
+
+  if (!candidates.length) {
+    return <FieldAlert tone="warning" text="暂未识别到可信统一社会信用代码候选，可继续人工填写或等待后续接入官方企业信用接口。" />;
+  }
+
+  return (
+    <div className="credit-code-suggestions">
+      <span className="field-label">联网识别候选</span>
+      {candidates.map((candidate) => (
+        <div className="credit-code-candidate" key={`${candidate.value}-${candidate.url || candidate.title}`}>
+          <div>
+            <strong>{candidate.value}</strong>
+            <small>{[candidate.source, candidate.title].filter(Boolean).join(' · ') || '公开来源'}</small>
+          </div>
+          <button type="button" onClick={() => onApply(candidate.value)}>
+            采用
+          </button>
+        </div>
+      ))}
     </div>
   );
 }
@@ -603,9 +781,14 @@ function VerifyStep({
   verificationLogs,
   verificationLogStatus,
   refreshVerificationLogs,
+  verificationReviews,
+  verificationReviewStatus,
+  refreshVerificationReviews,
+  saveVerificationReview,
   isRemoteMode
 }) {
   const latestSummary = getVerificationSummary(verificationLogs[0]);
+  const latestLog = verificationLogs[0];
 
   return (
     <div className="step-stack">
@@ -617,6 +800,18 @@ function VerifyStep({
         status={verificationLogStatus}
         onRefresh={refreshVerificationLogs}
         isRemoteMode={isRemoteMode}
+        updateField={updateField}
+      />
+      <VerificationReviewPanel
+        activeRecordId={activeRecordId}
+        summary={latestSummary}
+        latestLog={latestLog}
+        reviews={verificationReviews}
+        status={verificationReviewStatus}
+        onRefresh={refreshVerificationReviews}
+        onSave={saveVerificationReview}
+        isRemoteMode={isRemoteMode}
+        form={form}
         updateField={updateField}
       />
       <SelectField
@@ -667,6 +862,7 @@ function CreditVerificationPanel({ activeRecordId, summary, logs, status, onRefr
   const suggestedStatus = summary?.suggestedPublicCreditStatus;
   const suggestedStatusLabel = suggestedStatus ? PUBLIC_CREDIT_LABELS[suggestedStatus] : '';
   const canApplySuggestion = suggestedStatus && suggestedStatus !== 'unknown';
+  const creditCodeCandidates = getCreditCodeCandidates(summary);
 
   const headline = !isRemoteMode
     ? '当前为本地模式，未发起联网核验'
@@ -708,6 +904,22 @@ function CreditVerificationPanel({ activeRecordId, summary, logs, status, onRefr
           按建议标记为「{suggestedStatusLabel}」
         </button>
       )}
+      {creditCodeCandidates.length > 0 && (
+        <div className="credit-code-suggestions compact">
+          <span className="field-label">识别到统一社会信用代码候选</span>
+          {creditCodeCandidates.map((candidate) => (
+            <div className="credit-code-candidate" key={`${candidate.value}-${candidate.url || candidate.title}`}>
+              <div>
+                <strong>{candidate.value}</strong>
+                <small>{candidate.source || '公开来源'}</small>
+              </div>
+              <button type="button" onClick={() => updateField('creditCode', candidate.value)}>
+                采用
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       <button className="verification-refresh-button" type="button" onClick={onRefresh} disabled={!isRemoteMode || !activeRecordId || status === 'loading'}>
         刷新核验结果
       </button>
@@ -720,6 +932,151 @@ function CreditVerificationPanel({ activeRecordId, summary, logs, status, onRefr
               <small>{[item.source, item.publishDate].filter(Boolean).join(' · ') || '来源待确认'}</small>
               {item.snippet && <p>{item.snippet}</p>}
             </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VerificationReviewPanel({
+  activeRecordId,
+  summary,
+  latestLog,
+  reviews,
+  status,
+  onRefresh,
+  onSave,
+  isRemoteMode,
+  form,
+  updateField
+}) {
+  const suggestedStatus = summary?.suggestedPublicCreditStatus || 'unknown';
+  const initialAction = suggestedStatus !== 'unknown' ? 'accept_suggestion' : 'mark_reviewed';
+  const [action, setAction] = useState(initialAction);
+  const [reviewerName, setReviewerName] = useState('');
+  const [reviewerDecision, setReviewerDecision] = useState(suggestedStatus !== 'unknown' ? suggestedStatus : form.publicCreditStatus);
+  const [evidenceUrl, setEvidenceUrl] = useState('');
+  const [evidenceNote, setEvidenceNote] = useState('');
+  const [formError, setFormError] = useState('');
+
+  useEffect(() => {
+    if (suggestedStatus !== 'unknown' && !reviews.length && action === 'mark_reviewed') {
+      setAction('accept_suggestion');
+    }
+    if (action === 'accept_suggestion' && suggestedStatus !== 'unknown') {
+      setReviewerDecision(suggestedStatus);
+    }
+  }, [action, reviews.length, suggestedStatus]);
+
+  const isSaving = status === 'saving';
+  const canSave = isRemoteMode && activeRecordId && !isSaving;
+  const latestReview = reviews[0];
+
+  const handleSave = async () => {
+    const trimmedReviewer = reviewerName.trim();
+    if (!trimmedReviewer) {
+      setFormError('请填写复核人。');
+      return;
+    }
+    if (!reviewerDecision) {
+      setFormError('请选择确认后的公共信用状态。');
+      return;
+    }
+
+    setFormError('');
+    const appliedFields = reviewerDecision !== form.publicCreditStatus
+      ? { publicCreditStatus: reviewerDecision }
+      : {};
+    const savedReview = await onSave({
+      action,
+      reviewerName: trimmedReviewer,
+      reviewerDecision,
+      previousPublicCreditStatus: form.publicCreditStatus,
+      suggestedPublicCreditStatus: suggestedStatus,
+      verificationLogId: latestLog?.id || '',
+      evidenceUrl,
+      evidenceNote,
+      verificationSnapshot: summary || {},
+      appliedFields
+    });
+
+    if (!savedReview) return;
+    if (appliedFields.publicCreditStatus) {
+      updateField('publicCreditStatus', appliedFields.publicCreditStatus);
+    }
+    setEvidenceUrl('');
+    setEvidenceNote('');
+  };
+
+  const panelText = !isRemoteMode
+    ? '本地模式不保存远端确认日志。'
+    : !activeRecordId
+      ? '保存评估记录后，可对联网核验结果做人工确认。'
+      : latestReview
+        ? `最近确认：${VERIFICATION_REVIEW_ACTION_LABELS[latestReview.action] || latestReview.action} · ${latestReview.reviewerName || '未填写复核人'}`
+        : '暂无人工确认记录。';
+
+  return (
+    <div className="verification-review-panel">
+      <div className="verification-log-header">
+        <div>
+          <ClipboardCheck size={17} />
+          <strong>核验人工确认</strong>
+        </div>
+        <button type="button" onClick={onRefresh} disabled={!isRemoteMode || !activeRecordId || status === 'loading'}>
+          刷新
+        </button>
+      </div>
+      <p>{panelText}</p>
+      <SelectField
+        label="确认动作"
+        value={action}
+        onChange={(value) => setAction(value)}
+        options={VERIFICATION_REVIEW_ACTION_LABELS}
+      />
+      <div className="split-row">
+        <TextField
+          label="复核人"
+          value={reviewerName}
+          onChange={setReviewerName}
+          placeholder="例如：王经理"
+        />
+        <SelectField
+          label="确认后公共信用"
+          value={reviewerDecision}
+          onChange={setReviewerDecision}
+          options={PUBLIC_CREDIT_LABELS}
+        />
+      </div>
+      <TextField
+        label="证据链接 / 截图编号"
+        value={evidenceUrl}
+        onChange={setEvidenceUrl}
+        placeholder="可填截图编号或 https://..."
+      />
+      <TextAreaField
+        label="复核说明"
+        value={evidenceNote}
+        onChange={setEvidenceNote}
+        placeholder="记录采用建议、人工改判理由、截图位置或审批备注"
+      />
+      {formError && <FieldAlert tone="warning" text={formError} />}
+      <button className="verification-apply-button" type="button" onClick={handleSave} disabled={!canSave}>
+        {isSaving ? '正在保存确认日志' : '保存确认日志'}
+      </button>
+      {reviews.length > 0 && (
+        <div className="verification-review-list">
+          {reviews.slice(0, 4).map((review) => (
+            <div className="verification-review-item" key={review.id}>
+              <div>
+                <strong>{VERIFICATION_REVIEW_ACTION_LABELS[review.action] || review.action}</strong>
+                <span>{PUBLIC_CREDIT_LABELS[review.reviewerDecision] || review.reviewerDecision}</span>
+              </div>
+              <small>{review.reviewerName} · {new Date(review.createdAt).toLocaleString('zh-CN', { hour12: false })}</small>
+              {review.evidenceUrl && <small>{review.evidenceUrl}</small>}
+              {review.evidenceNote && <p>{review.evidenceNote}</p>}
+            </div>
           ))}
         </div>
       )}
@@ -875,10 +1232,36 @@ function getVerificationSummary(log) {
   return log?.verificationSummary || log?.extractedFlags?.verificationSummary || null;
 }
 
+function getCreditCodeCandidates(summary) {
+  const candidates = summary?.businessProfile?.creditCodeCandidates;
+  return Array.isArray(candidates) ? candidates : [];
+}
+
 function VerificationLogSummaryText({ log }) {
   const summary = getVerificationSummary(log);
   if (!summary?.judgmentLabel) return null;
   return <small>{summary.judgmentLabel}：{summary.conclusion}</small>;
+}
+
+function getVerificationProgress({ activeRecordId, status, summary }) {
+  if (!activeRecordId) return 0;
+  if (summary?.status === 'completed') return 100;
+  if (summary?.status === 'failed' || summary?.status === 'skipped') return 100;
+  if (summary?.status === 'pending') return 35;
+  if (status === 'loading') return 65;
+  if (status === 'ready') return 80;
+  if (status === 'error') return 100;
+  return 45;
+}
+
+function getVerificationStatusLabel({ activeRecordId, status, summary }) {
+  if (!activeRecordId) return '待保存，未发起核验';
+  if (status === 'loading') return '正在读取核验结果';
+  if (summary?.judgmentLabel) return summary.judgmentLabel;
+  if (summary?.status === 'pending') return '后台核验排队中';
+  if (summary?.status === 'failed') return '核验失败，需人工复核';
+  if (status === 'error') return '核验状态读取失败';
+  return '后台核验进行中';
 }
 
 function getVerificationTone(riskLevel, status) {
