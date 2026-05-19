@@ -74,6 +74,12 @@ const normalizeRemoteList = (payload) => {
   return [];
 };
 
+const normalizeVerificationReviews = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.verificationReviews)) return payload.verificationReviews;
+  return [];
+};
+
 const unwrapRecord = (payload) => payload?.record || payload || null;
 
 const parsePositiveNumber = (value, fallback) => {
@@ -205,6 +211,10 @@ export function createLocalAssessmentRepository({
   };
 
   const listVerificationLogs = () => [];
+  const listVerificationReviews = () => [];
+  const saveVerificationReview = () => {
+    throw new Error('本地模式暂不支持保存核验确认记录。');
+  };
 
   return {
     mode: REPOSITORY_MODES.local,
@@ -215,7 +225,9 @@ export function createLocalAssessmentRepository({
     saveRecord,
     saveRecordSnapshot,
     loadRecord,
-    listVerificationLogs
+    listVerificationLogs,
+    listVerificationReviews,
+    saveVerificationReview
   };
 }
 
@@ -278,6 +290,20 @@ export function createRemoteAssessmentRepository({
     return Array.isArray(payload?.verificationLogs) ? payload.verificationLogs : [];
   };
 
+  const listVerificationReviews = async (recordId) => {
+    if (!recordId) return [];
+    return normalizeVerificationReviews(await request(`/records/${encodeURIComponent(recordId)}/verification-reviews`));
+  };
+
+  const saveVerificationReview = async (recordId, review) => {
+    if (!recordId) throw new Error('保存确认记录需要先保存评估记录。');
+    const payload = await request(`/records/${encodeURIComponent(recordId)}/verification-reviews`, {
+      method: 'POST',
+      body: review
+    });
+    return payload?.verificationReview || payload || null;
+  };
+
   return {
     mode: REPOSITORY_MODES.remote,
     loadDraft,
@@ -286,7 +312,9 @@ export function createRemoteAssessmentRepository({
     listRecords,
     saveRecord,
     loadRecord,
-    listVerificationLogs
+    listVerificationLogs,
+    listVerificationReviews,
+    saveVerificationReview
   };
 }
 

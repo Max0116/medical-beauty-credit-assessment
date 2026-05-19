@@ -25,6 +25,7 @@
 - 核验页可查看智谱联网核验的结构化判断、建议、风险证据和原始来源链接。
 - 结果页可查看后台联网核验状态：`pending` / `completed` / `failed` 等。
 - 后台核验只把“机构名称匹配 + 搜索结果正文命中风险语义”识别为风险证据，避免把查询关键词本身误判为风险。
+- 核验页支持人工确认闭环：采用系统建议、人工改判、记录证据链接/截图编号、复核人和确认时间。
 - 规则单元测试覆盖关键验收项。
 
 ## 当前限制
@@ -163,6 +164,7 @@ PR4 开始提供 Supabase 落地文件：
 - `assessment_records`：保存评估记录快照。
 - `assessment_drafts`：保存浏览器实例的最近草稿。
 - `verification_logs`：保存后台联网核验日志。
+- `verification_reviews`：保存核验人工确认、采用建议、人工改判和证据说明。
 - `assessments` Edge Function：提供 `/draft`、`/records`、`/records/:id` API。
 
 需要在 Supabase Function Secrets 中配置：

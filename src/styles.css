@@ -719,6 +719,7 @@ textarea:focus {
 .credit-verification-panel,
 .verification-result-summary,
 .verification-log-panel,
+.verification-review-panel,
 .verification-module,
 .keyword-list,
 .risk-list {
@@ -830,6 +831,11 @@ textarea:focus {
   opacity: 0.5;
 }
 
+.verification-apply-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .evidence-list {
   display: flex;
   flex-direction: column;
@@ -881,6 +887,7 @@ textarea:focus {
 .approval-box > span,
 .verification-module span,
 .verification-log-panel p,
+.verification-review-panel p,
 .next-actions p,
 .empty-text {
   display: block;
@@ -948,13 +955,15 @@ textarea:focus {
   flex: 0 0 auto;
 }
 
-.verification-log-list {
+.verification-log-list,
+.verification-review-list {
   display: flex;
   flex-direction: column;
   gap: 9px;
 }
 
-.verification-log-item {
+.verification-log-item,
+.verification-review-item {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -963,17 +972,32 @@ textarea:focus {
   padding: 11px;
 }
 
-.verification-log-item > div:first-child {
+.verification-log-item > div:first-child,
+.verification-review-item > div:first-child {
   display: flex;
   justify-content: space-between;
   gap: 8px;
 }
 
 .verification-log-item span,
-.verification-log-item small {
+.verification-log-item small,
+.verification-review-item span,
+.verification-review-item small {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.35;
+}
+
+.verification-review-item strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.verification-review-item p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .verification-status {

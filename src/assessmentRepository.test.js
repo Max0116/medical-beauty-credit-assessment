@@ -158,6 +158,26 @@ describe('remote assessment repository wiring', () => {
           ]
         });
       }
+      if (url.endsWith('/records/remote-record-1/verification-reviews') && options.method === 'POST') {
+        return createJsonResponse({
+          verificationReview: {
+            id: 'review-1',
+            ...JSON.parse(options.body)
+          }
+        }, 201);
+      }
+      if (url.endsWith('/records/remote-record-1/verification-reviews')) {
+        return createJsonResponse({
+          verificationReviews: [
+            {
+              id: 'review-1',
+              action: 'accept_suggestion',
+              reviewerName: '张三',
+              reviewerDecision: 'normal'
+            }
+          ]
+        });
+      }
       return createJsonResponse(null, 204);
     };
     const repository = createRemoteAssessmentRepository({
@@ -175,6 +195,12 @@ describe('remote assessment repository wiring', () => {
     const record = await repository.saveRecord({ form, result });
     const records = await repository.listRecords();
     const verificationLogs = await repository.listVerificationLogs(record.id);
+    const savedReview = await repository.saveVerificationReview(record.id, {
+      action: 'accept_suggestion',
+      reviewerName: '张三',
+      reviewerDecision: 'normal'
+    });
+    const verificationReviews = await repository.listVerificationReviews(record.id);
 
     expect(record).toMatchObject({
       id: 'remote-record-1',
@@ -191,11 +217,27 @@ describe('remote assessment repository wiring', () => {
         rawResultCount: 2
       }
     ]);
+    expect(savedReview).toMatchObject({
+      id: 'review-1',
+      action: 'accept_suggestion',
+      reviewerName: '张三',
+      reviewerDecision: 'normal'
+    });
+    expect(verificationReviews).toEqual([
+      {
+        id: 'review-1',
+        action: 'accept_suggestion',
+        reviewerName: '张三',
+        reviewerDecision: 'normal'
+      }
+    ]);
     expect(calls.map((call) => call.url)).toEqual([
       'https://credit-api.example.com/draft',
       'https://credit-api.example.com/records',
       'https://credit-api.example.com/records',
-      'https://credit-api.example.com/records/remote-record-1/verification'
+      'https://credit-api.example.com/records/remote-record-1/verification',
+      'https://credit-api.example.com/records/remote-record-1/verification-reviews',
+      'https://credit-api.example.com/records/remote-record-1/verification-reviews'
     ]);
     expect(calls.every((call) => call.options.headers.apikey === 'sb_publishable_test')).toBe(true);
     expect(calls.every((call) => call.options.headers['x-client-instance-id'] === 'client-1')).toBe(true);
