@@ -21,9 +21,10 @@ type AssessmentRecord = {
 };
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
-const SUPABASE_SECRET_KEYS = safeJson<Record<string, string>>(Deno.env.get("SUPABASE_SECRET_KEYS"), {});
-const SUPABASE_PUBLISHABLE_KEYS = safeJson<Record<string, string>>(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS"), {});
-const SERVICE_ROLE_KEY = SUPABASE_SECRET_KEYS.default || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const ASSESSMENT_SECRET_KEYS = safeJson<Record<string, string>>(Deno.env.get("ASSESSMENT_SECRET_KEYS"), {});
+const ASSESSMENT_PUBLISHABLE_KEYS = safeJson<Record<string, string>>(Deno.env.get("ASSESSMENT_PUBLISHABLE_KEYS"), {});
+const ASSESSMENT_SERVICE_ROLE_KEY = Deno.env.get("ASSESSMENT_SERVICE_ROLE_KEY") || ASSESSMENT_SECRET_KEYS.default || "";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ASSESSMENT_SERVICE_ROLE_KEY;
 const LEGACY_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const ZHIPUAI_API_KEY = Deno.env.get("ZHIPUAI_API_KEY") || "";
 const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") || "")
@@ -58,7 +59,8 @@ Deno.serve(async (request) => {
 
     return json({ error: "Not found" }, 404, corsHeaders);
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "Unknown error" }, 400, corsHeaders);
+    console.error("assessment function failed", error);
+    return json({ error: formatErrorMessage(error) }, 400, corsHeaders);
   }
 });
 
@@ -280,7 +282,7 @@ function validateRequest(request: Request, origin: string) {
   }
 
   const apiKey = request.headers.get("apikey") || "";
-  const allowedKeys = new Set([...Object.values(SUPABASE_PUBLISHABLE_KEYS), LEGACY_ANON_KEY].filter(Boolean));
+  const allowedKeys = new Set([...Object.values(ASSESSMENT_PUBLISHABLE_KEYS), LEGACY_ANON_KEY].filter(Boolean));
   if (allowedKeys.size && !allowedKeys.has(apiKey)) {
     throw new Error("Invalid apikey header.");
   }
@@ -431,6 +433,19 @@ function safeJson<T>(value: string | undefined, fallback: T): T {
     return JSON.parse(value) as T;
   } catch {
     return fallback;
+  }
+}
+
+function formatErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) {
+    return String((error as { message?: unknown }).message || "Unknown error");
+  }
+  if (typeof error === "string") return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return "Unknown error";
   }
 }
 

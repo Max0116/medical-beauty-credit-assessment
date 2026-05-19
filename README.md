@@ -165,6 +165,9 @@ PR4 开始提供 Supabase 落地文件：
 ```bash
 ZHIPUAI_API_KEY=你的智谱 API Key
 ALLOWED_ORIGINS=https://max0116.github.io,http://localhost:5173,http://localhost:5174
+ASSESSMENT_PUBLISHABLE_KEYS={"default":"sb_publishable_xxx"}
+ASSESSMENT_SERVICE_ROLE_KEY=service_role_jwt_xxx
+ASSESSMENT_SECRET_KEYS={"default":"sb_secret_xxx"}
 ```
 
 本地前端 `.env` 只放 publishable / anon key，不放 service role：
