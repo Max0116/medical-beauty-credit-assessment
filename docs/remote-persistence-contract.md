@@ -7,7 +7,7 @@ PR3 引入的是前端数据访问层到 Supabase 远端持久化的适配边界
 ## 环境变量
 
 ```bash
-VITE_ASSESSMENT_API_URL=https://<project-ref>.functions.supabase.co/assessments
+VITE_ASSESSMENT_API_URL=https://<project-ref>.supabase.co/functions/v1/assessments
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
 VITE_ASSESSMENT_API_TIMEOUT_MS=8000
 ```

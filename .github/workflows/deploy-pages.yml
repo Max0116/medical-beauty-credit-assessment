@@ -38,7 +38,12 @@ jobs:
         run: npm test
 
       - name: Build
-        run: GITHUB_PAGES=true npm run build
+        env:
+          GITHUB_PAGES: true
+          VITE_ASSESSMENT_API_URL: ${{ vars.VITE_ASSESSMENT_API_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_ASSESSMENT_API_TIMEOUT_MS: ${{ vars.VITE_ASSESSMENT_API_TIMEOUT_MS }}
+        run: npm run build
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

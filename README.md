@@ -69,7 +69,7 @@ PR 检查由 `.github/workflows/ci.yml` 自动执行：
 默认不需要环境变量，系统使用 localStorage。需要接入远端数据库或 API 时，复制 `.env.example` 并配置：
 
 ```bash
-VITE_ASSESSMENT_API_URL=https://<project-ref>.functions.supabase.co/assessments
+VITE_ASSESSMENT_API_URL=https://<project-ref>.supabase.co/functions/v1/assessments
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
 VITE_ASSESSMENT_API_TIMEOUT_MS=8000
 ```
@@ -88,7 +88,7 @@ docs/remote-persistence-contract.md
 
 1. 推送到 `main` 分支。
 2. GitHub Actions 执行 `.github/workflows/deploy-pages.yml`。
-3. Actions 内执行 `npm ci`、`npm test`、`GITHUB_PAGES=true npm run build`。
+3. Actions 内执行 `npm ci`、`npm test`、`npm run build`，并从 GitHub Actions Variables 注入 `VITE_ASSESSMENT_API_URL`、`VITE_SUPABASE_PUBLISHABLE_KEY`、`VITE_ASSESSMENT_API_TIMEOUT_MS`。
 4. 将 `dist` 发布到 GitHub Pages。
 
 计划线上地址：
@@ -173,6 +173,6 @@ ASSESSMENT_SECRET_KEYS={"default":"sb_secret_xxx"}
 本地前端 `.env` 只放 publishable / anon key，不放 service role：
 
 ```bash
-VITE_ASSESSMENT_API_URL=https://<project-ref>.functions.supabase.co/assessments
+VITE_ASSESSMENT_API_URL=https://<project-ref>.supabase.co/functions/v1/assessments
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
 ```
