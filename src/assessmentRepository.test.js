@@ -188,6 +188,16 @@ describe('remote assessment repository wiring', () => {
           ]
         });
       }
+      if (url.endsWith('/records/remote-record-1/verification-attachments') && options.method === 'POST') {
+        return createJsonResponse({
+          attachment: {
+            id: 'attachment-1',
+            fileName: 'evidence.png',
+            path: 'client-1/remote-record-1/attachment-1-evidence.png',
+            signedUrl: 'https://storage.example.com/signed'
+          }
+        }, 201);
+      }
       return createJsonResponse(null, 204);
     };
     const repository = createRemoteAssessmentRepository({
@@ -212,6 +222,7 @@ describe('remote assessment repository wiring', () => {
       reviewerDecision: 'normal'
     });
     const verificationReviews = await repository.listVerificationReviews(record.id);
+    const uploadedAttachment = await repository.uploadEvidenceAttachment(record.id, new File(['demo'], 'evidence.png', { type: 'image/png' }));
 
     expect(record).toMatchObject({
       id: 'remote-record-1',
@@ -246,6 +257,11 @@ describe('remote assessment repository wiring', () => {
         reviewerDecision: 'normal'
       }
     ]);
+    expect(uploadedAttachment).toMatchObject({
+      id: 'attachment-1',
+      fileName: 'evidence.png',
+      signedUrl: 'https://storage.example.com/signed'
+    });
     expect(calls.map((call) => call.url)).toEqual([
       'https://credit-api.example.com/draft',
       'https://credit-api.example.com/records',
@@ -253,11 +269,14 @@ describe('remote assessment repository wiring', () => {
       'https://credit-api.example.com/records/remote-record-1/verification',
       'https://credit-api.example.com/records/remote-record-1/verification',
       'https://credit-api.example.com/records/remote-record-1/verification-reviews',
-      'https://credit-api.example.com/records/remote-record-1/verification-reviews'
+      'https://credit-api.example.com/records/remote-record-1/verification-reviews',
+      'https://credit-api.example.com/records/remote-record-1/verification-attachments'
     ]);
     expect(calls.every((call) => call.options.headers.apikey === 'sb_publishable_test')).toBe(true);
     expect(calls.every((call) => call.options.headers['x-client-instance-id'] === 'client-1')).toBe(true);
     expect(calls.every((call) => !call.options.headers.Authorization)).toBe(true);
+    expect(calls.at(-1).options.headers['Content-Type']).toBeUndefined();
+    expect(calls.at(-1).options.body).toBeInstanceOf(FormData);
   });
 });
 

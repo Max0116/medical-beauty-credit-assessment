@@ -33,9 +33,21 @@ type VerificationReview = {
   suggestedPublicCreditStatus: string;
   evidenceUrl: string;
   evidenceNote: string;
+  evidenceAttachments: EvidenceAttachment[];
   verificationSnapshot: Record<string, unknown>;
   appliedFields: Record<string, unknown>;
   createdAt?: string;
+};
+
+type EvidenceAttachment = {
+  id: string;
+  bucket: string;
+  path: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  uploadedAt: string;
+  signedUrl?: string;
 };
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -45,6 +57,16 @@ const ASSESSMENT_SERVICE_ROLE_KEY = Deno.env.get("ASSESSMENT_SERVICE_ROLE_KEY") 
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ASSESSMENT_SERVICE_ROLE_KEY;
 const LEGACY_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const ZHIPUAI_API_KEY = Deno.env.get("ZHIPUAI_API_KEY") || "";
+const EVIDENCE_BUCKET = "verification-evidence";
+const EVIDENCE_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
+const EVIDENCE_ATTACHMENT_SIGNED_URL_SECONDS = 60 * 60 * 24 * 7;
+const EVIDENCE_ATTACHMENT_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "application/pdf"
+]);
 const OFFICIAL_REGISTRY_CONFIG = createOfficialRegistryConfig({
   endpoint: Deno.env.get("OFFICIAL_REGISTRY_API_URL") || "",
   apiKey: Deno.env.get("OFFICIAL_REGISTRY_API_KEY") || "",
@@ -142,6 +164,10 @@ async function handleRecords(
 
   if (recordId && action === "verification-reviews") {
     return await handleVerificationReviews(request, clientInstanceId, recordId, corsHeaders);
+  }
+
+  if (recordId && action === "verification-attachments") {
+    return await handleVerificationAttachmentUpload(request, clientInstanceId, recordId, corsHeaders);
   }
 
   if (request.method === "GET" && recordId) {
@@ -277,12 +303,13 @@ async function handleVerificationReviews(
       .limit(20);
 
     if (error) throw error;
-    return json({ verificationReviews: (data || []).map(mapVerificationReviewRow) }, 200, corsHeaders);
+    const reviews = await Promise.all((data || []).map(mapVerificationReviewRow));
+    return json({ verificationReviews: reviews }, 200, corsHeaders);
   }
 
   if (request.method === "POST") {
     const body = await readJson(request);
-    const review = normalizeIncomingVerificationReview(body as Record<string, unknown>, recordId);
+    const review = normalizeIncomingVerificationReview(body as Record<string, unknown>, recordId, clientInstanceId);
 
     const { data, error } = await supabase
       .from("verification_reviews")
@@ -291,10 +318,76 @@ async function handleVerificationReviews(
       .single();
 
     if (error) throw error;
-    return json({ verificationReview: mapVerificationReviewRow(data) }, 201, corsHeaders);
+    return json({ verificationReview: await mapVerificationReviewRow(data) }, 201, corsHeaders);
   }
 
   return json({ error: "Method not allowed" }, 405, corsHeaders);
+}
+
+async function handleVerificationAttachmentUpload(
+  request: Request,
+  clientInstanceId: string,
+  recordId: string,
+  corsHeaders: HeadersInit
+) {
+  if (request.method !== "POST") {
+    return json({ error: "Method not allowed" }, 405, corsHeaders);
+  }
+
+  const { data: record, error: recordError } = await supabase
+    .from("assessment_records")
+    .select("id")
+    .eq("client_instance_id", clientInstanceId)
+    .eq("id", recordId)
+    .maybeSingle();
+
+  if (recordError) throw recordError;
+  if (!record) return json({ error: "Assessment record not found." }, 404, corsHeaders);
+
+  const formData = await request.formData();
+  const file = formData.get("file");
+  if (!(file instanceof File)) {
+    throw new Error("file is required.");
+  }
+  if (file.size <= 0) {
+    throw new Error("file must not be empty.");
+  }
+  if (file.size > EVIDENCE_ATTACHMENT_MAX_BYTES) {
+    throw new Error("file must be 10MB or smaller.");
+  }
+  if (!EVIDENCE_ATTACHMENT_MIME_TYPES.has(file.type)) {
+    throw new Error("file type is not supported.");
+  }
+
+  const attachmentId = crypto.randomUUID();
+  const safeName = sanitizeFileName(file.name || "evidence");
+  const path = [
+    sanitizeStorageSegment(clientInstanceId),
+    sanitizeStorageSegment(recordId),
+    `${attachmentId}-${safeName}`
+  ].join("/");
+  const { error: uploadError } = await supabase
+    .storage
+    .from(EVIDENCE_BUCKET)
+    .upload(path, file, {
+      cacheControl: "3600",
+      contentType: file.type,
+      upsert: false
+    });
+
+  if (uploadError) throw uploadError;
+
+  const attachment = await signEvidenceAttachment({
+    id: attachmentId,
+    bucket: EVIDENCE_BUCKET,
+    path,
+    fileName: file.name || safeName,
+    mimeType: file.type,
+    size: file.size,
+    uploadedAt: new Date().toISOString()
+  });
+
+  return json({ attachment }, 201, corsHeaders);
 }
 
 async function createVerificationLog({
@@ -587,7 +680,7 @@ function mapVerificationLogRow(row: Record<string, unknown>) {
   };
 }
 
-function normalizeIncomingVerificationReview(body: Record<string, unknown>, recordId: string): VerificationReview {
+function normalizeIncomingVerificationReview(body: Record<string, unknown>, recordId: string, clientInstanceId: string): VerificationReview {
   const action = String(body.action || "").trim();
   const reviewerName = String(body.reviewerName || "").trim();
   const reviewerDecision = String(body.reviewerDecision || "").trim();
@@ -596,6 +689,7 @@ function normalizeIncomingVerificationReview(body: Record<string, unknown>, reco
   const suggestedPublicCreditStatus = String(body.suggestedPublicCreditStatus || "").trim();
   const evidenceUrl = String(body.evidenceUrl || "").trim();
   const evidenceNote = String(body.evidenceNote || "").trim();
+  const evidenceAttachments = normalizeEvidenceAttachments(body.evidenceAttachments, clientInstanceId, recordId);
   const verificationSnapshot = body.verificationSnapshot && typeof body.verificationSnapshot === "object" && !Array.isArray(body.verificationSnapshot)
     ? body.verificationSnapshot as Record<string, unknown>
     : {};
@@ -626,12 +720,18 @@ function normalizeIncomingVerificationReview(body: Record<string, unknown>, reco
     suggestedPublicCreditStatus,
     evidenceUrl,
     evidenceNote,
+    evidenceAttachments,
     verificationSnapshot,
     appliedFields
   };
 }
 
 function toVerificationReviewRow(review: VerificationReview, clientInstanceId: string) {
+  const verificationSnapshot = {
+    ...review.verificationSnapshot,
+    evidenceAttachments: review.evidenceAttachments
+  };
+
   return {
     assessment_record_id: review.recordId,
     verification_log_id: review.verificationLogId,
@@ -643,12 +743,17 @@ function toVerificationReviewRow(review: VerificationReview, clientInstanceId: s
     suggested_public_credit_status: review.suggestedPublicCreditStatus || null,
     evidence_url: review.evidenceUrl || null,
     evidence_note: review.evidenceNote || null,
-    verification_snapshot: review.verificationSnapshot,
+    verification_snapshot: verificationSnapshot,
     applied_fields: review.appliedFields
   };
 }
 
-function mapVerificationReviewRow(row: Record<string, unknown>) {
+async function mapVerificationReviewRow(row: Record<string, unknown>) {
+  const verificationSnapshot = row.verification_snapshot && typeof row.verification_snapshot === "object"
+    ? row.verification_snapshot as Record<string, unknown>
+    : {};
+  const evidenceAttachments = row.evidence_attachments ?? verificationSnapshot.evidenceAttachments;
+
   return {
     id: String(row.id),
     recordId: String(row.assessment_record_id || ""),
@@ -660,14 +765,64 @@ function mapVerificationReviewRow(row: Record<string, unknown>) {
     suggestedPublicCreditStatus: String(row.suggested_public_credit_status || ""),
     evidenceUrl: String(row.evidence_url || ""),
     evidenceNote: String(row.evidence_note || ""),
-    verificationSnapshot: row.verification_snapshot && typeof row.verification_snapshot === "object"
-      ? row.verification_snapshot
-      : {},
+    evidenceAttachments: await signEvidenceAttachments(evidenceAttachments),
+    verificationSnapshot,
     appliedFields: row.applied_fields && typeof row.applied_fields === "object"
       ? row.applied_fields
       : {},
     createdAt: String(row.created_at)
   };
+}
+
+function normalizeEvidenceAttachments(value: unknown, clientInstanceId: unknown, recordId: string): EvidenceAttachment[] {
+  if (!Array.isArray(value)) return [];
+  const prefix = `${sanitizeStorageSegment(String(clientInstanceId || ""))}/${sanitizeStorageSegment(recordId)}/`;
+
+  return value
+    .filter((item) => item && typeof item === "object" && !Array.isArray(item))
+    .map((item) => item as Record<string, unknown>)
+    .map((item) => ({
+      id: String(item.id || "").trim(),
+      bucket: String(item.bucket || "").trim(),
+      path: String(item.path || "").trim(),
+      fileName: String(item.fileName || "").trim(),
+      mimeType: String(item.mimeType || "").trim(),
+      size: Number(item.size || 0),
+      uploadedAt: String(item.uploadedAt || "").trim()
+    }))
+    .filter((item) => item.bucket === EVIDENCE_BUCKET && item.path.startsWith(prefix) && item.fileName)
+    .slice(0, 6);
+}
+
+async function signEvidenceAttachments(value: unknown): Promise<EvidenceAttachment[]> {
+  if (!Array.isArray(value)) return [];
+  const attachments = value
+    .filter((item) => item && typeof item === "object" && !Array.isArray(item))
+    .map((item) => item as EvidenceAttachment)
+    .filter((item) => item.bucket === EVIDENCE_BUCKET && item.path);
+
+  return await Promise.all(attachments.map(signEvidenceAttachment));
+}
+
+async function signEvidenceAttachment(attachment: EvidenceAttachment): Promise<EvidenceAttachment> {
+  const { data, error } = await supabase
+    .storage
+    .from(attachment.bucket)
+    .createSignedUrl(attachment.path, EVIDENCE_ATTACHMENT_SIGNED_URL_SECONDS);
+
+  return {
+    ...attachment,
+    signedUrl: error ? "" : data?.signedUrl || ""
+  };
+}
+
+function sanitizeFileName(value: string) {
+  const normalized = value.normalize("NFKD").replace(/[^\w.\-]+/g, "_").replace(/^_+|_+$/g, "");
+  return normalized.slice(0, 120) || "evidence";
+}
+
+function sanitizeStorageSegment(value: string) {
+  return value.replace(/[^a-zA-Z0-9._:-]+/g, "_").slice(0, 128) || "unknown";
 }
 
 function buildVerificationKeywords(institutionName: string) {
