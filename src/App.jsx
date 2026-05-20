@@ -9,6 +9,7 @@ import {
   CloudOff,
   Copy,
   Database,
+  ExternalLink,
   FileText,
   History,
   RotateCcw,
@@ -927,7 +928,7 @@ function VerificationWorkbenchHeader({ activeRecordId, summary, latestLog, statu
       </div>
       <div className="verification-meta-grid">
         <Metric label="核验方式" value="轻量搜索" />
-        <Metric label="核验范围" value="7 个关键词" />
+        <Metric label="核验范围" value="公开网页 / 7 词" />
         <Metric label="最近核验" value={latestAt ? formatDateTime(latestAt) : '未生成'} />
         <Metric label="确认日志" value={`${reviewCount} 条`} />
       </div>
@@ -995,6 +996,7 @@ function CreditVerificationPanel({ activeRecordId, form, result, summary, logs, 
       )}
       {summary?.riskTags?.length > 0 && <TagStrip items={summary.riskTags} tone="warning" />}
       {canApplySuggestion && <FieldAlert tone="warning" text={`当前建议为“${suggestedStatusLabel}”，需通过人工确认日志采用，不会自动改写风控输入。`} />}
+      {summary?.evidenceInsight && <EvidenceInsightPanel insight={summary.evidenceInsight} />}
       {creditCodeCandidates.length > 0 && (
         <div className="credit-code-suggestions compact">
           <span className="field-label">官方企业信用代码候选</span>
@@ -1028,15 +1030,72 @@ function CreditVerificationPanel({ activeRecordId, form, result, summary, logs, 
       {summary?.evidenceSummaries?.length > 0 && (
         <div className="evidence-list">
           {summary.evidenceSummaries.slice(0, 4).map((item) => (
-            <a className="evidence-item" href={item.url || '#'} target="_blank" rel="noreferrer" key={`${item.category}-${item.url || item.title}`}>
-              <span>{item.category}</span>
+            <article className="evidence-item" key={`${item.category}-${item.url || item.title}`}>
+              <div className="evidence-card-header">
+                <span>{item.category}</span>
+                {item.url ? (
+                  <a className="evidence-source-button" href={item.url} target="_blank" rel="noreferrer">
+                    <ExternalLink size={13} />
+                    打开原文
+                  </a>
+                ) : (
+                  <small className="evidence-source-button disabled">无原文链接</small>
+                )}
+              </div>
               <strong>{item.title || '未命名来源'}</strong>
-              <small>{[item.source, item.publishDate].filter(Boolean).join(' · ') || '来源待确认'}</small>
-              {item.snippet && <p>{item.snippet}</p>}
-            </a>
+              <small className="evidence-meta">{[item.source, item.sourceHost, item.publishDate].filter(Boolean).join(' · ') || '来源待确认'}</small>
+              {item.riskSignal && <p className="evidence-signal">{item.riskSignal}</p>}
+              {item.snippet && <p className="evidence-snippet">{item.snippet}</p>}
+            </article>
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function EvidenceInsightPanel({ insight }) {
+  const keyFindings = Array.isArray(insight?.keyFindings) ? insight.keyFindings : [];
+  const riskQuestions = Array.isArray(insight?.riskQuestions) ? insight.riskQuestions : [];
+  const verificationFocus = Array.isArray(insight?.verificationFocus) ? insight.verificationFocus : [];
+
+  return (
+    <div className="evidence-insight-panel">
+      <div className="evidence-insight-head">
+        <div>
+          <Sparkles size={16} />
+          <strong>AI 线索摘要</strong>
+        </div>
+        <span>仅基于检索证据</span>
+      </div>
+      {insight?.overview && <p>{insight.overview}</p>}
+      {keyFindings.length > 0 && (
+        <div className="evidence-insight-section">
+          <span>关键发现</span>
+          {keyFindings.map((item) => (
+            <small key={item}>{item}</small>
+          ))}
+        </div>
+      )}
+      <div className="evidence-insight-grid">
+        {riskQuestions.length > 0 && (
+          <div>
+            <span>人工复核问题</span>
+            {riskQuestions.map((item) => (
+              <small key={item}>{item}</small>
+            ))}
+          </div>
+        )}
+        {verificationFocus.length > 0 && (
+          <div>
+            <span>核验重点</span>
+            {verificationFocus.map((item) => (
+              <small key={item}>{item}</small>
+            ))}
+          </div>
+        )}
+      </div>
+      {insight?.sourceConfidence && <em>{insight.sourceConfidence}</em>}
     </div>
   );
 }
@@ -1099,7 +1158,7 @@ function VerificationKeywordPanel({ result, copyKeyword }) {
       <div>
         <Database size={17} />
         <strong>查询关键词</strong>
-        <span>默认使用智谱轻量搜索查询 7 个风险关键词。</span>
+        <span>默认使用智谱轻量搜索查询风险关键词，作为人工复核线索。</span>
       </div>
       <button type="button" onClick={() => copyKeyword(result.queryKeywords.join('\n'))}>
         复制全部

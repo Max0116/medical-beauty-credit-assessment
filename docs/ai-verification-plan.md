@@ -21,8 +21,8 @@
 - 保存评估记录时自动创建核验日志。
 - 如果 Supabase Edge Function 配置了 `ZHIPUAI_API_KEY`，保存记录后通过 `EdgeRuntime.waitUntil` 触发后台智谱 Web Search。
 - 如果没有配置智谱 API Key，核验日志保持 `pending`，后续可人工或定时任务补跑。
-- 后台会把智谱搜索结果整理为 `verificationSummary`，包括 `judgment`、`judgmentLabel`、`riskLevel`、`conclusion`、`recommendation`、`suggestedPublicCreditStatus` 和 `evidenceSummaries`。
-- 核验页以轻量联网核验工作台呈现：核验总状态、进度、最近核验时间、搜索结果数、匹配证据数、风险标签、证据链接和系统建议。
+- 后台会把智谱搜索结果整理为 `verificationSummary`，包括 `judgment`、`judgmentLabel`、`riskLevel`、`conclusion`、`recommendation`、`suggestedPublicCreditStatus`、`evidenceInsight` 和 `evidenceSummaries`。
+- 核验页以轻量联网核验工作台呈现：核验总状态、进度、最近核验时间、搜索结果数、匹配证据数、AI 线索摘要、风险标签、证据链接、原始报道入口和系统建议。
 - 公共信用状态建议不再提供直接改写按钮；业务人员必须在“核验人工确认”中采用系统建议、人工改判或仅复核留痕，保存后才映射回风控输入字段。
 - 核验页支持人工确认闭环：记录采用系统建议、人工改判或仅复核留痕，保存复核人、确认后的公共信用状态、证据链接 / 截图编号、复核说明、核验快照和时间戳。
 - 基础页在填写机构名称后提供“保存并核验”快捷动作；保存后全局顶部展示当前机构、核验状态和进度条。
@@ -65,6 +65,13 @@ Content-Type: application/json
 
 官方响应中的 `search_result` 包含标题、摘要、链接、媒体名称和发布时间，适合保存为核验原始证据。
 
+当检索到匹配机构名称的风险线索时，Edge Function 会再调用智谱 Chat Completions 生成 `evidenceInsight`。摘要必须遵守：
+
+- 只基于已提取的证据卡片生成，不补充未给出的事实。
+- 明确提示“线索不是结论”，需要人工点开原文复核。
+- 输出关键发现、复核问题、核验重点和来源可信度提示。
+- 如果 AI 摘要失败，后端使用规则兜底摘要，不影响核验日志落库。
+
 ## 查询关键词
 
 沿用前端当前生成规则：
@@ -81,7 +88,7 @@ Content-Type: application/json
 
 ## 轻量核验与深度核验
 
-短期主路径是智谱 `search_std`：每个机构默认查询 7 个风险关键词，适合原型验证和早期业务使用。
+短期主路径是智谱 `search_std`：每个机构默认查询 7 个风险关键词，并通过后台限制调用范围，适合原型验证和早期业务使用。
 
 授权工商 API 只作为深度核验能力预留，不阻塞当前核验流程。PR10 起，页面只在以下场景提示“建议启用授权工商深度核验”：
 

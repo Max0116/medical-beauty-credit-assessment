@@ -4,9 +4,19 @@ export type VerificationEvidence = {
   category: string;
   title: string;
   source: string;
+  sourceHost: string;
   publishDate: string;
   url: string;
   snippet: string;
+  riskSignal: string;
+};
+
+export type EvidenceInsight = {
+  overview: string;
+  keyFindings: string[];
+  riskQuestions: string[];
+  verificationFocus: string[];
+  sourceConfidence: string;
 };
 
 type BusinessProfileCandidate = {
@@ -40,9 +50,11 @@ export function extractVerificationEvidence(institutionName: string, rawResults:
         category,
         title: item.title,
         source: item.media,
+        sourceHost: getHostName(item.link),
         publishDate: item.publishDate,
         url: item.link,
-        snippet: item.content.slice(0, 160)
+        snippet: item.content.slice(0, 260),
+        riskSignal: buildRiskSignal(category, `${item.title} ${item.content}`)
       }));
     })
     .filter((item) => {
@@ -73,6 +85,29 @@ function normalizeSearchResult(item: unknown) {
 
 function stripHtml(value: string) {
   return value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+}
+
+function getHostName(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch (_error) {
+    return "";
+  }
+}
+
+function buildRiskSignal(category: string, text: string) {
+  const normalized = stripHtml(text);
+  const keywordGroups = {
+    "失信被执行人": ["失信被执行人", "列入失信", "纳入失信"],
+    "严重违法失信": ["严重违法失信", "严重违法"],
+    "被执行人": ["被执行人", "执行标的", "执行法院", "执行案件"],
+    "行政处罚": ["行政处罚", "处罚决定", "罚款", "警告", "没收违法所得"],
+    "医美处罚": ["医疗美容处罚", "医美处罚", "医疗广告违法", "医疗机构校验", "诊疗活动违法"],
+    "非法行医": ["非法行医", "未取得医疗机构执业许可证", "无证行医", "超范围开展诊疗"],
+    "经营异常": ["经营异常", "列入经营异常", "移出经营异常"]
+  } as Record<string, string[]>;
+  const matched = (keywordGroups[category] || []).find((keyword) => normalized.includes(keyword));
+  return matched ? `原文命中“${matched}”相关表述` : `原文出现“${category}”相关风险语义`;
 }
 
 function isInstitutionMatch(institutionName: string, text: string) {
@@ -111,6 +146,7 @@ export function buildVerificationSummary({
   riskTags,
   evidence,
   officialRegistry,
+  evidenceInsight,
   errorMessage = ""
 }: {
   status: string;
@@ -119,6 +155,7 @@ export function buildVerificationSummary({
   riskTags: string[];
   evidence: VerificationEvidence[];
   officialRegistry?: OfficialRegistryResult;
+  evidenceInsight?: EvidenceInsight;
   errorMessage?: string;
 }) {
   const sourceCount = rawResults.length;
@@ -147,10 +184,39 @@ export function buildVerificationSummary({
       matchedSourceCount: evidenceCount,
       businessProfile,
       riskTags,
+      evidenceInsight: evidenceInsight || (evidenceCount ? buildFallbackEvidenceInsight(institutionName, riskTags, evidence) : null),
       evidenceSummaries: evidence,
       generatedAt: new Date().toISOString(),
       errorMessage
     }
+  };
+}
+
+export function buildFallbackEvidenceInsight(
+  institutionName: string,
+  riskTags: string[],
+  evidence: VerificationEvidence[]
+): EvidenceInsight {
+  const uniqueTags = [...new Set(riskTags)];
+  const sourceNames = [...new Set(evidence.map((item) => item.sourceHost || item.source).filter(Boolean))].slice(0, 3);
+  const topEvidence = evidence.slice(0, 3);
+
+  return {
+    overview: uniqueTags.length
+      ? `已发现与“${institutionName || "该机构"}”名称匹配的公共风险线索，主要集中在${uniqueTags.join("、")}。以下内容仅为联网公开信息线索，需人工点开原文复核。`
+      : `已完成联网核验，当前未形成明确风险分类；建议保留来源记录并人工抽查关键页面。`,
+    keyFindings: topEvidence.map((item) => `${item.category}：${item.title || item.snippet || "待核验来源"}`).slice(0, 4),
+    riskQuestions: uniqueTags.length
+      ? uniqueTags.slice(0, 4).map((tag) => `原文中的“${tag}”是否确认指向本机构主体、同一信用代码或同一经营地址？`)
+      : ["搜索结果是否存在同名机构、旧名称或分支机构混淆？"],
+    verificationFocus: [
+      "逐条打开原始报道或公示页面，确认主体名称、时间、处罚/执行状态。",
+      "核对统一社会信用代码、注册地址、诊疗许可主体是否一致。",
+      "将可采信页面链接或截图写入人工确认日志。"
+    ],
+    sourceConfidence: sourceNames.length
+      ? `已提取 ${evidence.length} 条线索，来源包含 ${sourceNames.join("、")}；仍需人工复核原文。`
+      : `已提取 ${evidence.length} 条线索，但来源可信度需人工判断。`
   };
 }
 

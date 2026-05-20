@@ -1,7 +1,13 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "@supabase/supabase-js";
 import { createOfficialRegistryConfig, queryOfficialRegistry } from "./officialRegistry.ts";
-import { buildVerificationSummary, extractVerificationEvidence } from "./verificationEvidence.ts";
+import {
+  buildFallbackEvidenceInsight,
+  buildVerificationSummary,
+  extractVerificationEvidence,
+  type EvidenceInsight,
+  type VerificationEvidence
+} from "./verificationEvidence.ts";
 
 type AssessmentRecord = {
   id: string;
@@ -57,6 +63,7 @@ const ASSESSMENT_SERVICE_ROLE_KEY = Deno.env.get("ASSESSMENT_SERVICE_ROLE_KEY") 
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ASSESSMENT_SERVICE_ROLE_KEY;
 const LEGACY_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const ZHIPUAI_API_KEY = Deno.env.get("ZHIPUAI_API_KEY") || "";
+const ZHIPUAI_SUMMARY_MODEL = Deno.env.get("ZHIPUAI_SUMMARY_MODEL") || "glm-4-flash";
 const EVIDENCE_BUCKET = "verification-evidence";
 const EVIDENCE_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
 const EVIDENCE_ATTACHMENT_SIGNED_URL_SECONDS = 60 * 60 * 24 * 7;
@@ -459,7 +466,18 @@ async function createVerificationLog({
     const rawResults = await runZhipuSearch(queryKeywords.slice(0, 7), clientInstanceId);
     const evidence = extractVerificationEvidence(institutionName, rawResults);
     const riskTags = [...new Set(evidence.map((item) => item.category))];
-    const extractedFlags = buildVerificationSummary({ status: "completed", institutionName, rawResults, riskTags, evidence, officialRegistry });
+    const evidenceInsight = evidence.length
+      ? await summarizeEvidenceWithAi({ institutionName, evidence, riskTags, clientInstanceId })
+      : undefined;
+    const extractedFlags = buildVerificationSummary({
+      status: "completed",
+      institutionName,
+      rawResults,
+      riskTags,
+      evidence,
+      officialRegistry,
+      evidenceInsight
+    });
 
     await insertVerificationLog(recordId, clientInstanceId, queryKeywords, "completed", rawResults, extractedFlags, riskTags, startedAt, undefined, existingLogId);
   } catch (error) {
@@ -511,6 +529,115 @@ async function runZhipuSearch(queryKeywords: unknown[], clientInstanceId: string
   }));
 
   return searches.flatMap((search) => (search.results as unknown[]).map((result) => ({ keyword: search.keyword, result })));
+}
+
+async function summarizeEvidenceWithAi({
+  institutionName,
+  evidence,
+  riskTags,
+  clientInstanceId
+}: {
+  institutionName: string;
+  evidence: VerificationEvidence[];
+  riskTags: string[];
+  clientInstanceId: string;
+}): Promise<EvidenceInsight> {
+  try {
+    const response = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${ZHIPUAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: ZHIPUAI_SUMMARY_MODEL,
+        messages: [
+          {
+            role: "system",
+            content: [
+              "你是医美机构授信核验助手。",
+              "只能基于用户提供的联网搜索证据做摘要，不得补充未给出的事实。",
+              "不要把线索写成已确认结论，必须提示人工打开原文复核。",
+              "只输出 JSON，不要 Markdown。"
+            ].join("")
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              institutionName,
+              riskTags,
+              evidence: evidence.slice(0, 8).map((item) => ({
+                category: item.category,
+                title: item.title,
+                source: item.source,
+                sourceHost: item.sourceHost,
+                publishDate: item.publishDate,
+                url: item.url,
+                snippet: item.snippet,
+                riskSignal: item.riskSignal
+              })),
+              outputSchema: {
+                overview: "一句话总结线索整体情况，明确这是线索不是结论",
+                keyFindings: ["3-5 条关键发现，每条都引用类别或来源"],
+                riskQuestions: ["2-4 条人工复核问题"],
+                verificationFocus: ["2-4 条下一步核验重点"],
+                sourceConfidence: "对来源数量、来源类型、是否需要原文复核的说明"
+              }
+            })
+          }
+        ],
+        temperature: 0.2,
+        user_id: clientInstanceId.slice(0, 128)
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Zhipu summary failed with status ${response.status}`);
+    }
+
+    const payload = await response.json();
+    const content = String(payload?.choices?.[0]?.message?.content || "");
+    return normalizeEvidenceInsight(parseJsonContent(content));
+  } catch (error) {
+    console.error("evidence summary fallback used", error);
+    return buildFallbackEvidenceInsight(institutionName, riskTags, evidence);
+  }
+}
+
+function parseJsonContent(content: string) {
+  const trimmed = content.trim();
+  if (!trimmed) throw new Error("empty evidence insight response");
+
+  try {
+    return JSON.parse(trimmed);
+  } catch (_error) {
+    const match = trimmed.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("evidence insight response is not JSON");
+    return JSON.parse(match[0]);
+  }
+}
+
+function normalizeEvidenceInsight(value: unknown): EvidenceInsight {
+  const objectValue = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  return {
+    overview: clipText(String(objectValue.overview || "已提取联网线索，请人工打开原文复核。"), 180),
+    keyFindings: normalizeTextList(objectValue.keyFindings, 5),
+    riskQuestions: normalizeTextList(objectValue.riskQuestions, 4),
+    verificationFocus: normalizeTextList(objectValue.verificationFocus, 4),
+    sourceConfidence: clipText(String(objectValue.sourceConfidence || "来源可信度需人工结合原文判断。"), 180)
+  };
+}
+
+function normalizeTextList(value: unknown, limit: number) {
+  const source = Array.isArray(value) ? value : [value];
+  return source
+    .map((item) => clipText(String(item || "").trim(), 120))
+    .filter(Boolean)
+    .slice(0, limit);
+}
+
+function clipText(value: string, maxLength: number) {
+  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}...` : value;
 }
 
 async function insertVerificationLog(

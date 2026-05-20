@@ -214,7 +214,25 @@ content-type: application/json
           ]
         },
         "riskTags": [],
-        "evidenceSummaries": []
+        "evidenceInsight": {
+          "overview": "AI 对联网线索的整体摘要，明确仅为线索不是结论。",
+          "keyFindings": ["关键发现 1"],
+          "riskQuestions": ["需要人工复核的问题 1"],
+          "verificationFocus": ["下一步核验重点 1"],
+          "sourceConfidence": "来源数量、类型和可信度提示。"
+        },
+        "evidenceSummaries": [
+          {
+            "category": "行政处罚",
+            "title": "原始报道或公示标题",
+            "source": "媒体或公示来源",
+            "sourceHost": "example.com",
+            "publishDate": "2026-05-19",
+            "url": "https://...",
+            "snippet": "搜索结果原始摘要，供人工复核前快速判断。",
+            "riskSignal": "原文命中“行政处罚”相关表述"
+          }
+        ]
       },
       "createdAt": "2026-05-19T00:00:00.000Z"
     }
@@ -274,7 +292,7 @@ content-type: application/json
 }
 ```
 
-`verificationSummary` 是给业务 UI 使用的结构化核验判断。后端必须避免把查询关键词本身当作风险命中；只有搜索结果标题或正文能匹配机构名称，并且结果正文出现风险语义时，才应生成 `riskTags` 和 `evidenceSummaries`。核验结论用于人工复核和公共信用字段建议，不在当前阶段自动改写风控评分或红线判断。
+`verificationSummary` 是给业务 UI 使用的结构化核验判断。后端必须避免把查询关键词本身当作风险命中；只有搜索结果标题或正文能匹配机构名称，并且结果正文出现风险语义时，才应生成 `riskTags` 和 `evidenceSummaries`。`evidenceInsight` 是 AI 基于已提取证据生成的线索摘要和复核问题，只能辅助人工阅读，不能替代原文核验。核验结论用于人工复核和公共信用字段建议，不在当前阶段自动改写风控评分或红线判断。
 
 `businessProfile.creditCodeCandidates` 来自服务端官方 / 授权企业信用接口，只能作为“候选补全”。前端必须让业务人员点击采用，不能静默覆盖表单字段。未配置 `OFFICIAL_REGISTRY_API_URL` 时，`registryStatus` 为 `unconfigured`，不得再从智谱搜索摘要中猜测统一社会信用代码。
 
