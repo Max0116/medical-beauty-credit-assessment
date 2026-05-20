@@ -977,6 +977,7 @@ textarea:focus {
 }
 
 .approval-box,
+.approval-report-panel,
 .next-actions,
 .history-panel,
 .verification-workbench,
@@ -997,6 +998,213 @@ textarea:focus {
 .approval-box {
   background: var(--amber-bg);
   border-color: rgba(167, 102, 19, 0.2);
+}
+
+.approval-report-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 245, 255, 0.9));
+}
+
+.approval-report-panel.final {
+  border-color: rgba(24, 130, 98, 0.18);
+  background: linear-gradient(180deg, rgba(244, 252, 248, 0.95), rgba(255, 255, 255, 0.9));
+}
+
+.approval-report-panel.draft {
+  border-color: rgba(167, 102, 19, 0.18);
+}
+
+.approval-report-head,
+.approval-report-actions,
+.approval-report-status-row,
+.approval-report-evidence a,
+.approval-report-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.approval-report-head {
+  justify-content: space-between;
+}
+
+.approval-report-head > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.approval-report-head svg,
+.approval-report-link svg,
+.approval-report-evidence svg {
+  flex: 0 0 auto;
+  color: var(--purple-700);
+}
+
+.approval-report-head strong {
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.approval-report-head > span {
+  flex: 0 0 auto;
+  padding: 6px 9px;
+  border-radius: 999px;
+  color: var(--purple-700);
+  background: var(--purple-50);
+  border: 1px solid var(--purple-100);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.approval-report-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--line);
+}
+
+.approval-report-hero span,
+.approval-report-section > small,
+.approval-report-evidence small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.approval-report-hero strong {
+  display: block;
+  margin: 4px 0 3px;
+  color: var(--ink);
+  font-size: 19px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.approval-report-hero small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.approval-report-hero b {
+  display: grid;
+  place-items: center;
+  min-width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  color: #fff;
+  background: linear-gradient(135deg, #8a66d9, #6d4db9);
+  font-size: 24px;
+  line-height: 1;
+  box-shadow: 0 10px 22px rgba(110, 75, 185, 0.22);
+}
+
+.approval-report-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.approval-report-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.approval-report-section p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.approval-report-status-row {
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.approval-report-status-row span {
+  max-width: 100%;
+  padding: 7px 9px;
+  border-radius: 999px;
+  color: var(--purple-700);
+  background: rgba(244, 239, 253, 0.92);
+  border: 1px solid var(--purple-100);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.approval-report-link,
+.approval-report-evidence a {
+  width: fit-content;
+  max-width: 100%;
+  color: var(--purple-700);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.35;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.approval-report-evidence-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.approval-report-evidence {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  padding: 11px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid var(--line);
+}
+
+.approval-report-evidence > span {
+  width: fit-content;
+  max-width: 100%;
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: #7c4b12;
+  background: rgba(255, 244, 223, 0.9);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.approval-report-evidence strong {
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.approval-report-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  padding-top: 3px;
 }
 
 .verification-workbench {
