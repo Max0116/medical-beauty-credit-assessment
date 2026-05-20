@@ -38,6 +38,7 @@ Supabase Edge Function `assessments` 需要实现以下 JSON API：
 | `POST` | `/records` | 保存评估记录 |
 | `GET` | `/records/:id` | 读取单条评估记录 |
 | `GET` | `/records/:id/verification` | 读取后台联网核验日志 |
+| `POST` | `/records/:id/verification` | 手动重新发起后台联网核验 |
 | `GET` | `/records/:id/verification-reviews` | 读取核验人工确认日志 |
 | `POST` | `/records/:id/verification-reviews` | 保存核验人工确认日志 |
 | `POST` | `/records/:id/verification-attachments` | 上传核验证据截图 / PDF |
@@ -218,6 +219,22 @@ content-type: application/json
       "createdAt": "2026-05-19T00:00:00.000Z"
     }
   ]
+}
+```
+
+`POST /records/:id/verification` 会立即返回一条 `pending` 核验日志，并在后台复用该日志更新为 `completed`、`failed` 或 `skipped`：
+
+```json
+{
+  "verificationLog": {
+    "id": "uuid",
+    "recordId": "record-id",
+    "provider": "zhipu_web_search",
+    "status": "pending",
+    "queryKeywords": [],
+    "riskTags": [],
+    "rawResultCount": 0
+  }
 }
 ```
 

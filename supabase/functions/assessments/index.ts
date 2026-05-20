@@ -158,17 +158,8 @@ async function handleRecords(
   corsHeaders: HeadersInit,
   action: string | null
 ) {
-  if (request.method === "GET" && recordId && action === "verification") {
-    const { data, error } = await supabase
-      .from("verification_logs")
-      .select("*")
-      .eq("client_instance_id", clientInstanceId)
-      .eq("assessment_record_id", recordId)
-      .order("created_at", { ascending: false })
-      .limit(6);
-
-    if (error) throw error;
-    return json({ verificationLogs: (data || []).map(mapVerificationLogRow) }, 200, corsHeaders);
+  if (recordId && action === "verification") {
+    return await handleVerificationLogs(request, clientInstanceId, recordId, corsHeaders);
   }
 
   if (recordId && action === "verification-reviews") {
@@ -228,6 +219,69 @@ async function handleRecords(
     runInBackground(verificationTask);
 
     return json({ record: mapRecordRow(data) }, 201, corsHeaders);
+  }
+
+  return json({ error: "Method not allowed" }, 405, corsHeaders);
+}
+
+async function handleVerificationLogs(
+  request: Request,
+  clientInstanceId: string,
+  recordId: string,
+  corsHeaders: HeadersInit
+) {
+  if (request.method === "GET") {
+    const { data, error } = await supabase
+      .from("verification_logs")
+      .select("*")
+      .eq("client_instance_id", clientInstanceId)
+      .eq("assessment_record_id", recordId)
+      .order("created_at", { ascending: false })
+      .limit(6);
+
+    if (error) throw error;
+    return json({ verificationLogs: (data || []).map(mapVerificationLogRow) }, 200, corsHeaders);
+  }
+
+  if (request.method === "POST") {
+    const { data: record, error } = await supabase
+      .from("assessment_records")
+      .select("id, form_snapshot, result_snapshot")
+      .eq("client_instance_id", clientInstanceId)
+      .eq("id", recordId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!record) return json({ error: "Assessment record not found." }, 404, corsHeaders);
+
+    const form = asObject(record.form_snapshot);
+    const result = asObject(record.result_snapshot);
+    const institutionName = String(form.institutionName || "").trim();
+    const queryKeywords = Array.isArray(result.queryKeywords)
+      ? result.queryKeywords
+      : buildVerificationKeywords(institutionName);
+    const startedAt = new Date().toISOString();
+    const pendingRow = await insertVerificationLog(
+      recordId,
+      clientInstanceId,
+      queryKeywords,
+      "pending",
+      [],
+      buildVerificationSummary({ status: "pending", institutionName, rawResults: [], riskTags: [], evidence: [] }),
+      ["手动重新发起联网核验"],
+      startedAt
+    );
+
+    const verificationTask = createVerificationLog({
+      recordId,
+      clientInstanceId,
+      form,
+      result,
+      existingLogId: String(pendingRow.id)
+    }).catch((error) => console.error("manual verification rerun failed", error));
+    runInBackground(verificationTask);
+
+    return json({ verificationLog: mapVerificationLogRow(pendingRow) }, 202, corsHeaders);
   }
 
   return json({ error: "Method not allowed" }, 405, corsHeaders);
@@ -340,12 +394,14 @@ async function createVerificationLog({
   recordId,
   clientInstanceId,
   form,
-  result
+  result,
+  existingLogId
 }: {
   recordId: string;
   clientInstanceId: string;
   form: Record<string, unknown>;
   result: Record<string, unknown>;
+  existingLogId?: string;
 }) {
   const queryKeywords = Array.isArray(result.queryKeywords)
     ? result.queryKeywords
@@ -360,7 +416,10 @@ async function createVerificationLog({
       "skipped",
       [],
       buildVerificationSummary({ status: "skipped", institutionName, rawResults: [], riskTags: [], evidence: [] }),
-      ["机构名称为空，跳过后台核验"]
+      ["机构名称为空，跳过后台核验"],
+      undefined,
+      undefined,
+      existingLogId
     );
     return;
   }
@@ -388,7 +447,10 @@ async function createVerificationLog({
         evidence: [],
         officialRegistry
       }),
-      ["未配置 ZHIPUAI_API_KEY"]
+      ["未配置 ZHIPUAI_API_KEY"],
+      undefined,
+      undefined,
+      existingLogId
     );
     return;
   }
@@ -399,7 +461,7 @@ async function createVerificationLog({
     const riskTags = [...new Set(evidence.map((item) => item.category))];
     const extractedFlags = buildVerificationSummary({ status: "completed", institutionName, rawResults, riskTags, evidence, officialRegistry });
 
-    await insertVerificationLog(recordId, clientInstanceId, queryKeywords, "completed", rawResults, extractedFlags, riskTags, startedAt);
+    await insertVerificationLog(recordId, clientInstanceId, queryKeywords, "completed", rawResults, extractedFlags, riskTags, startedAt, undefined, existingLogId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "智谱联网核验失败";
     await insertVerificationLog(
@@ -411,7 +473,8 @@ async function createVerificationLog({
       buildVerificationSummary({ status: "failed", institutionName, rawResults: [], riskTags: [], evidence: [], officialRegistry, errorMessage: message }),
       [],
       startedAt,
-      message
+      message,
+      existingLogId
     );
   }
 }
@@ -459,10 +522,11 @@ async function insertVerificationLog(
   extractedFlags: Record<string, unknown>,
   riskTags: string[],
   startedAt?: string,
-  errorMessage?: string
+  errorMessage?: string,
+  logId?: string
 ) {
   const now = new Date().toISOString();
-  const { error } = await supabase.from("verification_logs").insert({
+  const payload = {
     assessment_record_id: recordId,
     client_instance_id: clientInstanceId,
     provider: "zhipu_web_search",
@@ -475,9 +539,26 @@ async function insertVerificationLog(
     started_at: startedAt || null,
     finished_at: ["completed", "failed", "skipped"].includes(status) ? now : null,
     updated_at: now
-  });
+  };
 
+  const query = logId
+    ? supabase
+      .from("verification_logs")
+      .update(payload)
+      .eq("id", logId)
+      .eq("client_instance_id", clientInstanceId)
+      .eq("assessment_record_id", recordId)
+      .select("*")
+      .single()
+    : supabase
+      .from("verification_logs")
+      .insert(payload)
+      .select("*")
+      .single();
+
+  const { data, error } = await query;
   if (error) throw error;
+  return data;
 }
 
 function validateRequest(request: Request, origin: string) {
@@ -779,6 +860,12 @@ function requireObject(value: unknown, field: string) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${field} must be an object.`);
   }
+}
+
+function asObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
 }
 
 function asStringArray(value: unknown) {

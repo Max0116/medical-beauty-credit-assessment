@@ -212,6 +212,9 @@ export function createLocalAssessmentRepository({
 
   const listVerificationLogs = () => [];
   const listVerificationReviews = () => [];
+  const rerunVerification = () => {
+    throw new Error('本地模式暂不支持重新发起联网核验。');
+  };
   const uploadEvidenceAttachment = () => {
     throw new Error('本地模式暂不支持上传核验证据附件。');
   };
@@ -230,6 +233,7 @@ export function createLocalAssessmentRepository({
     loadRecord,
     listVerificationLogs,
     listVerificationReviews,
+    rerunVerification,
     uploadEvidenceAttachment,
     saveVerificationReview
   };
@@ -328,6 +332,14 @@ export function createRemoteAssessmentRepository({
     return Array.isArray(payload?.verificationLogs) ? payload.verificationLogs : [];
   };
 
+  const rerunVerification = async (recordId) => {
+    if (!recordId) throw new Error('重新核验需要先保存评估记录。');
+    const payload = await request(`/records/${encodeURIComponent(recordId)}/verification`, {
+      method: 'POST'
+    });
+    return payload?.verificationLog || payload || null;
+  };
+
   const listVerificationReviews = async (recordId) => {
     if (!recordId) return [];
     return normalizeVerificationReviews(await request(`/records/${encodeURIComponent(recordId)}/verification-reviews`));
@@ -352,6 +364,7 @@ export function createRemoteAssessmentRepository({
     loadRecord,
     listVerificationLogs,
     listVerificationReviews,
+    rerunVerification,
     uploadEvidenceAttachment,
     saveVerificationReview
   };
