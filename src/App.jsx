@@ -346,6 +346,30 @@ function App() {
     }
   };
 
+  const uploadEvidenceAttachment = async (file) => {
+    if (!activeRecordId) {
+      setToast('请先保存评估记录');
+      return null;
+    }
+
+    if (!isRemoteMode) {
+      setToast('本地模式暂不支持上传证据附件');
+      return null;
+    }
+
+    try {
+      setVerificationReviewStatus('uploading');
+      const attachment = await assessmentRepository.uploadEvidenceAttachment(activeRecordId, file);
+      setVerificationReviewStatus('ready');
+      setToast('证据附件已上传');
+      return attachment;
+    } catch {
+      setVerificationReviewStatus('error');
+      setToast('证据附件上传失败，请稍后重试');
+      return null;
+    }
+  };
+
   const copyKeyword = async (keyword) => {
     try {
       await navigator.clipboard?.writeText(keyword);
@@ -456,6 +480,7 @@ function App() {
               verificationReviewStatus={verificationReviewStatus}
               refreshVerificationReviews={() => refreshVerificationReviews()}
               saveVerificationReview={saveVerificationReview}
+              uploadEvidenceAttachment={uploadEvidenceAttachment}
               isRemoteMode={isRemoteMode}
             />
           )}
@@ -796,6 +821,7 @@ function VerifyStep({
   verificationReviewStatus,
   refreshVerificationReviews,
   saveVerificationReview,
+  uploadEvidenceAttachment,
   isRemoteMode
 }) {
   const latestSummary = getVerificationSummary(verificationLogs[0]);
@@ -831,6 +857,7 @@ function VerifyStep({
         status={verificationReviewStatus}
         onRefresh={refreshVerificationReviews}
         onSave={saveVerificationReview}
+        onUploadAttachment={uploadEvidenceAttachment}
         isRemoteMode={isRemoteMode}
         form={form}
         updateField={updateField}
@@ -1045,6 +1072,29 @@ function VerificationKeywordPanel({ result, copyKeyword }) {
   );
 }
 
+function EvidenceAttachmentInput({ files, onChange, disabled }) {
+  return (
+    <label className={`evidence-attachment-input ${disabled ? 'disabled' : ''}`}>
+      <span className="field-label">证据附件</span>
+      <input
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
+        multiple
+        disabled={disabled}
+        onChange={(event) => onChange(Array.from(event.target.files || []).slice(0, 6))}
+      />
+      <small>支持截图或 PDF，单个文件不超过 10MB；保存确认日志时上传到私有证据库。</small>
+      {files.length > 0 && (
+        <div className="selected-attachment-list">
+          {files.map((file) => (
+            <span key={`${file.name}-${file.size}`}>{file.name}</span>
+          ))}
+        </div>
+      )}
+    </label>
+  );
+}
+
 function VerificationReviewPanel({
   activeRecordId,
   summary,
@@ -1053,6 +1103,7 @@ function VerificationReviewPanel({
   status,
   onRefresh,
   onSave,
+  onUploadAttachment,
   isRemoteMode,
   form,
   updateField
@@ -1064,6 +1115,7 @@ function VerificationReviewPanel({
   const [reviewerDecision, setReviewerDecision] = useState(suggestedStatus !== 'unknown' ? suggestedStatus : form.publicCreditStatus);
   const [evidenceUrl, setEvidenceUrl] = useState('');
   const [evidenceNote, setEvidenceNote] = useState('');
+  const [evidenceFiles, setEvidenceFiles] = useState([]);
   const [formError, setFormError] = useState('');
 
   useEffect(() => {
@@ -1076,7 +1128,8 @@ function VerificationReviewPanel({
   }, [action, reviews.length, suggestedStatus]);
 
   const isSaving = status === 'saving';
-  const canSave = isRemoteMode && activeRecordId && !isSaving;
+  const isUploading = status === 'uploading';
+  const canSave = isRemoteMode && activeRecordId && !isSaving && !isUploading;
   const latestReview = reviews[0];
 
   const handleSave = async () => {
@@ -1091,6 +1144,16 @@ function VerificationReviewPanel({
     }
 
     setFormError('');
+    const uploadedAttachments = [];
+    for (const file of evidenceFiles) {
+      const attachment = await onUploadAttachment(file);
+      if (!attachment) {
+        setFormError('证据附件上传失败，请稍后重试。');
+        return;
+      }
+      uploadedAttachments.push(attachment);
+    }
+
     const appliedFields = reviewerDecision !== form.publicCreditStatus
       ? { publicCreditStatus: reviewerDecision }
       : {};
@@ -1103,6 +1166,7 @@ function VerificationReviewPanel({
       verificationLogId: latestLog?.id || '',
       evidenceUrl,
       evidenceNote,
+      evidenceAttachments: uploadedAttachments,
       verificationSnapshot: summary || {},
       appliedFields
     });
@@ -1113,6 +1177,7 @@ function VerificationReviewPanel({
     }
     setEvidenceUrl('');
     setEvidenceNote('');
+    setEvidenceFiles([]);
   };
 
   const panelText = !isRemoteMode
@@ -1161,6 +1226,11 @@ function VerificationReviewPanel({
         onChange={setEvidenceUrl}
         placeholder="可填截图编号或 https://..."
       />
+      <EvidenceAttachmentInput
+        files={evidenceFiles}
+        onChange={setEvidenceFiles}
+        disabled={!isRemoteMode || !activeRecordId || isSaving || isUploading}
+      />
       <TextAreaField
         label="复核说明"
         value={evidenceNote}
@@ -1169,7 +1239,7 @@ function VerificationReviewPanel({
       />
       {formError && <FieldAlert tone="warning" text={formError} />}
       <button className="verification-apply-button" type="button" onClick={handleSave} disabled={!canSave}>
-        {isSaving ? '正在保存确认日志' : '保存确认日志'}
+        {isUploading ? '正在上传证据附件' : isSaving ? '正在保存确认日志' : '保存确认日志'}
       </button>
       {reviews.length > 0 && (
         <div className="verification-review-list">
@@ -1181,6 +1251,15 @@ function VerificationReviewPanel({
               </div>
               <small>{review.reviewerName} · {new Date(review.createdAt).toLocaleString('zh-CN', { hour12: false })}</small>
               {review.evidenceUrl && <small>{review.evidenceUrl}</small>}
+              {review.evidenceAttachments?.length > 0 && (
+                <div className="evidence-attachment-list">
+                  {review.evidenceAttachments.map((attachment) => (
+                    <a href={attachment.signedUrl || '#'} target="_blank" rel="noreferrer" key={attachment.id || attachment.path}>
+                      {attachment.fileName || '证据附件'}
+                    </a>
+                  ))}
+                </div>
+              )}
               {review.evidenceNote && <p>{review.evidenceNote}</p>}
             </div>
           ))}

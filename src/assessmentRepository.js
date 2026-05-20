@@ -212,6 +212,9 @@ export function createLocalAssessmentRepository({
 
   const listVerificationLogs = () => [];
   const listVerificationReviews = () => [];
+  const uploadEvidenceAttachment = () => {
+    throw new Error('本地模式暂不支持上传核验证据附件。');
+  };
   const saveVerificationReview = () => {
     throw new Error('本地模式暂不支持保存核验确认记录。');
   };
@@ -227,6 +230,7 @@ export function createLocalAssessmentRepository({
     loadRecord,
     listVerificationLogs,
     listVerificationReviews,
+    uploadEvidenceAttachment,
     saveVerificationReview
   };
 }
@@ -249,6 +253,40 @@ export function createRemoteAssessmentRepository({
     path,
     ...options
   });
+
+  const uploadEvidenceAttachment = async (recordId, file) => {
+    if (!recordId) throw new Error('上传证据附件需要先保存评估记录。');
+    if (!file) throw new Error('请选择要上传的证据附件。');
+    if (!fetchImpl && !getDefaultFetch()) throw new Error('Remote assessment repository requires fetch support.');
+
+    const formData = new FormData();
+    formData.append('file', file);
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeout = controller
+      ? globalThis.setTimeout(() => controller.abort(), timeoutMs)
+      : null;
+
+    try {
+      const headers = {};
+      if (publishableKey) headers.apikey = publishableKey;
+      if (clientInstanceId) headers['x-client-instance-id'] = clientInstanceId;
+      const response = await (fetchImpl || getDefaultFetch())(`${normalizeBaseUrl(baseUrl)}/records/${encodeURIComponent(recordId)}/verification-attachments`, {
+        method: 'POST',
+        headers,
+        body: formData,
+        signal: controller?.signal
+      });
+      const text = await response.text();
+      if (!response.ok) {
+        const message = parseRemoteErrorMessage(text) || `远端服务返回 ${response.status}`;
+        throw new Error(message);
+      }
+      const payload = text ? JSON.parse(text) : {};
+      return payload.attachment || payload || null;
+    } finally {
+      if (timeout) globalThis.clearTimeout(timeout);
+    }
+  };
 
   const loadDraft = async () => {
     const payload = await request('/draft');
@@ -314,6 +352,7 @@ export function createRemoteAssessmentRepository({
     loadRecord,
     listVerificationLogs,
     listVerificationReviews,
+    uploadEvidenceAttachment,
     saveVerificationReview
   };
 }
