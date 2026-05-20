@@ -33,6 +33,10 @@ import {
   createLocalAssessmentRepository,
   REPOSITORY_MODES
 } from './assessmentRepository';
+import {
+  buildVerificationAppliedFields,
+  getVerificationClosureStatus
+} from './verificationAppliedFields';
 
 const tabs = [
   { id: 'basic', label: '基础', icon: FileText },
@@ -389,6 +393,50 @@ function App() {
     }
   };
 
+  const applyVerificationReviewFields = async (appliedFields) => {
+    if (!appliedFields || Object.keys(appliedFields).length === 0) return null;
+
+    const nextForm = { ...form, ...appliedFields };
+    const nextResult = evaluateCredit(nextForm);
+    setForm(nextForm);
+
+    try {
+      setRepositoryStatus(isRemoteMode ? 'syncing' : 'saving');
+      setRepositoryMessage(isRemoteMode ? '正在同步核验后的评估结论' : '正在保存核验后的评估结论');
+      if (isRemoteMode) {
+        localFallbackRepository.saveDraft(nextForm);
+      }
+      await assessmentRepository.saveDraft(nextForm);
+      if (!isRemoteMode) localFallbackRepository.saveDraft(nextForm);
+
+      if (activeRecordId && assessmentRepository.updateRecord) {
+        const updatedRecord = await assessmentRepository.updateRecord(activeRecordId, { form: nextForm, result: nextResult });
+        if (updatedRecord) {
+          setHistory(await assessmentRepository.listRecords());
+          if (isRemoteMode) {
+            localFallbackRepository.saveRecordSnapshot(updatedRecord);
+          }
+        }
+      }
+
+      markRepositorySynced(isRemoteMode ? '核验结论已写入评估记录' : '核验结论已保存');
+      setToast(nextResult.finalGrade === 'E' ? '已写入红线字段，结果调整为不建议授信' : '已写入核验确认字段');
+      return { form: nextForm, result: nextResult };
+    } catch {
+      if (isRemoteMode) {
+        localFallbackRepository.saveDraft(nextForm);
+        setRepositoryStatus('failed');
+        setRepositoryMessage('远端评估更新失败，本机已保留');
+        setToast('远端评估更新失败，本机已保留核验字段');
+      } else {
+        setRepositoryStatus('error');
+        setRepositoryMessage('核验结论保存失败');
+        setToast('核验结论保存失败，请稍后重试');
+      }
+      return null;
+    }
+  };
+
   const uploadEvidenceAttachment = async (file) => {
     if (!activeRecordId) {
       setToast('请先保存评估记录');
@@ -524,6 +572,7 @@ function App() {
               verificationReviewStatus={verificationReviewStatus}
               refreshVerificationReviews={() => refreshVerificationReviews()}
               saveVerificationReview={saveVerificationReview}
+              applyVerificationReviewFields={applyVerificationReviewFields}
               uploadEvidenceAttachment={uploadEvidenceAttachment}
               isRemoteMode={isRemoteMode}
             />
@@ -540,6 +589,7 @@ function App() {
               rerunVerification={() => rerunVerification()}
               isRemoteMode={isRemoteMode}
               latestVerificationSummary={latestVerificationSummary}
+              verificationReviews={verificationReviews}
             />
           )}
         </section>
@@ -867,6 +917,7 @@ function VerifyStep({
   verificationReviewStatus,
   refreshVerificationReviews,
   saveVerificationReview,
+  applyVerificationReviewFields,
   uploadEvidenceAttachment,
   isRemoteMode
 }) {
@@ -904,6 +955,7 @@ function VerifyStep({
         status={verificationReviewStatus}
         onRefresh={refreshVerificationReviews}
         onSave={saveVerificationReview}
+        onApplyFields={applyVerificationReviewFields}
         onUploadAttachment={uploadEvidenceAttachment}
         isRemoteMode={isRemoteMode}
         form={form}
@@ -1218,6 +1270,7 @@ function VerificationReviewPanel({
   status,
   onRefresh,
   onSave,
+  onApplyFields,
   onUploadAttachment,
   isRemoteMode,
   form,
@@ -1269,9 +1322,13 @@ function VerificationReviewPanel({
       uploadedAttachments.push(attachment);
     }
 
-    const appliedFields = reviewerDecision !== form.publicCreditStatus
-      ? { publicCreditStatus: reviewerDecision }
-      : {};
+    const appliedFields = buildVerificationAppliedFields({
+      action,
+      summary,
+      latestLog,
+      reviewerDecision,
+      currentForm: form
+    });
     const savedReview = await onSave({
       action,
       reviewerName: trimmedReviewer,
@@ -1287,8 +1344,12 @@ function VerificationReviewPanel({
     });
 
     if (!savedReview) return;
-    if (appliedFields.publicCreditStatus) {
-      updateField('publicCreditStatus', appliedFields.publicCreditStatus);
+    if (Object.keys(appliedFields).length > 0) {
+      if (onApplyFields) {
+        await onApplyFields(appliedFields);
+      } else {
+        Object.entries(appliedFields).forEach(([field, value]) => updateField(field, value));
+      }
     }
     setEvidenceUrl('');
     setEvidenceNote('');
@@ -1394,7 +1455,8 @@ function ResultStep({
   refreshVerificationLogs,
   rerunVerification,
   isRemoteMode,
-  latestVerificationSummary
+  latestVerificationSummary,
+  verificationReviews
 }) {
   const riskItems = [
     ...result.redlineReasons,
@@ -1431,6 +1493,18 @@ function ResultStep({
         <Metric label="业务申请额度" value={formatMoney(result.requestedLimit)} />
         <Metric label="额度上限" value={formatMoney(result.creditLimitCap)} />
         <Metric label="稳定月均销量" value={formatMoney(result.stableMonthlyAverage)} />
+      </div>
+
+      <div className="verification-state-panel">
+        <Metric
+          label="核验状态"
+          value={getVerificationClosureStatus({
+            activeRecordId,
+            summary: latestVerificationSummary,
+            reviews: verificationReviews
+          })}
+        />
+        <Metric label="人工确认" value={verificationReviews.length > 0 ? `${verificationReviews.length} 条` : '未确认'} />
       </div>
 
       {result.needsApproval && (
@@ -1637,6 +1711,7 @@ function HistoryList({ history, loadRecord }) {
             <div>
               <strong>{record.institutionName}</strong>
               <span>{new Date(record.createdAt).toLocaleString('zh-CN', { hour12: false })}</span>
+              <span>{record.finalDecision}</span>
             </div>
             <div>
               <b>{record.finalGrade}</b>

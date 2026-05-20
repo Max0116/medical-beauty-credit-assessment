@@ -21,7 +21,7 @@ export const DEFAULT_FORM = {
   maxOverTermDays: 0,
   historicalOverdue: 'none',
   reconciliationDispute: false,
-  publicCreditStatus: 'normal',
+  publicCreditStatus: 'unknown',
   dishonestyHit: false,
   seriousIllegalHit: false,
   majorMedicalPenalty: false,
