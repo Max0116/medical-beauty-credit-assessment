@@ -26,6 +26,7 @@ import {
   QUALIFICATION_LABELS,
   evaluateCredit
 } from './riskEngine';
+import { getBusinessConfig } from './businessConfig';
 import {
   createConfiguredAssessmentRepository,
   createLocalAssessmentRepository,
@@ -40,7 +41,7 @@ const tabs = [
   { id: 'result', label: '结果', icon: ShieldCheck }
 ];
 
-const DEEP_VERIFICATION_HIGH_LIMIT = 50000;
+const BUSINESS_CONFIG = getBusinessConfig();
 const formatMoney = (value) => `¥${Math.round(Number(value) || 0).toLocaleString('zh-CN')}`;
 const formatDateTime = (value) => {
   if (!value) return '';
@@ -943,7 +944,12 @@ function CreditVerificationPanel({ activeRecordId, form, result, summary, logs, 
   const canApplySuggestion = suggestedStatus && suggestedStatus !== 'unknown';
   const creditCodeCandidates = getCreditCodeCandidates(summary);
   const businessProfile = summary?.businessProfile || null;
-  const deepVerification = getDeepVerificationRecommendation({ form, result, summary });
+  const deepVerification = getDeepVerificationRecommendation({
+    form,
+    result,
+    summary,
+    highLimit: BUSINESS_CONFIG.deepVerificationHighLimit
+  });
 
   const headline = !isRemoteMode
     ? '当前为本地模式，未发起联网核验'
@@ -1468,7 +1474,7 @@ function getCreditCodeCandidates(summary) {
   return Array.isArray(candidates) ? candidates : [];
 }
 
-function getDeepVerificationRecommendation({ form, result, summary }) {
+function getDeepVerificationRecommendation({ form, result, summary, highLimit = BUSINESS_CONFIG.deepVerificationHighLimit }) {
   const reasons = [];
   const requestedLimit = Number(result?.requestedLimit || form?.requestedLimit || 0);
   const riskTags = Array.isArray(summary?.riskTags) ? summary.riskTags : [];
@@ -1479,8 +1485,8 @@ function getDeepVerificationRecommendation({ form, result, summary }) {
     || ['medium', 'serious'].includes(suggestedPublicCreditStatus)
     || ['medium', 'high'].includes(summary?.riskLevel || '');
 
-  if (requestedLimit >= DEEP_VERIFICATION_HIGH_LIMIT) {
-    reasons.push(`申请额度达到 ${formatMoney(DEEP_VERIFICATION_HIGH_LIMIT)} 以上`);
+  if (requestedLimit >= highLimit) {
+    reasons.push(`申请额度达到高额度阈值 ${formatMoney(highLimit)} 以上`);
   }
   if (hasRiskEvidence) {
     reasons.push('联网核验发现需复核风险线索');

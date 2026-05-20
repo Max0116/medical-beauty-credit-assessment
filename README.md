@@ -24,7 +24,7 @@
 - Supabase Edge Function 保存评估记录，并触发智谱联网核验日志。
 - 核验页以“公共风险核验”工作台呈现智谱联网核验的进度、结构化判断、建议、风险证据和原始来源链接。
 - 已保存评估记录支持手动重新发起智谱联网核验，用于失败重试或资料更新后的补跑。
-- 授权工商深度核验只在高额度、发现风险、合作未满 6 个月或需特批时提示；当前未配置供应商 Key 时不会发起授权工商核验。
+- 授权工商深度核验只在高额度、发现风险、合作未满 6 个月或需特批时提示；高额度阈值可通过业务参数配置，当前未配置供应商 Key 时不会发起授权工商核验。
 - 结果页可查看后台联网核验状态：`pending` / `completed` / `failed` 等。
 - 后台核验只把“机构名称匹配 + 搜索结果正文命中风险语义”识别为风险证据，避免把查询关键词本身误判为风险。
 - 核验页支持人工确认闭环：采用系统建议、人工改判、上传证据截图/PDF、记录证据链接/截图编号、复核人和确认时间。
@@ -82,9 +82,10 @@ PR 检查由 `.github/workflows/ci.yml` 自动执行：
 VITE_ASSESSMENT_API_URL=https://<project-ref>.supabase.co/functions/v1/assessments
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
 VITE_ASSESSMENT_API_TIMEOUT_MS=8000
+VITE_DEEP_VERIFICATION_HIGH_LIMIT=50000
 ```
 
-配置 `VITE_ASSESSMENT_API_URL` 后，前端会自动切换为 Supabase Edge Function 远端持久化模式。`VITE_SUPABASE_PUBLISHABLE_KEY` 只能填写 publishable / anon key，不能填写 `service_role` / secret key。API 契约见：
+配置 `VITE_ASSESSMENT_API_URL` 后，前端会自动切换为 Supabase Edge Function 远端持久化模式。`VITE_SUPABASE_PUBLISHABLE_KEY` 只能填写 publishable / anon key，不能填写 `service_role` / secret key。`VITE_DEEP_VERIFICATION_HIGH_LIMIT` 用于配置触发授权工商深度核验提示的高额度阈值，未配置时默认 `50000`。API 契约见：
 
 ```text
 docs/remote-persistence-contract.md
@@ -98,7 +99,7 @@ docs/remote-persistence-contract.md
 
 1. 推送到 `main` 分支。
 2. GitHub Actions 执行 `.github/workflows/deploy-pages.yml`。
-3. Actions 内执行 `npm ci`、`npm test`、`npm run build`，并从 GitHub Actions Variables 注入 `VITE_ASSESSMENT_API_URL`、`VITE_SUPABASE_PUBLISHABLE_KEY`、`VITE_ASSESSMENT_API_TIMEOUT_MS`。
+3. Actions 内执行 `npm ci`、`npm test`、`npm run build`，并从 GitHub Actions Variables 注入 `VITE_ASSESSMENT_API_URL`、`VITE_SUPABASE_PUBLISHABLE_KEY`、`VITE_ASSESSMENT_API_TIMEOUT_MS`、`VITE_DEEP_VERIFICATION_HIGH_LIMIT`。
 4. 将 `dist` 发布到 GitHub Pages。
 
 计划线上地址：
@@ -188,4 +189,5 @@ ASSESSMENT_SECRET_KEYS={"default":"sb_secret_xxx"}
 ```bash
 VITE_ASSESSMENT_API_URL=https://<project-ref>.supabase.co/functions/v1/assessments
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
+VITE_DEEP_VERIFICATION_HIGH_LIMIT=50000
 ```
