@@ -26,6 +26,7 @@ import {
   QUALIFICATION_LABELS,
   evaluateCredit
 } from './riskEngine';
+import { getBusinessConfig } from './businessConfig';
 import {
   createConfiguredAssessmentRepository,
   createLocalAssessmentRepository,
@@ -40,7 +41,7 @@ const tabs = [
   { id: 'result', label: '结果', icon: ShieldCheck }
 ];
 
-const DEEP_VERIFICATION_HIGH_LIMIT = 50000;
+const BUSINESS_CONFIG = getBusinessConfig();
 const formatMoney = (value) => `¥${Math.round(Number(value) || 0).toLocaleString('zh-CN')}`;
 const formatDateTime = (value) => {
   if (!value) return '';
@@ -865,7 +866,7 @@ function VerificationWorkbenchHeader({ activeRecordId, summary, latestLog, statu
       </div>
       <div className="verification-meta-grid">
         <Metric label="核验方式" value="轻量搜索" />
-        <Metric label="预计成本" value="约 ¥0.07" />
+        <Metric label="核验范围" value="7 个关键词" />
         <Metric label="最近核验" value={latestAt ? formatDateTime(latestAt) : '未生成'} />
         <Metric label="确认日志" value={`${reviewCount} 条`} />
       </div>
@@ -882,7 +883,12 @@ function CreditVerificationPanel({ activeRecordId, form, result, summary, logs, 
   const canApplySuggestion = suggestedStatus && suggestedStatus !== 'unknown';
   const creditCodeCandidates = getCreditCodeCandidates(summary);
   const businessProfile = summary?.businessProfile || null;
-  const deepVerification = getDeepVerificationRecommendation({ form, result, summary });
+  const deepVerification = getDeepVerificationRecommendation({
+    form,
+    result,
+    summary,
+    highLimit: BUSINESS_CONFIG.deepVerificationHighLimit
+  });
 
   const headline = !isRemoteMode
     ? '当前为本地模式，未发起联网核验'
@@ -985,7 +991,7 @@ function DeepVerificationPrompt({ businessProfile, candidateCount, reasons }) {
         <small>{message} · 候选 {candidateCount} 个 · {provider}</small>
       </div>
       <TagStrip items={reasons} tone="warning" />
-      <small>当前仅做触发提示；未配置供应商 Key 前不会发起收费查询。</small>
+      <small>当前仅做触发提示；未配置供应商 Key 前不会发起授权工商核验。</small>
     </div>
   );
 }
@@ -1027,7 +1033,7 @@ function VerificationKeywordPanel({ result, copyKeyword }) {
       <div>
         <Database size={17} />
         <strong>查询关键词</strong>
-        <span>默认使用智谱 search_std 查询 7 个风险关键词，约 ¥0.07 / 机构。</span>
+        <span>默认使用智谱轻量搜索查询 7 个风险关键词。</span>
       </div>
       <button type="button" onClick={() => copyKeyword(result.queryKeywords.join('\n'))}>
         复制全部
@@ -1343,7 +1349,7 @@ function getCreditCodeCandidates(summary) {
   return Array.isArray(candidates) ? candidates : [];
 }
 
-function getDeepVerificationRecommendation({ form, result, summary }) {
+function getDeepVerificationRecommendation({ form, result, summary, highLimit = BUSINESS_CONFIG.deepVerificationHighLimit }) {
   const reasons = [];
   const requestedLimit = Number(result?.requestedLimit || form?.requestedLimit || 0);
   const riskTags = Array.isArray(summary?.riskTags) ? summary.riskTags : [];
@@ -1354,8 +1360,8 @@ function getDeepVerificationRecommendation({ form, result, summary }) {
     || ['medium', 'serious'].includes(suggestedPublicCreditStatus)
     || ['medium', 'high'].includes(summary?.riskLevel || '');
 
-  if (requestedLimit >= DEEP_VERIFICATION_HIGH_LIMIT) {
-    reasons.push(`申请额度达到 ${formatMoney(DEEP_VERIFICATION_HIGH_LIMIT)} 以上`);
+  if (requestedLimit >= highLimit) {
+    reasons.push(`申请额度达到高额度阈值 ${formatMoney(highLimit)} 以上`);
   }
   if (hasRiskEvidence) {
     reasons.push('联网核验发现需复核风险线索');
