@@ -38,6 +38,11 @@ import {
   getAssessmentStage,
   getVerificationClosureStatus
 } from './verificationAppliedFields';
+import {
+  buildApprovalReportData,
+  buildApprovalReportText,
+  exportApprovalReportImage
+} from './approvalReport';
 
 const tabs = [
   { id: 'basic', label: '基础', icon: FileText },
@@ -600,6 +605,7 @@ function App() {
           )}
           {activeTab === 'result' && (
             <ResultStep
+              form={form}
               result={result}
               history={history}
               loadRecord={loadRecord}
@@ -612,6 +618,7 @@ function App() {
               latestVerificationSummary={latestVerificationSummary}
               verificationReviews={verificationReviews}
               assessmentStage={assessmentStage}
+              onToast={setToast}
             />
           )}
         </section>
@@ -1506,6 +1513,7 @@ function VerificationReviewPanel({
 }
 
 function ResultStep({
+  form,
   result,
   history,
   loadRecord,
@@ -1517,8 +1525,23 @@ function ResultStep({
   isRemoteMode,
   latestVerificationSummary,
   verificationReviews,
-  assessmentStage
+  assessmentStage,
+  onToast
 }) {
+  const createApprovalReport = () => buildApprovalReportData({
+    form,
+    result,
+    assessmentStage,
+    latestVerificationSummary,
+    verificationReviews
+  });
+  const approvalReport = useMemo(createApprovalReport, [
+    assessmentStage,
+    form,
+    latestVerificationSummary,
+    result,
+    verificationReviews
+  ]);
   const riskItems = [
     ...result.redlineReasons,
     ...result.capReasons,
@@ -1528,6 +1551,25 @@ function ResultStep({
     result.paymentTip,
     result.creditTip
   ].filter(Boolean);
+
+  const copyApprovalReport = async () => {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(buildApprovalReportText(createApprovalReport()));
+      onToast?.('审批摘要已复制');
+    } catch {
+      onToast?.('当前浏览器不支持自动复制');
+    }
+  };
+
+  const saveApprovalReportImage = async () => {
+    try {
+      const outcome = await exportApprovalReportImage(createApprovalReport());
+      onToast?.(outcome.mode === 'share' ? '已打开系统分享，可保存到相册' : '长截图已生成');
+    } catch {
+      onToast?.('长截图生成失败，请稍后重试');
+    }
+  };
 
   return (
     <div className="step-stack">
@@ -1590,6 +1632,13 @@ function ResultStep({
         </div>
       )}
 
+      <ApprovalReportPanel
+        report={approvalReport}
+        assessmentStage={assessmentStage}
+        onCopy={copyApprovalReport}
+        onExport={saveApprovalReportImage}
+      />
+
       <div className="next-actions">
         <strong>后续建议</strong>
         <p>{result.finalGrade === 'E' ? '先补齐准入红线问题，再重新评估。' : result.needsApproval ? '进入特批流程，并补充人工核验截图和业务说明。' : '可按系统建议账期与额度推进授信。'}</p>
@@ -1605,6 +1654,104 @@ function ResultStep({
       />
 
       <HistoryList history={history} loadRecord={loadRecord} />
+    </div>
+  );
+}
+
+function ApprovalReportPanel({ report, assessmentStage, onCopy, onExport }) {
+  const isFinal = assessmentStage.id === 'final';
+  const reasons = report.riskReasons.length ? report.riskReasons : ['未发现明显风险标签'];
+  const evidenceItems = report.evidenceItems.slice(0, 3);
+  const reviewerLine = report.verification.reviewStatus === '已人工确认'
+    ? `${report.verification.reviewerName} · ${report.verification.reviewedAt}`
+    : '未人工确认';
+
+  return (
+    <div className={`approval-report-panel ${isFinal ? 'final' : 'draft'}`}>
+      <div className="approval-report-head">
+        <div>
+          <FileText size={18} />
+          <strong>审批输出摘要</strong>
+        </div>
+        <span>{isFinal ? '最终版' : '预评估版'}</span>
+      </div>
+
+      {!isFinal && (
+        <FieldAlert tone="warning" text="当前结论尚未完成核验人工确认，建议定稿后再对外流转审批。" />
+      )}
+
+      <div className="approval-report-hero">
+        <div>
+          <span>机构</span>
+          <strong>{report.institution.name}</strong>
+          <small>{report.institution.creditCode} · {report.institution.stage}</small>
+        </div>
+        <b>{report.decision.finalGrade}</b>
+      </div>
+
+      <div className="approval-report-grid">
+        <Metric label="最终判断" value={report.decision.finalDecision} />
+        <Metric label="建议账期" value={report.decision.maxTermDays} />
+        <Metric label="建议额度" value={report.decision.suggestedLimit} />
+        <Metric label="额度上限" value={report.decision.creditLimitCap} />
+      </div>
+
+      <div className="approval-report-section">
+        <span className="field-label">红线 / 封顶 / 特批原因</span>
+        <TagStrip items={reasons.slice(0, 8)} tone={report.decision.finalGrade === 'E' ? 'warning' : undefined} />
+      </div>
+
+      <div className="approval-report-section">
+        <span className="field-label">核验确认状态</span>
+        <div className="approval-report-status-row">
+          <span>{report.verification.stageTitle}</span>
+          <span>{report.verification.statusLabel}</span>
+          <span>{report.verification.reviewStatus}</span>
+        </div>
+        <small>{reviewerLine}</small>
+      </div>
+
+      <div className="approval-report-section">
+        <span className="field-label">证据摘要</span>
+        <p>{report.verification.conclusion}</p>
+        {report.evidenceInsight?.overview && <p>{report.evidenceInsight.overview}</p>}
+        {report.verification.evidenceNote && <small>复核说明：{report.verification.evidenceNote}</small>}
+        {report.verification.evidenceUrl && (
+          <a className="approval-report-link" href={report.verification.evidenceUrl} target="_blank" rel="noreferrer">
+            <ExternalLink size={13} />
+            查看人工证据链接
+          </a>
+        )}
+      </div>
+
+      {evidenceItems.length > 0 && (
+        <div className="approval-report-evidence-list">
+          {evidenceItems.map((item) => (
+            <article className="approval-report-evidence" key={`${item.title}-${item.url || item.sourceHost}`}>
+              <span>{item.category || '公开线索'}</span>
+              <strong>{item.title || '未命名来源'}</strong>
+              <small>{[item.source, item.sourceHost, item.publishDate].filter(Boolean).join(' · ') || '来源待确认'}</small>
+              {item.url && (
+                <a href={item.url} target="_blank" rel="noreferrer">
+                  <ExternalLink size={13} />
+                  打开原文
+                </a>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
+
+      <div className="approval-report-actions">
+        <button className="ghost-button" type="button" onClick={onCopy}>
+          <Copy size={16} />
+          复制摘要
+        </button>
+        <button className="primary-button" type="button" onClick={onExport}>
+          <Save size={16} />
+          保存长截图
+        </button>
+      </div>
     </div>
   );
 }
