@@ -5,7 +5,8 @@ import {
   createAssessmentRecord,
   createLocalAssessmentRepository,
   createRemoteAssessmentRepository,
-  getAssessmentRepositoryRuntimeConfig
+  getAssessmentRepositoryRuntimeConfig,
+  updateAssessmentRecordSnapshot
 } from './assessmentRepository';
 
 const createMemoryStorage = (initial = {}) => {
@@ -91,6 +92,36 @@ describe('createLocalAssessmentRepository', () => {
     expect(repository.loadRecord(first.id)).toBeNull();
   });
 
+  it('updates a saved record snapshot after verification fields change the result', () => {
+    const repository = createLocalAssessmentRepository({
+      storage: createMemoryStorage(),
+      id: () => 'record-1',
+      now: () => new Date('2026-05-19T08:00:00.000Z')
+    });
+    const form = { ...DEFAULT_FORM, institutionName: '机构 A', publicCreditStatus: 'normal' };
+    const record = repository.saveRecord({ form, result: evaluateCredit(form) });
+    const nextForm = {
+      ...form,
+      publicCreditStatus: 'serious',
+      dishonestyHit: true,
+      seriousIllegalHit: true
+    };
+
+    const updatedRecord = repository.updateRecord(record.id, {
+      form: nextForm,
+      result: evaluateCredit(nextForm)
+    });
+
+    expect(updatedRecord).toMatchObject({
+      id: record.id,
+      finalGrade: 'E',
+      finalDecision: '不建议授信',
+      maxTermDays: 0
+    });
+    expect(updatedRecord.redlineReasons).toEqual(expect.arrayContaining(['命中失信被执行人', '命中严重违法失信']));
+    expect(repository.loadRecord(record.id)).toEqual(updatedRecord);
+  });
+
   it('falls back to an empty history when stored records are malformed', () => {
     const repository = createLocalAssessmentRepository({
       storage: createMemoryStorage({
@@ -99,6 +130,27 @@ describe('createLocalAssessmentRepository', () => {
     });
 
     expect(repository.listRecords()).toEqual([]);
+  });
+});
+
+describe('updateAssessmentRecordSnapshot', () => {
+  it('preserves record identity and rewrites grade summary from the latest result', () => {
+    const form = { ...DEFAULT_FORM, institutionName: '上海风险机构', publicCreditStatus: 'serious' };
+    const result = evaluateCredit(form);
+    const updatedRecord = updateAssessmentRecordSnapshot({
+      id: 'record-1',
+      institutionName: '旧名称',
+      createdAt: '2026-05-19T08:00:00.000Z'
+    }, { form, result }, () => new Date('2026-05-19T09:30:00.000Z'));
+
+    expect(updatedRecord).toMatchObject({
+      id: 'record-1',
+      institutionName: '上海风险机构',
+      finalGrade: 'E',
+      finalDecision: '不建议授信',
+      createdAt: '2026-05-19T08:00:00.000Z',
+      updatedAt: '2026-05-19T09:30:00.000Z'
+    });
   });
 });
 
@@ -141,6 +193,20 @@ describe('remote assessment repository wiring', () => {
         return createJsonResponse({ form: JSON.parse(options.body).form });
       }
       if (url.endsWith('/records') && options.method === 'POST') {
+        return createJsonResponse({ record: JSON.parse(options.body).record });
+      }
+      if (url.endsWith('/records/remote-record-1') && !options.method) {
+        return createJsonResponse({
+          record: {
+            id: 'remote-record-1',
+            institutionName: '远端测试机构',
+            createdAt: '2026-05-19T08:00:00.000Z',
+            form: {},
+            result: {}
+          }
+        });
+      }
+      if (url.endsWith('/records/remote-record-1') && options.method === 'PUT') {
         return createJsonResponse({ record: JSON.parse(options.body).record });
       }
       if (url.endsWith('/records') && !options.method) {
@@ -221,6 +287,10 @@ describe('remote assessment repository wiring', () => {
       reviewerName: '张三',
       reviewerDecision: 'normal'
     });
+    const updatedRecord = await repository.updateRecord(record.id, {
+      form: { ...form, publicCreditStatus: 'serious' },
+      result: evaluateCredit({ ...form, publicCreditStatus: 'serious' })
+    });
     const verificationReviews = await repository.listVerificationReviews(record.id);
     const uploadedAttachment = await repository.uploadEvidenceAttachment(record.id, new File(['demo'], 'evidence.png', { type: 'image/png' }));
 
@@ -249,6 +319,11 @@ describe('remote assessment repository wiring', () => {
       reviewerName: '张三',
       reviewerDecision: 'normal'
     });
+    expect(updatedRecord).toMatchObject({
+      id: 'remote-record-1',
+      finalGrade: 'E',
+      finalDecision: '不建议授信'
+    });
     expect(verificationReviews).toEqual([
       {
         id: 'review-1',
@@ -269,6 +344,8 @@ describe('remote assessment repository wiring', () => {
       'https://credit-api.example.com/records/remote-record-1/verification',
       'https://credit-api.example.com/records/remote-record-1/verification',
       'https://credit-api.example.com/records/remote-record-1/verification-reviews',
+      'https://credit-api.example.com/records/remote-record-1',
+      'https://credit-api.example.com/records/remote-record-1',
       'https://credit-api.example.com/records/remote-record-1/verification-reviews',
       'https://credit-api.example.com/records/remote-record-1/verification-attachments'
     ]);

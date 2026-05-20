@@ -31,6 +31,14 @@ const makeForm = (overrides = {}) => ({
 });
 
 describe('evaluateCredit', () => {
+  it('treats a fresh assessment as unverified until public credit is confirmed', () => {
+    const result = evaluateCredit(DEFAULT_FORM);
+
+    expect(DEFAULT_FORM.publicCreditStatus).toBe('unknown');
+    expect(result.finalGrade).toBe('C');
+    expect(result.capReasons).toContain('公共信用未查询 / 无法确认，最高 C');
+  });
+
   it('returns E and rejects credit when current overdue exists', () => {
     const result = evaluateCredit(makeForm({ hasCurrentOverdue: true }));
 

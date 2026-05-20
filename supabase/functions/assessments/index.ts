@@ -190,6 +190,26 @@ async function handleRecords(
     return json({ record: mapRecordRow(data) }, 200, corsHeaders);
   }
 
+  if (request.method === "PUT" && recordId) {
+    const body = await readJson(request);
+    requireObject(body.form, "form");
+    requireObject(body.result, "result");
+    requireObject(body.record, "record");
+
+    const record = normalizeIncomingRecord(body.record as Partial<AssessmentRecord>, body.form, body.result);
+    const { data, error } = await supabase
+      .from("assessment_records")
+      .update(toRecordRow({ ...record, id: recordId }, clientInstanceId))
+      .eq("client_instance_id", clientInstanceId)
+      .eq("id", recordId)
+      .select("*")
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return json({ record: null }, 404, corsHeaders);
+    return json({ record: mapRecordRow(data) }, 200, corsHeaders);
+  }
+
   if (request.method === "GET") {
     const { data, error } = await supabase
       .from("assessment_records")

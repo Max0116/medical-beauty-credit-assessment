@@ -162,6 +162,29 @@ export function createAssessmentRecord({ form, result, now = () => new Date(), i
   };
 }
 
+export function updateAssessmentRecordSnapshot(record, { form, result }, now = () => new Date()) {
+  const updatedAt = now().toISOString();
+  const institutionName = form.institutionName?.trim() || record?.institutionName || '未命名机构';
+
+  return {
+    ...record,
+    institutionName,
+    finalGrade: result.finalGrade,
+    finalDecision: result.finalDecision,
+    totalScore: result.totalScore,
+    maxTermDays: result.maxTermDays,
+    suggestedLimit: result.suggestedLimit,
+    stableMonthlyAverage: result.stableMonthlyAverage,
+    needsApproval: result.needsApproval,
+    redlineReasons: result.redlineReasons,
+    capReasons: result.capReasons,
+    approvalReasons: result.approvalReasons,
+    updatedAt,
+    form,
+    result
+  };
+}
+
 export function getAssessmentRepositoryRuntimeConfig(env = getViteEnv()) {
   const remoteBaseUrl = normalizeBaseUrl(env.VITE_ASSESSMENT_API_URL || '');
   const remotePublishableKey = String(env.VITE_SUPABASE_PUBLISHABLE_KEY || '').trim();
@@ -210,6 +233,12 @@ export function createLocalAssessmentRepository({
     return listRecords().find((record) => record.id === recordId) || null;
   };
 
+  const updateRecord = (recordId, { form, result }) => {
+    const existingRecord = loadRecord(recordId);
+    if (!existingRecord) return null;
+    return saveRecordSnapshot(updateAssessmentRecordSnapshot(existingRecord, { form, result }, now));
+  };
+
   const listVerificationLogs = () => [];
   const listVerificationReviews = () => [];
   const rerunVerification = () => {
@@ -229,6 +258,7 @@ export function createLocalAssessmentRepository({
     resetDraft,
     listRecords,
     saveRecord,
+    updateRecord,
     saveRecordSnapshot,
     loadRecord,
     listVerificationLogs,
@@ -321,6 +351,17 @@ export function createRemoteAssessmentRepository({
     return unwrapRecord(payload) || record;
   };
 
+  const updateRecord = async (recordId, { form, result }) => {
+    if (!recordId) throw new Error('更新评估记录需要记录 ID。');
+    const currentRecord = unwrapRecord(await request(`/records/${encodeURIComponent(recordId)}`));
+    const record = updateAssessmentRecordSnapshot(currentRecord || createAssessmentRecord({ form, result, now, id }), { form, result }, now);
+    const payload = await request(`/records/${encodeURIComponent(recordId)}`, {
+      method: 'PUT',
+      body: { form, result, record, clientInstanceId }
+    });
+    return unwrapRecord(payload) || record;
+  };
+
   const loadRecord = async (recordId) => {
     const payload = await request(`/records/${encodeURIComponent(recordId)}`);
     return unwrapRecord(payload);
@@ -361,6 +402,7 @@ export function createRemoteAssessmentRepository({
     resetDraft,
     listRecords,
     saveRecord,
+    updateRecord,
     loadRecord,
     listVerificationLogs,
     listVerificationReviews,

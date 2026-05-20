@@ -795,6 +795,7 @@ textarea:focus {
 }
 
 .summary-band,
+.verification-state-panel,
 .decision-panel {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -809,6 +810,11 @@ textarea:focus {
   padding: 12px;
   border-radius: 14px;
   background: #fff;
+}
+
+.verification-state-panel {
+  background: #fffaf2;
+  border-color: rgba(167, 102, 19, 0.18);
 }
 
 .decision-panel span {
