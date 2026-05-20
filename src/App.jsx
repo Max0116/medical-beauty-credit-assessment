@@ -43,12 +43,12 @@ import {
   buildApprovalReportText,
   exportApprovalReportImage
 } from './approvalReport';
+import { buildDisplayAssessmentResult } from './displayAssessmentResult';
 
 const tabs = [
-  { id: 'basic', label: '基础', icon: FileText },
-  { id: 'purchase', label: '采购', icon: TrendingUp },
-  { id: 'payment', label: '履约', icon: ClipboardCheck },
+  { id: 'institution', label: '机构', icon: FileText },
   { id: 'verify', label: '核验', icon: Search },
+  { id: 'assessment', label: '评估', icon: ClipboardCheck },
   { id: 'result', label: '结果', icon: ShieldCheck }
 ];
 
@@ -76,7 +76,7 @@ const VERIFICATION_REVIEW_ACTION_LABELS = {
 function App() {
   const assessmentRepository = useMemo(() => createConfiguredAssessmentRepository(), []);
   const localFallbackRepository = useMemo(() => createLocalAssessmentRepository(), []);
-  const [activeTab, setActiveTab] = useState('basic');
+  const [activeTab, setActiveTab] = useState('institution');
   const [form, setForm] = useState(DEFAULT_FORM);
   const [history, setHistory] = useState([]);
   const [isRepositoryReady, setIsRepositoryReady] = useState(false);
@@ -108,6 +108,18 @@ function App() {
     verificationReviews,
     verificationReviewStatus
   ]);
+  const displayAssessment = useMemo(() => buildDisplayAssessmentResult({
+    result,
+    assessmentStage,
+    latestVerificationSummary,
+    verificationReviews
+  }), [
+    assessmentStage,
+    latestVerificationSummary,
+    result,
+    verificationReviews
+  ]);
+  const displayResult = displayAssessment.result;
 
   const markRepositorySynced = (message = '已同步到远端') => {
     setRepositoryStatus('synced');
@@ -252,14 +264,14 @@ function App() {
       setVerificationReviewStatus('idle');
       markRepositorySynced(isRemoteMode ? '表单已重置并同步' : '表单已重置');
       setToast('表单已重置为示例状态');
-      setActiveTab('basic');
+      setActiveTab('institution');
     } catch {
       if (isRemoteMode) {
         setForm(localFallbackRepository.resetDraft());
         setRepositoryStatus('failed');
         setRepositoryMessage('远端重置失败，本机表单已重置');
         setToast('远端重置失败，本机表单已重置');
-        setActiveTab('basic');
+        setActiveTab('institution');
       } else {
         setRepositoryStatus('error');
         setRepositoryMessage('重置失败');
@@ -491,13 +503,7 @@ function App() {
     }
   };
 
-  const statusClass = result.finalGrade === 'E'
-    ? 'danger'
-    : result.needsApproval
-      ? 'warning'
-      : result.finalGrade === 'C' || result.finalGrade === 'D'
-        ? 'caution'
-        : 'stable';
+  const statusClass = displayAssessment.tone;
 
   return (
     <main className="page-shell">
@@ -512,7 +518,7 @@ function App() {
           </div>
         </header>
 
-        <ResultCard result={result} statusClass={statusClass} />
+        <ResultCard result={displayResult} statusClass={statusClass} overlay={displayAssessment.overlay} />
 
         <AssessmentStageBanner
           stage={assessmentStage}
@@ -565,11 +571,10 @@ function App() {
         />
 
         <section className="content-panel">
-          {activeTab === 'basic' && (
-            <BasicStep
+          {activeTab === 'institution' && (
+            <InstitutionStep
               form={form}
               updateField={updateField}
-              result={result}
               activeRecordId={activeRecordId}
               latestVerificationSummary={latestVerificationSummary}
               verificationLogStatus={verificationLogStatus}
@@ -577,11 +582,13 @@ function App() {
               isRemoteMode={isRemoteMode}
             />
           )}
-          {activeTab === 'purchase' && (
-            <PurchaseStep form={form} updateField={updateField} updatePurchase={updatePurchase} result={result} />
-          )}
-          {activeTab === 'payment' && (
-            <PaymentStep form={form} updateField={updateField} />
+          {activeTab === 'assessment' && (
+            <AssessmentInputStep
+              form={form}
+              updateField={updateField}
+              updatePurchase={updatePurchase}
+              result={result}
+            />
           )}
           {activeTab === 'verify' && (
             <VerifyStep
@@ -606,7 +613,7 @@ function App() {
           {activeTab === 'result' && (
             <ResultStep
               form={form}
-              result={result}
+              result={displayResult}
               history={history}
               loadRecord={loadRecord}
               activeRecordId={activeRecordId}
@@ -618,6 +625,7 @@ function App() {
               latestVerificationSummary={latestVerificationSummary}
               verificationReviews={verificationReviews}
               assessmentStage={assessmentStage}
+              displayOverlay={displayAssessment.overlay}
               onToast={setToast}
             />
           )}
@@ -672,7 +680,7 @@ function StepProgress({ activeStepIndex }) {
   );
 }
 
-function ResultCard({ result, statusClass }) {
+function ResultCard({ result, statusClass, overlay }) {
   const firstReason = result.redlineReasons[0] || result.capReasons[0] || result.approvalReasons[0];
 
   return (
@@ -691,8 +699,14 @@ function ResultCard({ result, statusClass }) {
       </div>
       {firstReason && (
         <div className="reason-preview">
-          <span>{result.baseGrade === result.finalGrade ? '关键原因' : `基础 ${result.baseGrade} → 最终 ${result.finalGrade}`}</span>
+          <span>{overlay ? overlay.statusLabel : result.baseGrade === result.finalGrade ? '关键原因' : `基础 ${result.baseGrade} → 最终 ${result.finalGrade}`}</span>
           <strong>{firstReason}</strong>
+        </div>
+      )}
+      {overlay && (
+        <div className="inline-alert danger-text">
+          <AlertTriangle size={15} />
+          {overlay.reason}
         </div>
       )}
       {result.redlineReasons.length > 0 && (
@@ -780,18 +794,15 @@ function Metric({ label, value }) {
   );
 }
 
-function BasicStep({
+function InstitutionStep({
   form,
   updateField,
-  result,
   activeRecordId,
   latestVerificationSummary,
   verificationLogStatus,
   onSaveRecord,
   isRemoteMode
 }) {
-  const termOverLimit = result.requestedTerm > result.maxTermDays && result.finalGrade !== 'E';
-  const limitOverAverage = result.requestedLimit > result.stableMonthlyAverage && result.finalGrade !== 'E';
   const creditCodeCandidates = getCreditCodeCandidates(latestVerificationSummary);
   const verificationProgress = getVerificationProgress({
     activeRecordId,
@@ -830,6 +841,18 @@ function BasicStep({
         hasActiveRecord={Boolean(activeRecordId)}
         onApply={(value) => updateField('creditCode', value)}
       />
+      <FieldAlert tone="warning" text="建议先完成机构名称核验和人工确认，再进入评估页填写采购、履约、资质和账期额度。" />
+    </div>
+  );
+}
+
+function AssessmentInputStep({ form, updateField, updatePurchase, result }) {
+  const termOverLimit = result.requestedTerm > result.maxTermDays && result.finalGrade !== 'E';
+  const limitOverAverage = result.requestedLimit > result.stableMonthlyAverage && result.finalGrade !== 'E';
+
+  return (
+    <div className="step-stack">
+      <SectionTitle icon={ClipboardCheck} title="基础评估资料" />
       <SelectField
         label="经营 / 合作阶段"
         value={form.businessStage}
@@ -881,6 +904,8 @@ function BasicStep({
       <TextAreaField label="备注" value={form.notes} onChange={(value) => updateField('notes', value)} placeholder="可记录业务背景、客户口径、需人工确认事项" />
 
       <TagStrip items={[result.purchaseHealthTip, result.paymentTip, result.creditTip]} />
+      <PurchaseStep form={form} updateField={updateField} updatePurchase={updatePurchase} result={result} />
+      <PaymentStep form={form} updateField={updateField} />
     </div>
   );
 }
@@ -1526,6 +1551,7 @@ function ResultStep({
   latestVerificationSummary,
   verificationReviews,
   assessmentStage,
+  displayOverlay,
   onToast
 }) {
   const createApprovalReport = () => buildApprovalReportData({
@@ -1610,6 +1636,14 @@ function ResultStep({
         />
         <Metric label="人工确认" value={verificationReviews.length > 0 ? `${verificationReviews.length} 条` : '未确认'} />
       </div>
+
+      {displayOverlay && (
+        <div className={`verification-result-summary ${displayOverlay.level === 'redline' ? 'danger' : 'warning'}`}>
+          <strong>{displayOverlay.title}</strong>
+          <p>{displayOverlay.reason}</p>
+          <TagStrip items={displayOverlay.tags} tone="warning" />
+        </div>
+      )}
 
       {result.needsApproval && (
         <div className="approval-box">

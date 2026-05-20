@@ -101,9 +101,9 @@ export function getAssessmentStage({
       decisionScope: '当前结论仅基于已填字段',
       verificationLabel: '未发起核验',
       reviewLabel: '未人工确认',
-      description: '保存评估记录后，系统才会进入联网核验和人工确认闭环。',
-      actionLabel: '填写基础信息',
-      actionTarget: 'basic'
+      description: '先填写机构名称并保存，系统会进入联网核验和人工确认闭环。',
+      actionLabel: '录入机构',
+      actionTarget: 'institution'
     };
   }
 
