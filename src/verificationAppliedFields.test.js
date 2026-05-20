@@ -118,7 +118,7 @@ describe('getAssessmentStage', () => {
       decisionScope: '当前结论仅基于已填字段',
       verificationLabel: '未发起核验',
       reviewLabel: '未人工确认',
-      actionTarget: 'basic'
+      actionTarget: 'institution'
     });
   });
 
