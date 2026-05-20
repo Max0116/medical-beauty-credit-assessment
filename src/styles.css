@@ -1025,38 +1025,45 @@ textarea:focus {
   gap: 8px;
 }
 
-.official-registry-status {
+.deep-verification-prompt {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
   border-radius: 14px;
   padding: 10px;
   background: rgba(255, 255, 255, 0.68);
   border: 1px solid rgba(222, 207, 255, 0.82);
 }
 
-.official-registry-status span,
-.official-registry-status small {
+.deep-verification-prompt span,
+.deep-verification-prompt small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
+  line-height: 1.45;
 }
 
-.official-registry-status strong {
+.deep-verification-prompt div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.deep-verification-prompt strong {
   color: var(--ink);
   font-size: 14px;
 }
 
-.official-registry-status.completed strong {
+.deep-verification-prompt.completed strong {
   color: var(--green);
 }
 
-.official-registry-status.failed strong {
+.deep-verification-prompt.failed strong {
   color: var(--red);
 }
 
-.official-registry-status.unconfigured strong,
-.official-registry-status.empty strong {
+.deep-verification-prompt.unconfigured strong,
+.deep-verification-prompt.empty strong {
   color: var(--amber);
 }
 
