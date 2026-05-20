@@ -892,7 +892,7 @@ function VerificationWorkbenchHeader({ activeRecordId, summary, latestLog, statu
       </div>
       <div className="verification-meta-grid">
         <Metric label="核验方式" value="轻量搜索" />
-        <Metric label="预计成本" value="约 ¥0.07" />
+        <Metric label="核验范围" value="7 个关键词" />
         <Metric label="最近核验" value={latestAt ? formatDateTime(latestAt) : '未生成'} />
         <Metric label="确认日志" value={`${reviewCount} 条`} />
       </div>
@@ -1012,7 +1012,7 @@ function DeepVerificationPrompt({ businessProfile, candidateCount, reasons }) {
         <small>{message} · 候选 {candidateCount} 个 · {provider}</small>
       </div>
       <TagStrip items={reasons} tone="warning" />
-      <small>当前仅做触发提示；未配置供应商 Key 前不会发起收费查询。</small>
+      <small>当前仅做触发提示；未配置供应商 Key 前不会发起授权工商核验。</small>
     </div>
   );
 }
@@ -1054,7 +1054,7 @@ function VerificationKeywordPanel({ result, copyKeyword }) {
       <div>
         <Database size={17} />
         <strong>查询关键词</strong>
-        <span>默认使用智谱 search_std 查询 7 个风险关键词，约 ¥0.07 / 机构。</span>
+        <span>默认使用智谱轻量搜索查询 7 个风险关键词。</span>
       </div>
       <button type="button" onClick={() => copyKeyword(result.queryKeywords.join('\n'))}>
         复制全部
