@@ -130,6 +130,125 @@ button {
   background: linear-gradient(135deg, #ffffff 0%, #fff0f2 100%);
 }
 
+.assessment-stage-banner {
+  margin: 0 14px 12px;
+  border: 1px solid rgba(134, 106, 184, 0.18);
+  background: rgba(255, 255, 255, 0.86);
+  border-radius: 18px;
+  padding: 12px;
+}
+
+.assessment-stage-banner.draft,
+.assessment-stage-banner.verifying {
+  border-color: rgba(167, 102, 19, 0.22);
+  background: #fffaf2;
+}
+
+.assessment-stage-banner.review {
+  border-color: rgba(138, 102, 217, 0.24);
+  background: #f8f5ff;
+}
+
+.assessment-stage-banner.final {
+  border-color: rgba(24, 130, 98, 0.24);
+  background: #edf9f3;
+}
+
+.assessment-stage-banner.danger {
+  border-color: rgba(184, 50, 67, 0.24);
+  background: #fff0f2;
+}
+
+.assessment-stage-head,
+.assessment-stage-main,
+.assessment-stage-checks {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.assessment-stage-head {
+  justify-content: space-between;
+  margin-bottom: 9px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.assessment-stage-head div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.assessment-stage-head svg {
+  color: var(--purple-700);
+}
+
+.assessment-stage-head strong {
+  color: var(--purple-700);
+}
+
+.assessment-stage-main {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.assessment-stage-main > div {
+  min-width: 0;
+}
+
+.assessment-stage-main strong {
+  display: block;
+  color: var(--ink);
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.assessment-stage-main span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.assessment-stage-main button {
+  flex: 0 0 auto;
+  min-height: 36px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 12px;
+  color: #fff;
+  background: var(--purple-700);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.assessment-stage-checks {
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.assessment-stage-checks span {
+  border: 1px solid rgba(134, 106, 184, 0.16);
+  border-radius: 999px;
+  padding: 6px 9px;
+  color: #604b81;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.assessment-stage-banner p {
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .current-institution-bar {
   margin: 0 14px 12px;
   border: 1px solid rgba(134, 106, 184, 0.18);
@@ -361,6 +480,7 @@ button {
 }
 
 .tab-button:active,
+.assessment-stage-main button:active,
 .primary-button:active,
 .ghost-button:active,
 .basic-verification-launch button:active,
@@ -377,6 +497,7 @@ button {
 }
 
 .tab-button:focus-visible,
+.assessment-stage-main button:focus-visible,
 .primary-button:focus-visible,
 .ghost-button:focus-visible,
 .basic-verification-launch button:focus-visible,
@@ -1610,6 +1731,14 @@ textarea:focus {
 
   .tab-button {
     font-size: 11px;
+  }
+
+  .assessment-stage-main {
+    flex-direction: column;
+  }
+
+  .assessment-stage-main button {
+    width: 100%;
   }
 }
 

@@ -35,6 +35,7 @@ import {
 } from './assessmentRepository';
 import {
   buildVerificationAppliedFields,
+  getAssessmentStage,
   getVerificationClosureStatus
 } from './verificationAppliedFields';
 
@@ -87,6 +88,21 @@ function App() {
   const activeStepIndex = tabs.findIndex((tab) => tab.id === activeTab);
   const isRemoteMode = assessmentRepository.mode === REPOSITORY_MODES.remote;
   const latestVerificationSummary = getVerificationSummary(verificationLogs[0]);
+  const assessmentStage = useMemo(() => getAssessmentStage({
+    activeRecordId,
+    isRemoteMode,
+    summary: latestVerificationSummary,
+    reviews: verificationReviews,
+    verificationLogStatus,
+    verificationReviewStatus
+  }), [
+    activeRecordId,
+    isRemoteMode,
+    latestVerificationSummary,
+    verificationLogStatus,
+    verificationReviews,
+    verificationReviewStatus
+  ]);
 
   const markRepositorySynced = (message = '已同步到远端') => {
     setRepositoryStatus('synced');
@@ -493,6 +509,11 @@ function App() {
 
         <ResultCard result={result} statusClass={statusClass} />
 
+        <AssessmentStageBanner
+          stage={assessmentStage}
+          onAction={() => setActiveTab(assessmentStage.actionTarget || 'result')}
+        />
+
         <CurrentInstitutionBar
           form={form}
           activeRecordId={activeRecordId}
@@ -590,6 +611,7 @@ function App() {
               isRemoteMode={isRemoteMode}
               latestVerificationSummary={latestVerificationSummary}
               verificationReviews={verificationReviews}
+              assessmentStage={assessmentStage}
             />
           )}
         </section>
@@ -678,6 +700,44 @@ function ResultCard({ result, statusClass }) {
           业务申请超过常规规则，需要特批确认。
         </div>
       )}
+    </section>
+  );
+}
+
+function AssessmentStageBanner({ stage, onAction }) {
+  const StageIcon = stage.id === 'final'
+    ? CheckCircle2
+    : stage.tone === 'danger'
+      ? AlertTriangle
+      : stage.id === 'review_pending'
+        ? ClipboardCheck
+        : CircleDashed;
+
+  return (
+    <section className={`assessment-stage-banner ${stage.tone}`} aria-live="polite">
+      <div className="assessment-stage-head">
+        <div>
+          <StageIcon size={17} />
+          <span>结论状态</span>
+        </div>
+        <strong>{stage.statusLabel}</strong>
+      </div>
+      <div className="assessment-stage-main">
+        <div>
+          <strong>{stage.title}</strong>
+          <span>{stage.decisionScope}</span>
+        </div>
+        {stage.actionLabel && (
+          <button type="button" onClick={onAction}>
+            {stage.actionLabel}
+          </button>
+        )}
+      </div>
+      <div className="assessment-stage-checks">
+        <span>{stage.verificationLabel}</span>
+        <span>{stage.reviewLabel}</span>
+      </div>
+      <p>{stage.description}</p>
     </section>
   );
 }
@@ -1456,7 +1516,8 @@ function ResultStep({
   rerunVerification,
   isRemoteMode,
   latestVerificationSummary,
-  verificationReviews
+  verificationReviews,
+  assessmentStage
 }) {
   const riskItems = [
     ...result.redlineReasons,
@@ -1496,6 +1557,7 @@ function ResultStep({
       </div>
 
       <div className="verification-state-panel">
+        <Metric label="结论性质" value={assessmentStage.title} />
         <Metric
           label="核验状态"
           value={getVerificationClosureStatus({
