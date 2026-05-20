@@ -40,6 +40,7 @@ const tabs = [
   { id: 'result', label: '结果', icon: ShieldCheck }
 ];
 
+const DEEP_VERIFICATION_HIGH_LIMIT = 50000;
 const formatMoney = (value) => `¥${Math.round(Number(value) || 0).toLocaleString('zh-CN')}`;
 const formatDateTime = (value) => {
   if (!value) return '';
@@ -813,6 +814,8 @@ function VerifyStep({
       />
       <CreditVerificationPanel
         activeRecordId={activeRecordId}
+        form={form}
+        result={result}
         summary={latestSummary}
         logs={verificationLogs}
         status={verificationLogStatus}
@@ -871,7 +874,7 @@ function VerificationWorkbenchHeader({ activeRecordId, summary, latestLog, statu
   );
 }
 
-function CreditVerificationPanel({ activeRecordId, summary, logs, status, onRefresh, isRemoteMode, updateField }) {
+function CreditVerificationPanel({ activeRecordId, form, result, summary, logs, status, onRefresh, isRemoteMode, updateField }) {
   const latestLog = logs[0];
   const tone = getVerificationTone(summary?.riskLevel, status);
   const suggestedStatus = summary?.suggestedPublicCreditStatus;
@@ -879,6 +882,7 @@ function CreditVerificationPanel({ activeRecordId, summary, logs, status, onRefr
   const canApplySuggestion = suggestedStatus && suggestedStatus !== 'unknown';
   const creditCodeCandidates = getCreditCodeCandidates(summary);
   const businessProfile = summary?.businessProfile || null;
+  const deepVerification = getDeepVerificationRecommendation({ form, result, summary });
 
   const headline = !isRemoteMode
     ? '当前为本地模式，未发起联网核验'
@@ -915,7 +919,13 @@ function CreditVerificationPanel({ activeRecordId, summary, logs, status, onRefr
         <Metric label="搜索结果" value={`${summary?.sourceCount ?? latestLog?.rawResultCount ?? 0} 条`} />
         <Metric label="匹配证据" value={`${summary?.matchedSourceCount ?? 0} 条`} />
       </div>
-      <OfficialRegistryStatus businessProfile={businessProfile} candidateCount={creditCodeCandidates.length} />
+      {deepVerification.shouldShow && (
+        <DeepVerificationPrompt
+          businessProfile={businessProfile}
+          candidateCount={creditCodeCandidates.length}
+          reasons={deepVerification.reasons}
+        />
+      )}
       {summary?.riskTags?.length > 0 && <TagStrip items={summary.riskTags} tone="warning" />}
       {canApplySuggestion && <FieldAlert tone="warning" text={`当前建议为“${suggestedStatusLabel}”，需通过人工确认日志采用，不会自动改写风控输入。`} />}
       {creditCodeCandidates.length > 0 && (
@@ -959,7 +969,7 @@ function CreditVerificationPanel({ activeRecordId, summary, logs, status, onRefr
   );
 }
 
-function OfficialRegistryStatus({ businessProfile, candidateCount }) {
+function DeepVerificationPrompt({ businessProfile, candidateCount, reasons }) {
   const registryStatus = businessProfile?.registryStatus || 'unconfigured';
   const statusLabel = getOfficialRegistryStatusLabel(registryStatus);
   const message = registryStatus === 'unconfigured'
@@ -968,10 +978,14 @@ function OfficialRegistryStatus({ businessProfile, candidateCount }) {
   const provider = businessProfile?.registryProvider || 'official_registry';
 
   return (
-    <div className={`official-registry-status ${registryStatus}`}>
-      <span>授权工商深度核验</span>
-      <strong>{statusLabel}</strong>
-      <small>{message} · 候选 {candidateCount} 个 · {provider}</small>
+    <div className={`deep-verification-prompt ${registryStatus}`}>
+      <div>
+        <span>授权工商深度核验</span>
+        <strong>建议启用 · {statusLabel}</strong>
+        <small>{message} · 候选 {candidateCount} 个 · {provider}</small>
+      </div>
+      <TagStrip items={reasons} tone="warning" />
+      <small>当前仅做触发提示；未配置供应商 Key 前不会发起收费查询。</small>
     </div>
   );
 }
@@ -1327,6 +1341,36 @@ function getVerificationSummary(log) {
 function getCreditCodeCandidates(summary) {
   const candidates = summary?.businessProfile?.creditCodeCandidates;
   return Array.isArray(candidates) ? candidates : [];
+}
+
+function getDeepVerificationRecommendation({ form, result, summary }) {
+  const reasons = [];
+  const requestedLimit = Number(result?.requestedLimit || form?.requestedLimit || 0);
+  const riskTags = Array.isArray(summary?.riskTags) ? summary.riskTags : [];
+  const matchedSourceCount = Number(summary?.matchedSourceCount || 0);
+  const suggestedPublicCreditStatus = summary?.suggestedPublicCreditStatus || '';
+  const hasRiskEvidence = matchedSourceCount > 0
+    || riskTags.length > 0
+    || ['medium', 'serious'].includes(suggestedPublicCreditStatus)
+    || ['medium', 'high'].includes(summary?.riskLevel || '');
+
+  if (requestedLimit >= DEEP_VERIFICATION_HIGH_LIMIT) {
+    reasons.push(`申请额度达到 ${formatMoney(DEEP_VERIFICATION_HIGH_LIMIT)} 以上`);
+  }
+  if (hasRiskEvidence) {
+    reasons.push('联网核验发现需复核风险线索');
+  }
+  if (['new60NoRepayment', 'under3Months', 'threeToSixMonths'].includes(form?.businessStage)) {
+    reasons.push('合作未满 6 个月');
+  }
+  if (result?.needsApproval) {
+    reasons.push('当前评估需要特批');
+  }
+
+  return {
+    shouldShow: reasons.length > 0,
+    reasons
+  };
 }
 
 function getOfficialRegistryStatusLabel(status) {
