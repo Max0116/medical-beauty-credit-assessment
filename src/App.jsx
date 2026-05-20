@@ -43,6 +43,8 @@ const tabs = [
 ];
 
 const BUSINESS_CONFIG = getBusinessConfig();
+const VERIFICATION_POLL_INTERVAL_MS = 5000;
+const VERIFICATION_POLL_TIMEOUT_MS = 90000;
 const formatMoney = (value) => `¥${Math.round(Number(value) || 0).toLocaleString('zh-CN')}`;
 const formatDateTime = (value) => {
   if (!value) return '';
@@ -188,9 +190,7 @@ function App() {
       refreshVerificationLogs(savedRecord.id);
       refreshVerificationReviews(savedRecord.id, { silent: true });
       if (isRemoteMode) {
-        window.setTimeout(() => refreshVerificationLogs(savedRecord.id, { silent: true }), 3500);
-        window.setTimeout(() => refreshVerificationLogs(savedRecord.id, { silent: true }), 7500);
-        window.setTimeout(() => refreshVerificationLogs(savedRecord.id, { silent: true }), 12000);
+        scheduleVerificationPolling(savedRecord.id);
       }
     } catch {
       if (isRemoteMode) {
@@ -272,13 +272,13 @@ function App() {
     if (!recordId) {
       setVerificationLogs([]);
       setVerificationLogStatus('idle');
-      return;
+      return [];
     }
 
     if (!isRemoteMode) {
       setVerificationLogs([]);
       setVerificationLogStatus('unavailable');
-      return;
+      return [];
     }
 
     try {
@@ -286,13 +286,26 @@ function App() {
       const logs = await assessmentRepository.listVerificationLogs(recordId);
       setVerificationLogs(logs);
       setVerificationLogStatus('ready');
+      return logs;
     } catch {
       if (!options.silent) {
         setVerificationLogs([]);
         setVerificationLogStatus('error');
         setToast('核验日志读取失败');
       }
+      return [];
     }
+  };
+
+  const scheduleVerificationPolling = (recordId = activeRecordId, startedAt = Date.now()) => {
+    if (!recordId || !isRemoteMode) return;
+
+    window.setTimeout(async () => {
+      const logs = await refreshVerificationLogs(recordId, { silent: true });
+      if (hasTerminalVerificationLog(logs)) return;
+      if (Date.now() - startedAt >= VERIFICATION_POLL_TIMEOUT_MS) return;
+      scheduleVerificationPolling(recordId, startedAt);
+    }, VERIFICATION_POLL_INTERVAL_MS);
   };
 
   const rerunVerification = async (recordId = activeRecordId) => {
@@ -314,9 +327,7 @@ function App() {
       }
       setVerificationLogStatus('ready');
       setToast('已重新发起联网核验');
-      window.setTimeout(() => refreshVerificationLogs(recordId, { silent: true }), 3500);
-      window.setTimeout(() => refreshVerificationLogs(recordId, { silent: true }), 7500);
-      window.setTimeout(() => refreshVerificationLogs(recordId, { silent: true }), 12000);
+      scheduleVerificationPolling(recordId);
       return pendingLog;
     } catch {
       setVerificationLogStatus('error');
@@ -1528,6 +1539,12 @@ function getVerificationSummary(log) {
   return log?.verificationSummary || log?.extractedFlags?.verificationSummary || null;
 }
 
+function hasTerminalVerificationLog(logs) {
+  const latestSummary = getVerificationSummary(logs?.[0]);
+  const latestStatus = latestSummary?.status || logs?.[0]?.status;
+  return ['completed', 'failed', 'skipped'].includes(latestStatus);
+}
+
 function getCreditCodeCandidates(summary) {
   const candidates = summary?.businessProfile?.creditCodeCandidates;
   return Array.isArray(candidates) ? candidates : [];
@@ -1584,7 +1601,7 @@ function getVerificationProgress({ activeRecordId, status, summary }) {
   if (summary?.status === 'failed' || summary?.status === 'skipped') return 100;
   if (summary?.status === 'pending') return 35;
   if (status === 'loading') return 65;
-  if (status === 'ready') return 80;
+  if (status === 'ready') return 88;
   if (status === 'error') return 100;
   return 45;
 }
