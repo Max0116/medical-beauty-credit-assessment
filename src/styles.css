@@ -1084,6 +1084,17 @@ textarea:focus {
   background: rgba(255, 255, 255, 0.68);
 }
 
+.verification-action-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.verification-refresh-button.primary {
+  color: #fff;
+  background: var(--purple-700);
+}
+
 .verification-refresh-button:disabled {
   opacity: 0.5;
 }
@@ -1214,6 +1225,17 @@ textarea:focus {
   cursor: not-allowed;
 }
 
+.verification-log-actions {
+  display: flex;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+
+.verification-log-actions button {
+  min-height: 38px;
+  padding: 8px 9px;
+}
+
 .verification-log-header {
   display: flex;
   align-items: center;
@@ -1276,6 +1298,51 @@ textarea:focus {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.45;
+}
+
+.evidence-attachment-input {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.evidence-attachment-input input {
+  min-height: 46px;
+  border: 1px dashed var(--purple-200);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.75);
+  padding: 10px;
+}
+
+.evidence-attachment-input small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.evidence-attachment-input.disabled {
+  opacity: 0.62;
+}
+
+.selected-attachment-list,
+.evidence-attachment-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.selected-attachment-list span,
+.evidence-attachment-list a {
+  max-width: 100%;
+  border-radius: 999px;
+  padding: 6px 9px;
+  color: var(--purple-700);
+  background: rgba(239, 231, 255, 0.82);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.25;
+  text-decoration: none;
+  overflow-wrap: anywhere;
 }
 
 .verification-status {

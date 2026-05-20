@@ -38,8 +38,10 @@ Supabase Edge Function `assessments` 需要实现以下 JSON API：
 | `POST` | `/records` | 保存评估记录 |
 | `GET` | `/records/:id` | 读取单条评估记录 |
 | `GET` | `/records/:id/verification` | 读取后台联网核验日志 |
+| `POST` | `/records/:id/verification` | 手动重新发起后台联网核验 |
 | `GET` | `/records/:id/verification-reviews` | 读取核验人工确认日志 |
 | `POST` | `/records/:id/verification-reviews` | 保存核验人工确认日志 |
+| `POST` | `/records/:id/verification-attachments` | 上传核验证据截图 / PDF |
 
 ## 请求头
 
@@ -86,6 +88,17 @@ content-type: application/json
   "verificationLogId": "uuid",
   "evidenceUrl": "screenshot://2026-05-20-001 或 https://...",
   "evidenceNote": "采用系统建议，已保留查询截图。",
+  "evidenceAttachments": [
+    {
+      "id": "uuid",
+      "bucket": "verification-evidence",
+      "path": "client-id/record-id/file.png",
+      "fileName": "处罚截图.png",
+      "mimeType": "image/png",
+      "size": 12345,
+      "uploadedAt": "2026-05-20T00:00:00.000Z"
+    }
+  ],
   "verificationSnapshot": {},
   "appliedFields": {
     "publicCreditStatus": "normal"
@@ -94,6 +107,31 @@ content-type: application/json
 ```
 
 确认日志用于记录人工采用建议、人工改判或仅复核留痕。它可以记录业务人员主动采用的 `publicCreditStatus`，但不允许后端自动改写评分、红线或授信结论。
+
+附件 metadata 会随确认日志写入 `verification_snapshot.evidenceAttachments`，因此即使远端数据库尚未应用 PR11 的结构化列 migration，线上 Function 也能保存和读取附件。`evidence_attachments` 列用于后续结构化查询和报表扩展。
+
+### 上传核验证据附件
+
+使用 `multipart/form-data`，字段名为 `file`。支持 `image/jpeg`、`image/png`、`image/webp`、`image/heic`、`application/pdf`，单个文件上限 10MB。
+
+成功响应：
+
+```json
+{
+  "attachment": {
+    "id": "uuid",
+    "bucket": "verification-evidence",
+    "path": "client-id/record-id/file.png",
+    "fileName": "处罚截图.png",
+    "mimeType": "image/png",
+    "size": 12345,
+    "uploadedAt": "2026-05-20T00:00:00.000Z",
+    "signedUrl": "https://..."
+  }
+}
+```
+
+附件上传由 Edge Function 使用 service role 写入私有 Storage bucket。H5 前端不得直接持有 `service_role`，也不直接开放 Storage 写权限。
 
 `record` 是前端已规范化的记录快照，包含：
 
@@ -184,6 +222,22 @@ content-type: application/json
 }
 ```
 
+`POST /records/:id/verification` 会立即返回一条 `pending` 核验日志，并在后台复用该日志更新为 `completed`、`failed` 或 `skipped`：
+
+```json
+{
+  "verificationLog": {
+    "id": "uuid",
+    "recordId": "record-id",
+    "provider": "zhipu_web_search",
+    "status": "pending",
+    "queryKeywords": [],
+    "riskTags": [],
+    "rawResultCount": 0
+  }
+}
+```
+
 ```json
 {
   "verificationReviews": [
@@ -198,6 +252,18 @@ content-type: application/json
       "suggestedPublicCreditStatus": "normal",
       "evidenceUrl": "screenshot://2026-05-20-001",
       "evidenceNote": "采用系统建议，截图已归档。",
+      "evidenceAttachments": [
+        {
+          "id": "uuid",
+          "bucket": "verification-evidence",
+          "path": "client-id/record-id/file.png",
+          "fileName": "处罚截图.png",
+          "mimeType": "image/png",
+          "size": 12345,
+          "uploadedAt": "2026-05-20T00:00:00.000Z",
+          "signedUrl": "https://..."
+        }
+      ],
       "verificationSnapshot": {},
       "appliedFields": {
         "publicCreditStatus": "normal"
