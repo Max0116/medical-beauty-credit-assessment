@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildBusinessProfile, buildVerificationSummary, extractVerificationEvidence } from './verificationEvidence.ts';
+import {
+  buildBusinessProfile,
+  buildFallbackEvidenceInsight,
+  buildVerificationSummary,
+  extractVerificationEvidence
+} from './verificationEvidence.ts';
 
 describe('verification evidence extraction', () => {
   it('does not treat risk words in query keywords as evidence', () => {
@@ -53,8 +58,41 @@ describe('verification evidence extraction', () => {
     });
 
     expect(riskTags).toContain('严重违法失信');
+    expect(evidence[0].sourceHost).toBe('example.com');
+    expect(evidence[0].riskSignal).toContain('严重违法失信');
     expect(summary.verificationSummary.judgment).toBe('redline_suspected');
+    expect(summary.verificationSummary.evidenceInsight.overview).toContain('杭州星澜医疗美容诊所');
+    expect(summary.verificationSummary.evidenceInsight.keyFindings[0]).toContain('严重违法失信');
     expect(summary.verificationSummary.suggestedPublicCreditStatus).toBe('serious');
+  });
+
+  it('keeps AI evidence insight in the verification summary when provided', () => {
+    const rawResults = [
+      {
+        result: {
+          title: '杭州星澜医疗美容诊所行政处罚信息',
+          content: '杭州星澜医疗美容诊所因医疗广告违法受到行政处罚。',
+          media: '监管公告',
+          link: 'https://example.com/penalty',
+          publish_date: '2026-01-01'
+        }
+      }
+    ];
+    const evidence = extractVerificationEvidence('杭州星澜医疗美容诊所', rawResults);
+    const riskTags = [...new Set(evidence.map((item) => item.category))];
+    const evidenceInsight = buildFallbackEvidenceInsight('杭州星澜医疗美容诊所', riskTags, evidence);
+    const summary = buildVerificationSummary({
+      status: 'completed',
+      institutionName: '杭州星澜医疗美容诊所',
+      rawResults,
+      riskTags,
+      evidence,
+      evidenceInsight
+    });
+
+    expect(summary.verificationSummary.evidenceInsight).toEqual(evidenceInsight);
+    expect(summary.verificationSummary.evidenceSummaries[0].snippet).toContain('医疗广告违法');
+    expect(summary.verificationSummary.evidenceSummaries[0].url).toBe('https://example.com/penalty');
   });
 
   it('builds unified social credit code candidates from official registry results only', () => {
