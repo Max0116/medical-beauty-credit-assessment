@@ -147,6 +147,16 @@ describe('remote assessment repository wiring', () => {
         return createJsonResponse({ records: [] });
       }
       if (url.endsWith('/records/remote-record-1/verification')) {
+        if (options.method === 'POST') {
+          return createJsonResponse({
+            verificationLog: {
+              id: 'verification-rerun-1',
+              status: 'pending',
+              riskTags: [],
+              rawResultCount: 0
+            }
+          }, 202);
+        }
         return createJsonResponse({
           verificationLogs: [
             {
@@ -195,6 +205,7 @@ describe('remote assessment repository wiring', () => {
     const record = await repository.saveRecord({ form, result });
     const records = await repository.listRecords();
     const verificationLogs = await repository.listVerificationLogs(record.id);
+    const rerunLog = await repository.rerunVerification(record.id);
     const savedReview = await repository.saveVerificationReview(record.id, {
       action: 'accept_suggestion',
       reviewerName: '张三',
@@ -217,6 +228,10 @@ describe('remote assessment repository wiring', () => {
         rawResultCount: 2
       }
     ]);
+    expect(rerunLog).toMatchObject({
+      id: 'verification-rerun-1',
+      status: 'pending'
+    });
     expect(savedReview).toMatchObject({
       id: 'review-1',
       action: 'accept_suggestion',
@@ -235,6 +250,7 @@ describe('remote assessment repository wiring', () => {
       'https://credit-api.example.com/draft',
       'https://credit-api.example.com/records',
       'https://credit-api.example.com/records',
+      'https://credit-api.example.com/records/remote-record-1/verification',
       'https://credit-api.example.com/records/remote-record-1/verification',
       'https://credit-api.example.com/records/remote-record-1/verification-reviews',
       'https://credit-api.example.com/records/remote-record-1/verification-reviews'

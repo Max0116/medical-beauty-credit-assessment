@@ -293,6 +293,36 @@ function App() {
     }
   };
 
+  const rerunVerification = async (recordId = activeRecordId) => {
+    if (!recordId) {
+      setToast('请先保存评估记录');
+      return null;
+    }
+
+    if (!isRemoteMode) {
+      setToast('本地模式暂不支持重新发起联网核验');
+      return null;
+    }
+
+    try {
+      setVerificationLogStatus('loading');
+      const pendingLog = await assessmentRepository.rerunVerification(recordId);
+      if (pendingLog) {
+        setVerificationLogs((current) => [pendingLog, ...current.filter((item) => item.id !== pendingLog.id)]);
+      }
+      setVerificationLogStatus('ready');
+      setToast('已重新发起联网核验');
+      window.setTimeout(() => refreshVerificationLogs(recordId, { silent: true }), 3500);
+      window.setTimeout(() => refreshVerificationLogs(recordId, { silent: true }), 7500);
+      window.setTimeout(() => refreshVerificationLogs(recordId, { silent: true }), 12000);
+      return pendingLog;
+    } catch {
+      setVerificationLogStatus('error');
+      setToast('重新核验失败，请稍后重试');
+      return null;
+    }
+  };
+
   const refreshVerificationReviews = async (recordId = activeRecordId, options = {}) => {
     if (!recordId) {
       setVerificationReviews([]);
@@ -452,6 +482,7 @@ function App() {
               verificationLogs={verificationLogs}
               verificationLogStatus={verificationLogStatus}
               refreshVerificationLogs={() => refreshVerificationLogs()}
+              rerunVerification={() => rerunVerification()}
               verificationReviews={verificationReviews}
               verificationReviewStatus={verificationReviewStatus}
               refreshVerificationReviews={() => refreshVerificationReviews()}
@@ -468,6 +499,7 @@ function App() {
               verificationLogs={verificationLogs}
               verificationLogStatus={verificationLogStatus}
               refreshVerificationLogs={() => refreshVerificationLogs()}
+              rerunVerification={() => rerunVerification()}
               isRemoteMode={isRemoteMode}
               latestVerificationSummary={latestVerificationSummary}
             />
@@ -792,6 +824,7 @@ function VerifyStep({
   verificationLogs,
   verificationLogStatus,
   refreshVerificationLogs,
+  rerunVerification,
   verificationReviews,
   verificationReviewStatus,
   refreshVerificationReviews,
@@ -820,6 +853,7 @@ function VerifyStep({
         logs={verificationLogs}
         status={verificationLogStatus}
         onRefresh={refreshVerificationLogs}
+        onRerun={rerunVerification}
         isRemoteMode={isRemoteMode}
         updateField={updateField}
       />
@@ -865,7 +899,7 @@ function VerificationWorkbenchHeader({ activeRecordId, summary, latestLog, statu
       </div>
       <div className="verification-meta-grid">
         <Metric label="核验方式" value="轻量搜索" />
-        <Metric label="预计成本" value="约 ¥0.07" />
+        <Metric label="核验范围" value="7 个关键词" />
         <Metric label="最近核验" value={latestAt ? formatDateTime(latestAt) : '未生成'} />
         <Metric label="确认日志" value={`${reviewCount} 条`} />
       </div>
@@ -874,7 +908,7 @@ function VerificationWorkbenchHeader({ activeRecordId, summary, latestLog, statu
   );
 }
 
-function CreditVerificationPanel({ activeRecordId, form, result, summary, logs, status, onRefresh, isRemoteMode, updateField }) {
+function CreditVerificationPanel({ activeRecordId, form, result, summary, logs, status, onRefresh, onRerun, isRemoteMode, updateField }) {
   const latestLog = logs[0];
   const tone = getVerificationTone(summary?.riskLevel, status);
   const suggestedStatus = summary?.suggestedPublicCreditStatus;
@@ -944,9 +978,14 @@ function CreditVerificationPanel({ activeRecordId, form, result, summary, logs, 
           ))}
         </div>
       )}
-      <button className="verification-refresh-button" type="button" onClick={onRefresh} disabled={!isRemoteMode || !activeRecordId || status === 'loading'}>
-        刷新核验结果
-      </button>
+      <div className="verification-action-row">
+        <button className="verification-refresh-button" type="button" onClick={onRefresh} disabled={!isRemoteMode || !activeRecordId || status === 'loading'}>
+          刷新结果
+        </button>
+        <button className="verification-refresh-button primary" type="button" onClick={onRerun} disabled={!isRemoteMode || !activeRecordId || status === 'loading'}>
+          重新核验
+        </button>
+      </div>
       {summary?.status === 'completed' && !summary?.evidenceSummaries?.length && (
         <div className="verification-empty-state">
           <CheckCircle2 size={16} />
@@ -985,7 +1024,7 @@ function DeepVerificationPrompt({ businessProfile, candidateCount, reasons }) {
         <small>{message} · 候选 {candidateCount} 个 · {provider}</small>
       </div>
       <TagStrip items={reasons} tone="warning" />
-      <small>当前仅做触发提示；未配置供应商 Key 前不会发起收费查询。</small>
+      <small>当前仅做触发提示；未配置供应商 Key 前不会发起授权工商核验。</small>
     </div>
   );
 }
@@ -1027,7 +1066,7 @@ function VerificationKeywordPanel({ result, copyKeyword }) {
       <div>
         <Database size={17} />
         <strong>查询关键词</strong>
-        <span>默认使用智谱 search_std 查询 7 个风险关键词，约 ¥0.07 / 机构。</span>
+        <span>默认使用智谱轻量搜索查询 7 个风险关键词。</span>
       </div>
       <button type="button" onClick={() => copyKeyword(result.queryKeywords.join('\n'))}>
         复制全部
@@ -1198,6 +1237,7 @@ function ResultStep({
   verificationLogs,
   verificationLogStatus,
   refreshVerificationLogs,
+  rerunVerification,
   isRemoteMode,
   latestVerificationSummary
 }) {
@@ -1269,6 +1309,7 @@ function ResultStep({
         logs={verificationLogs}
         status={verificationLogStatus}
         onRefresh={refreshVerificationLogs}
+        onRerun={rerunVerification}
         isRemoteMode={isRemoteMode}
       />
 
@@ -1277,7 +1318,7 @@ function ResultStep({
   );
 }
 
-function VerificationLogPanel({ activeRecordId, logs, status, onRefresh, isRemoteMode }) {
+function VerificationLogPanel({ activeRecordId, logs, status, onRefresh, onRerun, isRemoteMode }) {
   const latestLog = logs[0];
   const statusText = {
     pending: '等待核验',
@@ -1307,9 +1348,14 @@ function VerificationLogPanel({ activeRecordId, logs, status, onRefresh, isRemot
           <Search size={17} />
           <strong>后台联网核验</strong>
         </div>
-        <button type="button" onClick={onRefresh} disabled={!isRemoteMode || !activeRecordId || status === 'loading'}>
-          刷新
-        </button>
+        <div className="verification-log-actions">
+          <button type="button" onClick={onRefresh} disabled={!isRemoteMode || !activeRecordId || status === 'loading'}>
+            刷新
+          </button>
+          <button type="button" onClick={onRerun} disabled={!isRemoteMode || !activeRecordId || status === 'loading'}>
+            重新核验
+          </button>
+        </div>
       </div>
       <p>{panelText}</p>
       {logs.length > 0 && (

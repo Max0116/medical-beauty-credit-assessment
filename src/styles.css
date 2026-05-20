@@ -1084,6 +1084,17 @@ textarea:focus {
   background: rgba(255, 255, 255, 0.68);
 }
 
+.verification-action-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.verification-refresh-button.primary {
+  color: #fff;
+  background: var(--purple-700);
+}
+
 .verification-refresh-button:disabled {
   opacity: 0.5;
 }
@@ -1212,6 +1223,17 @@ textarea:focus {
 .verification-log-header button:disabled {
   opacity: 0.48;
   cursor: not-allowed;
+}
+
+.verification-log-actions {
+  display: flex;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+
+.verification-log-actions button {
+  min-height: 38px;
+  padding: 8px 9px;
 }
 
 .verification-log-header {
