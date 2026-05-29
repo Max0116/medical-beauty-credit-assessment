@@ -70,7 +70,15 @@ ASSESSMENT_UPSTREAM_API_KEY=sb_publishable_xxx
 /etc/systemd/system/medical-credit-api.service
 ```
 
-Nginx 建议：
+仓库内提供了可交给 IT 的模板：
+
+```text
+ops/aliyun/nginx-medical-credit.conf.example
+ops/aliyun/medical-credit-api.service.example
+ops/aliyun/medical-credit-api.env.example
+```
+
+Nginx 关键配置：
 
 ```nginx
 server {
@@ -94,7 +102,7 @@ server {
 }
 ```
 
-systemd 示例：
+systemd 关键配置：
 
 ```ini
 [Unit]
@@ -106,12 +114,7 @@ WorkingDirectory=/var/www/medical-credit-api
 ExecStart=/usr/bin/node aliyun-api/server.js
 Restart=always
 RestartSec=3
-Environment=NODE_ENV=production
-Environment=MEDICAL_CREDIT_PROXY_HOST=127.0.0.1
-Environment=MEDICAL_CREDIT_PROXY_PORT=8787
-Environment=MEDICAL_CREDIT_ALLOWED_ORIGINS=https://credit.xxx.com
-Environment=ASSESSMENT_UPSTREAM_URL=https://<project-ref>.supabase.co/functions/v1/assessments
-Environment=ASSESSMENT_UPSTREAM_API_KEY=sb_publishable_xxx
+EnvironmentFile=/var/www/medical-credit-api/.env
 
 [Install]
 WantedBy=multi-user.target
@@ -123,6 +126,7 @@ PR22 必须验证：
 
 - `npm test`
 - `npm run build`
+- `npm run verify:dist`
 - `GET /api/health` 返回 200。
 - 前端构建产物不包含 `supabase.co/functions/v1/assessments`。
 - 前端构建产物不包含 `sb_publishable`。

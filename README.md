@@ -66,6 +66,7 @@ http://你的局域网 IP:5173/
 ```bash
 npm test
 npm run build
+npm run verify:dist
 ```
 
 PR 检查由 `.github/workflows/ci.yml` 自动执行：
@@ -151,6 +152,8 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `docs/database-integration-prompt.md`：后续数据库接入提示词与表结构建议。
 - `docs/remote-persistence-contract.md`：远端持久化 API 契约。
 - `docs/aliyun-pr22-api-proxy.md`：阿里云 API 中转部署、验收和回滚说明。
+- `ops/aliyun/`：阿里云 Nginx、systemd、环境变量模板。
+- `scripts/verify-dist-no-secrets.mjs`：构建产物密钥与上游地址扫描脚本。
 - `docs/ai-verification-plan.md`：智谱联网核验与多 AI Provider 规划。
 - `.env.example`：远端持久化环境变量示例。
 - `.github/workflows/ci.yml`：PR 自动测试与构建。
