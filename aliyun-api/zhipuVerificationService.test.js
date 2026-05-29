@@ -3,6 +3,36 @@ import { buildVerificationKeywords } from './assessmentContract.js';
 import { createZhipuVerificationService, splitVerificationKeywords } from './zhipuVerificationService.js';
 
 describe('Zhipu verification service', () => {
+  it('reports configuration readiness for health checks', async () => {
+    const configured = createZhipuVerificationService({
+      apiKey: 'zhipu-test-key',
+      fetchImpl: async () => createJsonResponse({}),
+      searchTimeoutMs: 5000,
+      summaryTimeoutMs: 6000,
+      summaryModel: 'glm-test'
+    });
+    await expect(configured.health()).resolves.toMatchObject({
+      ok: true,
+      configured: true,
+      provider: 'zhipu_web_search',
+      searchEngine: 'search_std',
+      summaryModel: 'glm-test',
+      searchTimeoutMs: 5000,
+      summaryTimeoutMs: 6000
+    });
+
+    const unconfigured = createZhipuVerificationService({
+      apiKey: '',
+      fetchImpl: async () => createJsonResponse({})
+    });
+    await expect(unconfigured.health()).resolves.toMatchObject({
+      ok: false,
+      configured: false,
+      provider: 'zhipu_web_search',
+      reason: 'missing_api_key'
+    });
+  });
+
   it('splits verification keywords into fast screening and background completion phases', () => {
     const keywords = buildVerificationKeywords('上海愉悦美联臣医疗美容医院');
     expect(splitVerificationKeywords(keywords)).toEqual({

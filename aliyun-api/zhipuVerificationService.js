@@ -21,6 +21,22 @@ export function createZhipuVerificationService({
     candidates: []
   }
 } = {}) {
+  const health = async () => ({
+    ok: Boolean(apiKey && fetchImpl),
+    configured: Boolean(apiKey),
+    provider: 'zhipu_web_search',
+    searchEngine: 'search_std',
+    summaryModel,
+    searchTimeoutMs: Number(searchTimeoutMs) || 12000,
+    summaryTimeoutMs: Number(summaryTimeoutMs) || 12000,
+    officialRegistryStatus: officialRegistry?.status || 'unconfigured',
+    reason: apiKey
+      ? fetchImpl
+        ? undefined
+        : 'fetch_not_available'
+      : 'missing_api_key'
+  });
+
   const run = async ({ repository, clientInstanceId, record, form = {}, result = {}, existingLogId }) => {
     const recordId = record?.id;
     const queryKeywords = Array.isArray(result.queryKeywords)
@@ -209,7 +225,7 @@ export function createZhipuVerificationService({
     }
   };
 
-  return { run };
+  return { health, run };
 }
 
 export function splitVerificationKeywords(queryKeywords = []) {

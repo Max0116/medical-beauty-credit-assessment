@@ -69,7 +69,36 @@ export function createOssEvidenceStorage({
     return Promise.all(attachments.map(signEvidenceAttachment));
   };
 
+  const health = async () => {
+    const status = {
+      ok: true,
+      configured: true,
+      provider: 'aliyun-oss',
+      bucket,
+      signedUrlTtlSeconds: Number(signedUrlTtlSeconds) || 1800
+    };
+
+    if (typeof client.getBucketInfo !== 'function') return status;
+
+    try {
+      const bucketInfo = await client.getBucketInfo(bucket);
+      return {
+        ...status,
+        bucketReachable: true,
+        region: bucketInfo?.bucket?.location || bucketInfo?.location
+      };
+    } catch (error) {
+      return {
+        ...status,
+        ok: false,
+        bucketReachable: false,
+        errorMessage: error instanceof Error ? error.message : String(error || 'OSS bucket health check failed')
+      };
+    }
+  };
+
   return {
+    health,
     uploadEvidenceAttachment,
     signEvidenceAttachment,
     signEvidenceAttachments

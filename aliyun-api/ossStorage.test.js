@@ -44,6 +44,33 @@ describe('OSS evidence storage', () => {
     });
   });
 
+  it('reports OSS readiness without exposing credentials', async () => {
+    const client = {
+      getBucketInfo: async (bucket) => ({
+        bucket: {
+          name: bucket,
+          location: 'oss-cn-shanghai'
+        }
+      }),
+      signatureUrl: (path) => `https://oss.example.com/${path}`
+    };
+    const storage = createOssEvidenceStorage({
+      client,
+      bucket: 'medical-credit-verification-evidence',
+      signedUrlTtlSeconds: 900
+    });
+
+    await expect(storage.health()).resolves.toMatchObject({
+      ok: true,
+      configured: true,
+      provider: 'aliyun-oss',
+      bucket: 'medical-credit-verification-evidence',
+      signedUrlTtlSeconds: 900,
+      bucketReachable: true,
+      region: 'oss-cn-shanghai'
+    });
+  });
+
   it('rejects unsupported evidence files before upload', () => {
     expect(() => validateEvidenceFile({ mimeType: 'text/plain', size: 10, buffer: Buffer.from('demo') })).toThrow('file type is not supported.');
     expect(() => validateEvidenceFile({ mimeType: 'image/png', size: 0, buffer: Buffer.alloc(0) })).toThrow('file must not be empty.');

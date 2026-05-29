@@ -252,7 +252,7 @@ PR23 继续实现 PR22 / 前端已有端点：
 
 | 方法 | 路径 | PR23 行为 |
 | --- | --- | --- |
-| `GET` | `/api/health` | 返回 API、RDS、OSS 基础状态 |
+| `GET` | `/api/health` | 返回 API、运行模式、RDS、OSS、智谱核验 readiness 状态 |
 | `GET` | `/api/draft` | 从 RDS 读取草稿 |
 | `PUT` | `/api/draft` | upsert RDS 草稿 |
 | `DELETE` | `/api/draft` | 删除 RDS 草稿 |
@@ -349,6 +349,19 @@ npm run release:aliyun
 
 ```bash
 curl -i https://credit.xxx.com/api/health
+```
+
+`/api/health` 应返回可读的 readiness 分段，便于上线前判断是哪一段未配置或不可达：
+
+```json
+{
+  "ok": true,
+  "ready": true,
+  "mode": "aliyun",
+  "backend": { "ok": true, "database": "postgres" },
+  "storage": { "ok": true, "configured": true, "provider": "aliyun-oss" },
+  "verification": { "ok": true, "configured": true, "provider": "zhipu_web_search" }
+}
 ```
 
 业务链路：

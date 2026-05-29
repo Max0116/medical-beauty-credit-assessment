@@ -64,6 +64,7 @@ export function createAssessmentApiServer({ env = process.env } = {}) {
     repository,
     evidenceStorage,
     verificationService,
+    mode,
     allowedOrigins: parseAllowedOrigins(env.MEDICAL_CREDIT_ALLOWED_ORIGINS || '')
   });
 }

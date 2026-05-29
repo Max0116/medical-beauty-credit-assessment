@@ -27,6 +27,23 @@ describe('Aliyun RDS/OSS API handler', () => {
     const repository = createMemoryRepository();
     const baseUrl = await listen(createAliyunApiHandler({
       repository,
+      evidenceStorage: {
+        health: async () => ({
+          ok: true,
+          configured: true,
+          provider: 'aliyun-oss',
+          bucket: 'medical-credit-verification-evidence'
+        })
+      },
+      verificationService: {
+        health: async () => ({
+          ok: true,
+          configured: true,
+          provider: 'zhipu_web_search',
+          searchEngine: 'search_std'
+        })
+      },
+      mode: 'dual_write',
       allowedOrigins: ['http://credit.example.com']
     }));
 
@@ -36,8 +53,19 @@ describe('Aliyun RDS/OSS API handler', () => {
     expect(health.status).toBe(200);
     expect(await health.json()).toMatchObject({
       ok: true,
-      mode: 'aliyun',
-      backend: { ok: true, database: 'fake' }
+      ready: true,
+      mode: 'dual_write',
+      backend: { ok: true, database: 'fake' },
+      storage: {
+        ok: true,
+        configured: true,
+        provider: 'aliyun-oss'
+      },
+      verification: {
+        ok: true,
+        configured: true,
+        provider: 'zhipu_web_search'
+      }
     });
 
     const putDraft = await fetch(`${baseUrl}/api/draft`, {

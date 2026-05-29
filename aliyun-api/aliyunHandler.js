@@ -17,6 +17,7 @@ export function createAliyunApiHandler({
   evidenceStorage,
   allowedOrigins = [],
   verificationService,
+  mode = 'aliyun',
   now = () => new Date()
 } = {}) {
   if (!repository) throw new Error('Aliyun API handler requires a repository.');
@@ -38,12 +39,28 @@ export function createAliyunApiHandler({
     try {
       const requestUrl = new URL(request.url || '/', 'http://medical-credit.local');
       if (requestUrl.pathname === '/api/health') {
-        const backend = repository.health ? await repository.health() : { ok: true };
+        const backend = await readComponentHealth(repository, { ok: true, configured: true });
+        const storage = await readComponentHealth(evidenceStorage, {
+          ok: false,
+          configured: false,
+          provider: 'aliyun-oss',
+          reason: 'not_configured'
+        });
+        const verification = await readComponentHealth(verificationService, {
+          ok: false,
+          configured: false,
+          provider: 'zhipu_web_search',
+          reason: 'not_configured'
+        });
+        const ready = isReadyComponent(backend) && isReadyComponent(storage) && isReadyComponent(verification);
         writeJson(response, 200, {
           ok: true,
+          ready,
           service: 'medical-credit-assessment-api',
-          mode: 'aliyun',
-          backend
+          mode,
+          backend,
+          storage,
+          verification
         }, corsHeaders);
         return;
       }
@@ -77,6 +94,23 @@ export function createAliyunApiHandler({
       writeJson(response, 400, { error: formatErrorMessage(error) }, corsHeaders);
     }
   };
+}
+
+async function readComponentHealth(component, fallback) {
+  if (!component?.health) return fallback;
+  try {
+    return await component.health();
+  } catch (error) {
+    return {
+      ok: false,
+      configured: true,
+      errorMessage: formatErrorMessage(error)
+    };
+  }
+}
+
+function isReadyComponent(component = {}) {
+  return component.ok !== false && component.configured !== false;
 }
 
 async function handleDraft({ request, response, repository, clientInstanceId, corsHeaders }) {
