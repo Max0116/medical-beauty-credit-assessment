@@ -34,3 +34,6 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Scan dist for backend secrets
+        run: npm run verify:dist

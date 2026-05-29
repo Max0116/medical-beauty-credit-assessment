@@ -1,0 +1,174 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Usage:
+#   bash ops/aliyun/preflight-release.sh.example
+#
+# Purpose:
+# - Read-only deployment preflight for PR22.
+# - Checks whether the server can host the independent H5 + API proxy.
+# - Does not create, delete, overwrite, or restart anything.
+
+H5_ROOT="${H5_ROOT:-/var/www/medical-credit}"
+API_ROOT="${API_ROOT:-/var/www/medical-credit-api}"
+PROXY_HOST="${MEDICAL_CREDIT_PROXY_HOST:-127.0.0.1}"
+PROXY_PORT="${MEDICAL_CREDIT_PROXY_PORT:-8787}"
+
+case "$H5_ROOT" in
+  /var/www/medical-credit|/www/wwwroot/medical-credit-assessment) ;;
+  *)
+    echo "FAIL unexpected H5_ROOT: $H5_ROOT" >&2
+    echo "Allowed H5_ROOT values: /var/www/medical-credit, /www/wwwroot/medical-credit-assessment" >&2
+    exit 1
+    ;;
+esac
+
+case "$API_ROOT" in
+  /var/www/medical-credit-api|/www/wwwroot/medical-credit-api) ;;
+  *)
+    echo "FAIL unexpected API_ROOT: $API_ROOT" >&2
+    echo "Allowed API_ROOT values: /var/www/medical-credit-api, /www/wwwroot/medical-credit-api" >&2
+    exit 1
+    ;;
+esac
+
+status=0
+
+section() {
+  printf '\n== %s ==\n' "$1"
+}
+
+ok() {
+  printf 'OK   %s\n' "$1"
+}
+
+warn() {
+  printf 'WARN %s\n' "$1"
+}
+
+fail() {
+  printf 'FAIL %s\n' "$1"
+  status=1
+}
+
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+section "System"
+ok "hostname: $(hostname 2>/dev/null || echo unknown)"
+ok "kernel: $(uname -a)"
+ok "user: $(id -un) uid=$(id -u)"
+
+section "Required commands"
+for cmd in node npm nginx curl tar sha256sum; do
+  if command_exists "$cmd"; then
+    ok "$cmd: $(command -v "$cmd")"
+  else
+    fail "$cmd is missing"
+  fi
+done
+
+section "Node.js"
+if command_exists node; then
+  node_version="$(node -v)"
+  ok "node version: $node_version"
+  major_version="${node_version#v}"
+  major_version="${major_version%%.*}"
+  if [[ "$major_version" =~ ^[0-9]+$ ]] && (( major_version >= 20 )); then
+    ok "node major version is >= 20"
+  else
+    fail "node major version must be >= 20"
+  fi
+fi
+
+section "Nginx"
+if command_exists nginx; then
+  if nginx -t >/tmp/medical-credit-nginx-preflight.log 2>&1; then
+    ok "nginx -t passed"
+  else
+    warn "nginx -t failed; existing server config may need IT review"
+    sed -n '1,20p' /tmp/medical-credit-nginx-preflight.log
+  fi
+fi
+
+section "Independent directories"
+for dir in "$H5_ROOT" "$API_ROOT"; do
+  if [[ -e "$dir" ]]; then
+    if [[ -d "$dir" ]]; then
+      ok "$dir exists and is a directory"
+    else
+      fail "$dir exists but is not a directory"
+    fi
+  else
+    parent_dir="$(dirname "$dir")"
+    if [[ -d "$parent_dir" ]]; then
+      ok "$dir does not exist yet; parent exists: $parent_dir"
+    else
+      warn "$dir does not exist and parent is missing: $parent_dir"
+    fi
+  fi
+done
+
+section "Port"
+if command_exists lsof; then
+  if lsof -nP -iTCP:"$PROXY_PORT" -sTCP:LISTEN >/tmp/medical-credit-port-preflight.log 2>&1; then
+    warn "$PROXY_HOST:$PROXY_PORT is already listening"
+    sed -n '1,10p' /tmp/medical-credit-port-preflight.log
+  else
+    ok "$PROXY_HOST:$PROXY_PORT is free or not externally visible to lsof"
+  fi
+elif command_exists ss; then
+  if ss -ltn | grep -q ":$PROXY_PORT "; then
+    warn "$PROXY_HOST:$PROXY_PORT appears to be listening"
+  else
+    ok "$PROXY_HOST:$PROXY_PORT is free according to ss"
+  fi
+else
+  warn "lsof/ss missing; cannot check port $PROXY_PORT"
+fi
+
+section "Outbound network"
+if curl -I --max-time 8 https://www.baidu.com >/dev/null 2>&1; then
+  ok "domestic HTTPS outbound works"
+else
+  warn "domestic HTTPS outbound failed or timed out"
+fi
+
+if curl -I --max-time 8 https://open.bigmodel.cn >/dev/null 2>&1; then
+  ok "Zhipu endpoint appears reachable"
+else
+  warn "Zhipu endpoint check failed or timed out"
+fi
+
+section "Environment placeholders"
+if [[ -f "$API_ROOT/.env" ]]; then
+  ok "$API_ROOT/.env exists"
+  if grep -q '^MEDICAL_CREDIT_ALLOWED_ORIGINS=' "$API_ROOT/.env"; then
+    ok "MEDICAL_CREDIT_ALLOWED_ORIGINS configured"
+  else
+    warn "MEDICAL_CREDIT_ALLOWED_ORIGINS missing in $API_ROOT/.env"
+  fi
+  if grep -q '^ASSESSMENT_UPSTREAM_URL=' "$API_ROOT/.env"; then
+    ok "ASSESSMENT_UPSTREAM_URL configured"
+  else
+    warn "ASSESSMENT_UPSTREAM_URL missing in $API_ROOT/.env"
+  fi
+  if grep -q '^ASSESSMENT_UPSTREAM_API_KEY=' "$API_ROOT/.env"; then
+    ok "ASSESSMENT_UPSTREAM_API_KEY configured"
+  else
+    warn "ASSESSMENT_UPSTREAM_API_KEY missing in $API_ROOT/.env"
+  fi
+else
+  warn "$API_ROOT/.env does not exist yet; create it from medical-credit-api.env.example before starting service"
+fi
+
+section "Result"
+if [[ "$status" -eq 0 ]]; then
+  ok "preflight completed without blocking failures"
+else
+  fail "preflight found blocking failures"
+fi
+
+exit "$status"
+

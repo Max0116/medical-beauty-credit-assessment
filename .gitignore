@@ -8,5 +8,6 @@ dist/
 .codex-*.png
 coverage/
 .vite/
+release/
 supabase/.temp/
 supabase/functions/*/.npmrc

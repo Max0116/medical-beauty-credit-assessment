@@ -187,7 +187,7 @@ export function updateAssessmentRecordSnapshot(record, { form, result }, now = (
 
 export function getAssessmentRepositoryRuntimeConfig(env = getViteEnv()) {
   const remoteBaseUrl = normalizeBaseUrl(env.VITE_ASSESSMENT_API_URL || '');
-  const remotePublishableKey = String(env.VITE_SUPABASE_PUBLISHABLE_KEY || '').trim();
+  const remotePublishableKey = String(env.VITE_ASSESSMENT_API_KEY || env.VITE_SUPABASE_PUBLISHABLE_KEY || '').trim();
   const remoteTimeoutMs = parsePositiveNumber(env.VITE_ASSESSMENT_API_TIMEOUT_MS, DEFAULT_REMOTE_TIMEOUT_MS);
 
   return {
