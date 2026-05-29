@@ -113,8 +113,16 @@ credit.xxx.com
 执行命令：
 
 ```bash
-bash ops/aliyun/server-inventory-readonly.sh.example
+bash ops/aliyun/server-inventory-readonly.sh.example > /tmp/medical-credit-inventory.txt
+INVENTORY_INPUT_FILE=/tmp/medical-credit-inventory.txt npm run inventory:aliyun:format
 ```
+
+脱敏报告路径：
+
+| 报告 | 路径 |
+| --- | --- |
+| JSON |  |
+| Markdown |  |
 
 粘贴摘要，注意不要贴密钥：
 

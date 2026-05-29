@@ -27,6 +27,7 @@ await copyDirectoryFiltered(join(root, 'aliyun-api'), join(packageDir, 'api', 'a
 });
 await cp(join(root, 'scripts', 'aliyun-health.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-health.mjs'));
 await cp(join(root, 'scripts', 'check-aliyun-health.mjs'), join(packageDir, 'api', 'scripts', 'check-aliyun-health.mjs'));
+await cp(join(root, 'scripts', 'format-aliyun-inventory-report.mjs'), join(packageDir, 'api', 'scripts', 'format-aliyun-inventory-report.mjs'));
 await cp(join(root, 'scripts', 'apply-aliyun-postgres-migration.mjs'), join(packageDir, 'api', 'scripts', 'apply-aliyun-postgres-migration.mjs'));
 await cp(join(root, 'scripts', 'supabase-backup.mjs'), join(packageDir, 'api', 'scripts', 'supabase-backup.mjs'));
 await cp(join(root, 'scripts', 'backup-supabase.mjs'), join(packageDir, 'api', 'scripts', 'backup-supabase.mjs'));
@@ -52,6 +53,7 @@ await writeFile(join(packageDir, 'api', 'package.json'), `${JSON.stringify({
   scripts: {
     start: 'node aliyun-api/server.js',
     'health:aliyun': 'node scripts/check-aliyun-health.mjs',
+    'inventory:aliyun:format': 'node scripts/format-aliyun-inventory-report.mjs',
     'backup:supabase': 'node scripts/backup-supabase.mjs',
     'db:migrate:aliyun': 'node scripts/apply-aliyun-postgres-migration.mjs',
     'db:migrate:supabase-to-aliyun': 'node scripts/migrate-supabase-to-aliyun-rds.mjs',
@@ -81,6 +83,7 @@ const manifest = {
     'api/aliyun-api/migrations/',
     'api/scripts/aliyun-health.mjs',
     'api/scripts/check-aliyun-health.mjs',
+    'api/scripts/format-aliyun-inventory-report.mjs',
     'api/scripts/apply-aliyun-postgres-migration.mjs',
     'api/scripts/supabase-backup.mjs',
     'api/scripts/backup-supabase.mjs',
@@ -112,6 +115,7 @@ const manifest = {
     'Create /var/www/medical-credit-api/.env from ops/aliyun/medical-credit-api.env.example on the server.',
     'Do not place ASSESSMENT_UPSTREAM_API_KEY in the H5 directory or browser-visible files.',
     'Before touching an existing server, run bash ops/aliyun/server-inventory-readonly.sh.example to capture a read-only inventory of paths, Nginx, ports, and service layout.',
+    'Format the inventory log with INVENTORY_INPUT_FILE=/tmp/medical-credit-inventory.txt npm run inventory:aliyun:format before filling the PR23 acceptance checklist.',
     'Configure Nginx /api/ to proxy to http://127.0.0.1:8787/api/.',
     'Run npm run db:migrate:aliyun in the API current directory after IT provides the RDS credentials.',
     'Run npm run backup:supabase before any one-off Supabase backfill; keep the generated backup directory outside the browser-visible H5 root.',

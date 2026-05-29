@@ -15,6 +15,7 @@
     "release:aliyun": "npm run verify:release && node scripts/build-aliyun-release.mjs",
     "health:aliyun": "node scripts/check-aliyun-health.mjs",
     "smoke:aliyun": "node scripts/smoke-aliyun-pr22.mjs",
+    "inventory:aliyun:format": "node scripts/format-aliyun-inventory-report.mjs",
     "qr:aliyun": "node scripts/generate-aliyun-qr.mjs",
     "backup:supabase": "node scripts/backup-supabase.mjs",
     "db:migrate:aliyun": "node scripts/apply-aliyun-postgres-migration.mjs",

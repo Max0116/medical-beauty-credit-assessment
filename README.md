@@ -91,6 +91,13 @@ npm run release:aliyun
 bash ops/aliyun/server-inventory-readonly.sh.example
 ```
 
+把盘点日志整理为脱敏 JSON / Markdown 报告：
+
+```bash
+bash ops/aliyun/server-inventory-readonly.sh.example > /tmp/medical-credit-inventory.txt
+INVENTORY_INPUT_FILE=/tmp/medical-credit-inventory.txt npm run inventory:aliyun:format
+```
+
 盘点记录表：
 
 ```text
@@ -239,6 +246,7 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `scripts/verify-dist-no-secrets.mjs`：构建产物密钥与上游地址扫描脚本。
 - `scripts/build-aliyun-release.mjs`：生成阿里云部署发布包，PR23 起包含完整 Node API、RDS migration 和 OSS / 智谱依赖声明。
 - `scripts/check-aliyun-health.mjs`：部署后检查 `/api/health` readiness，可要求 RDS / OSS / 智谱均已配置。
+- `scripts/format-aliyun-inventory-report.mjs`：把阿里云服务器只读盘点日志转换为脱敏 JSON / Markdown 报告。
 - `scripts/backup-supabase.mjs`：PR23 迁移前备份脚本，导出 Supabase 业务表和证据附件清单。
 - `scripts/migrate-supabase-to-aliyun-rds.mjs`：PR23 一次性数据回填脚本，将 Supabase 表数据 upsert 到阿里云 RDS。
 - `scripts/migrate-supabase-evidence-to-aliyun-oss.mjs`：PR23 一次性附件回填脚本，将 Supabase Storage 证据文件上传到阿里云 OSS。

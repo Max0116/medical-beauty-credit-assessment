@@ -51,6 +51,7 @@ PR23 发布包应包含：
 - `h5/`
 - `api/aliyun-api/`
 - `api/aliyun-api/migrations/001_init_postgres.sql`
+- `api/scripts/format-aliyun-inventory-report.mjs`
 - `api/scripts/backup-supabase.mjs`
 - `api/scripts/migrate-supabase-to-aliyun-rds.mjs`
 - `api/scripts/migrate-supabase-evidence-to-aliyun-oss.mjs`
@@ -67,7 +68,8 @@ PR23 发布包应包含：
 
 ```bash
 cd /var/www/medical-credit-api/current
-bash ops/aliyun/server-inventory-readonly.sh.example
+bash ops/aliyun/server-inventory-readonly.sh.example > /tmp/medical-credit-inventory.txt
+INVENTORY_INPUT_FILE=/tmp/medical-credit-inventory.txt npm run inventory:aliyun:format
 ```
 
 如果还没有部署包目录，也可以从发布包解压目录直接执行同一个脚本。盘点输出建议交给 IT 确认以下事项：
@@ -83,6 +85,8 @@ bash ops/aliyun/server-inventory-readonly.sh.example
 ```text
 docs/aliyun-pr23-server-inventory-checklist.md
 ```
+
+格式化命令会在 `release/inventory/` 下生成脱敏 JSON 和 Markdown 报告，用于填入验收单；不要把原始日志中的敏感字段复制到聊天、PR 或截图中。
 
 ## 五、上线前配置预检
 
