@@ -2,6 +2,7 @@ import { createProxyServer, parseAllowedOrigins } from './proxyServer.js';
 import { createAliyunApiServer } from './aliyunHandler.js';
 import { createOssClientFromEnv, createOssEvidenceStorage } from './ossStorage.js';
 import { createPostgresPoolFromEnv, createRdsAssessmentRepository } from './rdsRepository.js';
+import { createZhipuVerificationService } from './zhipuVerificationService.js';
 
 export const BACKEND_MODES = {
   proxy: 'proxy',
@@ -45,10 +46,17 @@ export function createAssessmentApiServer({ env = process.env } = {}) {
     pool,
     signEvidenceAttachments: evidenceStorage?.signEvidenceAttachments
   });
+  const verificationService = createZhipuVerificationService({
+    apiKey: env.ZHIPUAI_API_KEY || '',
+    summaryModel: env.ZHIPUAI_SUMMARY_MODEL || 'glm-4-flash',
+    searchTimeoutMs: Number(env.ZHIPUAI_SEARCH_TIMEOUT_MS || 12000),
+    summaryTimeoutMs: Number(env.ZHIPUAI_SUMMARY_TIMEOUT_MS || 12000)
+  });
 
   return createAliyunApiServer({
     repository,
     evidenceStorage,
+    verificationService,
     allowedOrigins: parseAllowedOrigins(env.MEDICAL_CREDIT_ALLOWED_ORIGINS || '')
   });
 }

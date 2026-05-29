@@ -60,7 +60,7 @@ Node API 建议支持三种模式，方便灰度和回滚：
 ### 当前实现状态
 
 - `proxy`：沿用 PR22，可继续作为回滚模式。
-- `aliyun`：已新增 Node API handler、RDS repository、OSS evidence storage、Postgres migration。
+- `aliyun`：已新增 Node API handler、RDS repository、OSS evidence storage、Postgres migration、智谱 Web Search 核验服务和 AI 线索摘要兜底。
 - `dual_write`：保留环境变量枚举，暂不启用；等 RDS / OSS 真实验收后再做旁路写入比对，避免在未联调前扩大写入面。
 
 当前可用命令：
@@ -70,6 +70,14 @@ npm run db:migrate:aliyun
 ```
 
 该命令读取 `aliyun-api/migrations/001_init_postgres.sql` 并对 `ALIYUN_RDS_*` 指向的 PostgreSQL 数据库建表。执行前必须由 IT 提供独立 RDS 库和最小权限账号。
+
+智谱核验已迁入 Node API：
+
+- 先跑快速初筛关键词：行政处罚、被执行人、失信被执行人、非法行医。
+- 再跑剩余完整关键词，用 `Promise.allSettled` 保留部分成功结果。
+- 每条原始结果保留标题、来源、摘要、链接、风险标签和相关性判断。
+- AI 摘要失败时使用规则摘要兜底。
+- 搜索结果仍只作为线索；人工确认后才写入正式风控字段。
 
 ## 四、RDS 表结构
 
