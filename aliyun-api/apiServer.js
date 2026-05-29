@@ -2,6 +2,7 @@ import { createProxyServer, parseAllowedOrigins } from './proxyServer.js';
 import { createAliyunApiServer } from './aliyunHandler.js';
 import { createOssClientFromEnv, createOssEvidenceStorage } from './ossStorage.js';
 import { createPostgresPoolFromEnv, createRdsAssessmentRepository } from './rdsRepository.js';
+import { createDualWriteAssessmentRepository, createUpstreamAssessmentRepository } from './upstreamRepository.js';
 import { createZhipuVerificationService } from './zhipuVerificationService.js';
 
 export const BACKEND_MODES = {
@@ -28,12 +29,8 @@ export function createAssessmentApiServer({ env = process.env } = {}) {
     });
   }
 
-  if (mode === BACKEND_MODES.dualWrite) {
-    throw new Error('MEDICAL_CREDIT_BACKEND_MODE=dual_write is reserved for PR23 staged rollout and is not enabled yet.');
-  }
-
   const pool = createPostgresPoolFromEnv(env);
-  if (!pool) throw new Error('ALIYUN_RDS_HOST is required when MEDICAL_CREDIT_BACKEND_MODE=aliyun.');
+  if (!pool) throw new Error('ALIYUN_RDS_HOST is required when MEDICAL_CREDIT_BACKEND_MODE=aliyun or dual_write.');
   const ossClient = createOssClientFromEnv(env);
   const evidenceStorage = ossClient
     ? createOssEvidenceStorage({
@@ -42,10 +39,20 @@ export function createAssessmentApiServer({ env = process.env } = {}) {
       signedUrlTtlSeconds: Number(env.ALIYUN_OSS_SIGNED_URL_TTL_SECONDS || 1800)
     })
     : null;
-  const repository = createRdsAssessmentRepository({
+  const rdsRepository = createRdsAssessmentRepository({
     pool,
     signEvidenceAttachments: evidenceStorage?.signEvidenceAttachments
   });
+  const secondaryRepository = mode === BACKEND_MODES.dualWrite
+    ? createUpstreamAssessmentRepository({
+      upstreamUrl: env.ASSESSMENT_UPSTREAM_URL || '',
+      upstreamApiKey: env.ASSESSMENT_UPSTREAM_API_KEY || '',
+      timeoutMs: Number(env.MEDICAL_CREDIT_PROXY_TIMEOUT_MS || 15000)
+    })
+    : null;
+  const repository = mode === BACKEND_MODES.dualWrite
+    ? createDualWriteAssessmentRepository({ primary: rdsRepository, secondary: secondaryRepository })
+    : rdsRepository;
   const verificationService = createZhipuVerificationService({
     apiKey: env.ZHIPUAI_API_KEY || '',
     summaryModel: env.ZHIPUAI_SUMMARY_MODEL || 'glm-4-flash',

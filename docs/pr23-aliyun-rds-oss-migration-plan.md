@@ -61,7 +61,7 @@ Node API 建议支持三种模式，方便灰度和回滚：
 
 - `proxy`：沿用 PR22，可继续作为回滚模式。
 - `aliyun`：已新增 Node API handler、RDS repository、OSS evidence storage、Postgres migration、智谱 Web Search 核验服务和 AI 线索摘要兜底。
-- `dual_write`：保留环境变量枚举，暂不启用；等 RDS / OSS 真实验收后再做旁路写入比对，避免在未联调前扩大写入面。
+- `dual_write`：已新增灰度 repository。读走 RDS；草稿、评估记录、人工确认写入以 RDS 为准，并最佳努力旁路写 Supabase。旁路失败只记录 warning，不影响阿里云主链路。
 
 当前可用命令：
 
@@ -78,6 +78,12 @@ npm run db:migrate:aliyun
 - 每条原始结果保留标题、来源、摘要、链接、风险标签和相关性判断。
 - AI 摘要失败时使用规则摘要兜底。
 - 搜索结果仍只作为线索；人工确认后才写入正式风控字段。
+
+`dual_write` 当前边界：
+
+- 主链路：RDS / OSS / Node 智谱核验。
+- 旁路：Supabase Function 仅用于草稿、评估记录、人工确认等兼容写入。
+- 不旁路写核验日志，因为 PR23 的核验日志应以阿里云 RDS 为准，避免两套后台核验任务重复跑。
 
 ## 四、RDS 表结构
 
