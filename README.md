@@ -85,6 +85,13 @@ npm run release:aliyun
 
 该命令会生成 `release/medical-credit-assessment-pr22-*.tar.gz` 和对应 `.sha256`，包内包含 `h5/`、`api/`、`ops/aliyun/` 和发布清单。
 
+部署后 smoke：
+
+```bash
+SMOKE_BASE_URL=https://credit.xxx.com npm run smoke:aliyun
+SMOKE_BASE_URL=https://credit.xxx.com SMOKE_FULL_FLOW=true npm run smoke:aliyun
+```
+
 PR 检查由 `.github/workflows/ci.yml` 自动执行：
 
 - `npm ci`
@@ -171,6 +178,7 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `ops/aliyun/`：阿里云 Nginx、systemd、环境变量模板。
 - `scripts/verify-dist-no-secrets.mjs`：构建产物密钥与上游地址扫描脚本。
 - `scripts/build-aliyun-release.mjs`：生成阿里云部署发布包。
+- `scripts/smoke-aliyun-pr22.mjs`：阿里云部署后 H5 与 `/api` 自动 smoke。
 - `docs/ai-verification-plan.md`：智谱联网核验与多 AI Provider 规划。
 - `.env.example`：远端持久化环境变量示例。
 - `.github/workflows/ci.yml`：PR 自动测试与构建。

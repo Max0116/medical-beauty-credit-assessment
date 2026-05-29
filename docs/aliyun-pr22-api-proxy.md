@@ -172,6 +172,20 @@ PR22 必须验证：
 - 保存机构后能通过 `/api/records` 触发远端核验。
 - 核验日志能在 UI 中展示。
 
+部署后可运行自动 smoke：
+
+```bash
+SMOKE_BASE_URL=https://credit.xxx.com npm run smoke:aliyun
+```
+
+完整保存链路 smoke：
+
+```bash
+SMOKE_BASE_URL=https://credit.xxx.com SMOKE_FULL_FLOW=true npm run smoke:aliyun
+```
+
+脚本会检查 `/api/health`、手机视口横向滚动、控制台错误；`SMOKE_FULL_FLOW=true` 时还会填写机构名称并确认 `/api/records` 被调用。若还在部署前探测旧入口，可临时设置 `SMOKE_EXPECT_API=false`，但 PR22 正式验收必须让 `/api/health` 通过。
+
 ## 回滚
 
 PR22 不删除 Supabase，也不迁移数据。若阿里云 API 出现问题，可以：
