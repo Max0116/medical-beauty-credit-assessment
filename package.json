@@ -14,11 +14,15 @@
     "verify:dist": "node scripts/verify-dist-no-secrets.mjs",
     "release:aliyun": "npm run verify:release && node scripts/build-aliyun-release.mjs",
     "smoke:aliyun": "node scripts/smoke-aliyun-pr22.mjs",
-    "qr:aliyun": "node scripts/generate-aliyun-qr.mjs"
+    "qr:aliyun": "node scripts/generate-aliyun-qr.mjs",
+    "db:migrate:aliyun": "node scripts/apply-aliyun-postgres-migration.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.4",
+    "ali-oss": "^6.23.0",
+    "busboy": "^1.6.0",
     "lucide-react": "^0.468.0",
+    "pg": "^8.21.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "vite": "^7.1.10"

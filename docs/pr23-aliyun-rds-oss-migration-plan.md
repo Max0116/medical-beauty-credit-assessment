@@ -57,6 +57,20 @@ Node API 建议支持三种模式，方便灰度和回滚：
 3. 验收后切 `aliyun`。
 4. 保留 `proxy` 回滚配置，直到 PR24 去 Supabase。
 
+### 当前实现状态
+
+- `proxy`：沿用 PR22，可继续作为回滚模式。
+- `aliyun`：已新增 Node API handler、RDS repository、OSS evidence storage、Postgres migration。
+- `dual_write`：保留环境变量枚举，暂不启用；等 RDS / OSS 真实验收后再做旁路写入比对，避免在未联调前扩大写入面。
+
+当前可用命令：
+
+```bash
+npm run db:migrate:aliyun
+```
+
+该命令读取 `aliyun-api/migrations/001_init_postgres.sql` 并对 `ALIYUN_RDS_*` 指向的 PostgreSQL 数据库建表。执行前必须由 IT 提供独立 RDS 库和最小权限账号。
+
 ## 四、RDS 表结构
 
 推荐优先使用阿里云 RDS PostgreSQL，原因是当前 Supabase 已是 Postgres，JSONB、timestamptz、索引和迁移成本最低。若 IT 只能提供 MySQL，需要单独做字段类型映射。
@@ -349,4 +363,3 @@ curl -i https://credit.xxx.com/api/health
 | Node.js | 20+ |
 | 域名 | 已备案 `credit.xxx.com` |
 | HTTPS | 阿里云证书或宝塔证书 |
-

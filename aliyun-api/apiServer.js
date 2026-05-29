@@ -1,0 +1,54 @@
+import { createProxyServer, parseAllowedOrigins } from './proxyServer.js';
+import { createAliyunApiServer } from './aliyunHandler.js';
+import { createOssClientFromEnv, createOssEvidenceStorage } from './ossStorage.js';
+import { createPostgresPoolFromEnv, createRdsAssessmentRepository } from './rdsRepository.js';
+
+export const BACKEND_MODES = {
+  proxy: 'proxy',
+  aliyun: 'aliyun',
+  dualWrite: 'dual_write'
+};
+
+export function resolveBackendMode(value = '') {
+  const mode = String(value || '').trim().toLowerCase();
+  if (mode === BACKEND_MODES.aliyun) return BACKEND_MODES.aliyun;
+  if (mode === BACKEND_MODES.dualWrite) return BACKEND_MODES.dualWrite;
+  return BACKEND_MODES.proxy;
+}
+
+export function createAssessmentApiServer({ env = process.env } = {}) {
+  const mode = resolveBackendMode(env.MEDICAL_CREDIT_BACKEND_MODE);
+  if (mode === BACKEND_MODES.proxy) {
+    return createProxyServer({
+      upstreamUrl: env.ASSESSMENT_UPSTREAM_URL || '',
+      upstreamApiKey: env.ASSESSMENT_UPSTREAM_API_KEY || '',
+      allowedOrigins: parseAllowedOrigins(env.MEDICAL_CREDIT_ALLOWED_ORIGINS || ''),
+      timeoutMs: Number(env.MEDICAL_CREDIT_PROXY_TIMEOUT_MS || 15000)
+    });
+  }
+
+  if (mode === BACKEND_MODES.dualWrite) {
+    throw new Error('MEDICAL_CREDIT_BACKEND_MODE=dual_write is reserved for PR23 staged rollout and is not enabled yet.');
+  }
+
+  const pool = createPostgresPoolFromEnv(env);
+  if (!pool) throw new Error('ALIYUN_RDS_HOST is required when MEDICAL_CREDIT_BACKEND_MODE=aliyun.');
+  const ossClient = createOssClientFromEnv(env);
+  const evidenceStorage = ossClient
+    ? createOssEvidenceStorage({
+      client: ossClient,
+      bucket: env.ALIYUN_OSS_BUCKET,
+      signedUrlTtlSeconds: Number(env.ALIYUN_OSS_SIGNED_URL_TTL_SECONDS || 1800)
+    })
+    : null;
+  const repository = createRdsAssessmentRepository({
+    pool,
+    signEvidenceAttachments: evidenceStorage?.signEvidenceAttachments
+  });
+
+  return createAliyunApiServer({
+    repository,
+    evidenceStorage,
+    allowedOrigins: parseAllowedOrigins(env.MEDICAL_CREDIT_ALLOWED_ORIGINS || '')
+  });
+}
