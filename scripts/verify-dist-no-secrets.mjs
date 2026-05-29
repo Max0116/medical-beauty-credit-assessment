@@ -19,17 +19,21 @@ export const forbiddenDistPatterns = [
   { label: 'Raw upstream secret marker', pattern: /ASSESSMENT_SECRET_KEYS/i }
 ];
 
-export const requiredDomesticDistPatterns = [
-  {
-    label: 'Frontend API base is same-origin /api',
-    pattern: /VITE_ASSESSMENT_API_URL["']?\s*:\s*["']\/api["']/i
-  }
-];
+export function buildRequiredApiBasePatterns(apiBase = '') {
+  const normalizedApiBase = String(apiBase || '').trim();
+  if (!normalizedApiBase) return [];
+  return [
+    {
+      label: `Frontend API base is ${normalizedApiBase}`,
+      pattern: new RegExp(`VITE_ASSESSMENT_API_URL["']?\\s*:\\s*["']${escapeRegExp(normalizedApiBase)}["']`, 'i')
+    }
+  ];
+}
 
 export async function verifyDistNoSecrets({
   directory = distDir,
   forbiddenPatterns = forbiddenDistPatterns,
-  requiredPatterns = requiredDomesticDistPatterns,
+  requiredPatterns = buildRequiredApiBasePatterns(process.env.VERIFY_DIST_EXPECT_API_BASE),
   cwd = process.cwd()
 } = {}) {
   const files = await listFiles(directory);
@@ -60,6 +64,10 @@ export async function verifyDistNoSecrets({
     findings,
     missingRequired
   };
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 async function listFiles(dir) {

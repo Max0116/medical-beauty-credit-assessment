@@ -76,6 +76,7 @@ npm run verify:release
 ```
 
 该命令会以 `VITE_ASSESSMENT_API_URL=/api` 构建，并扫描 `dist`，确认不会把 Supabase Function URL、Supabase publishable key、智谱 key 或阿里云上游 key 标记打进前端产物。
+PR23 起，`verify:release` 内部使用 `verify:dist:aliyun`，会额外确认前端 API base 固定为同源 `/api`。
 
 需要交给 IT 或上传到 ECS 时，使用：
 
