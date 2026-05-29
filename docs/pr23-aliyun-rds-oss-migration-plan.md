@@ -428,6 +428,7 @@ SUPABASE_URL=https://<project-ref>.supabase.co SUPABASE_SERVICE_ROLE_KEY=<servic
 BACKUP_DIR=/path/to/backups/supabase-pre-aliyun-xxx VERIFY_OSS=true npm run migration:verify:aliyun
 SMOKE_BASE_URL=https://credit.xxx.com SMOKE_EXPECT_API_READY=true SMOKE_EXPECT_BACKEND_MODE=dual_write npm run smoke:aliyun
 API_FLOW_BASE_URL=https://credit.xxx.com API_FLOW_EXPECT_API_READY=true API_FLOW_EXPECT_BACKEND_MODE=dual_write API_FLOW_EXPECT_BACKEND_DATABASE=postgres API_FLOW_EXPECT_STORAGE_CONFIGURED=true API_FLOW_EXPECT_VERIFICATION_CONFIGURED=true npm run smoke:aliyun:api-flow
+API_FLOW_BASE_URL=https://credit.xxx.com API_FLOW_EXPECT_API_READY=true API_FLOW_EXPECT_BACKEND_MODE=dual_write API_FLOW_EXPECT_BACKEND_DATABASE=postgres API_FLOW_EXPECT_STORAGE_CONFIGURED=true API_FLOW_EXPECT_VERIFICATION_CONFIGURED=true API_FLOW_UPLOAD_ATTACHMENT=true API_FLOW_VERIFY_SIGNED_URL=true npm run smoke:aliyun:api-flow
 ```
 
 `/api/health` 应返回可读的 readiness 分段，便于上线前判断是哪一段未配置或不可达：
@@ -453,6 +454,7 @@ API_FLOW_BASE_URL=https://credit.xxx.com API_FLOW_EXPECT_API_READY=true API_FLOW
 - 核验完成后 UI 展示线索、摘要、原文链接。
 - 人工采用建议后，`verification_reviews` 写入，记录快照更新。
 - 上传截图 / PDF 到 OSS，签名链接可打开。
+- `API_FLOW_UPLOAD_ATTACHMENT=true` 会上传一份极小测试 PDF 并校验返回的附件 metadata；`API_FLOW_VERIFY_SIGNED_URL=true` 会进一步打开签名链接。
 - Supabase 迁移前备份目录包含 `manifest.json`、四张业务表 JSON 文件和 `evidence-attachments.json`。
 - Supabase Storage 旧附件 dry-run 能输出 `discovered` 计数；正式回填后 OSS 中存在同路径对象。
 - Supabase 旧数据 dry-run 回填能输出各表 `fetched` 计数；正式回填后 RDS 各表主键 upsert 成功。

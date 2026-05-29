@@ -13,6 +13,8 @@ export async function runAliyunApiFlowSmoke({
   timeoutMs = Number(process.env.API_FLOW_TIMEOUT_MS || process.env.SMOKE_TIMEOUT_MS || DEFAULT_TIMEOUT_MS),
   clientInstanceId = process.env.API_FLOW_CLIENT_INSTANCE_ID || `api-flow-${Date.now()}`,
   publishableKey = process.env.API_FLOW_API_KEY || process.env.SMOKE_API_KEY || '',
+  uploadAttachment = parseApiFlowBoolean(process.env.API_FLOW_UPLOAD_ATTACHMENT, false),
+  verifySignedUrl = parseApiFlowBoolean(process.env.API_FLOW_VERIFY_SIGNED_URL, false),
   fetchImpl = globalThis.fetch,
   healthExpectations = buildHealthExpectationsFromEnv(process.env, 'API_FLOW'),
   now = () => new Date()
@@ -71,6 +73,18 @@ export async function runAliyunApiFlowSmoke({
     throw new Error('Saved record was not returned by GET /api/records.');
   }
 
+  const attachment = uploadAttachment
+    ? await uploadSmokeAttachment({
+      baseUrl: normalizedBaseUrl,
+      recordId: record.id,
+      clientInstanceId,
+      publishableKey,
+      timeoutMs,
+      fetchImpl,
+      verifySignedUrl
+    })
+    : null;
+
   return {
     baseUrl: normalizedBaseUrl,
     clientInstanceId,
@@ -90,7 +104,8 @@ export async function runAliyunApiFlowSmoke({
     history: {
       recordCount: records.length,
       includesSavedRecord: true
-    }
+    },
+    attachment
   };
 }
 
@@ -196,6 +211,116 @@ async function requestJson({
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function uploadSmokeAttachment({
+  baseUrl,
+  recordId,
+  clientInstanceId,
+  publishableKey,
+  timeoutMs,
+  fetchImpl,
+  verifySignedUrl
+}) {
+  const formData = new FormData();
+  formData.append(
+    'file',
+    new Blob([buildSmokePdfBytes()], { type: 'application/pdf' }),
+    'pr23-smoke-evidence.pdf'
+  );
+
+  const attachmentPayload = await requestMultipart({
+    baseUrl,
+    path: `/api/records/${encodeURIComponent(recordId)}/verification-attachments`,
+    formData,
+    clientInstanceId,
+    publishableKey,
+    timeoutMs,
+    fetchImpl
+  });
+  const attachment = attachmentPayload?.attachment || attachmentPayload;
+  if (!attachment?.id) throw new Error('Attachment upload did not return attachment.id.');
+  if (!attachment?.path) throw new Error('Attachment upload did not return attachment.path.');
+  if (!attachment?.signedUrl) throw new Error('Attachment upload did not return attachment.signedUrl.');
+
+  let signedUrlReachable = false;
+  if (verifySignedUrl) {
+    const response = await fetchWithTimeout(fetchImpl, attachment.signedUrl, { timeoutMs });
+    if (!response.ok) {
+      throw new Error(`Attachment signed URL returned ${response.status}.`);
+    }
+    signedUrlReachable = true;
+    await response.arrayBuffer().catch(() => null);
+  }
+
+  return {
+    id: attachment.id,
+    bucket: attachment.bucket || '',
+    path: attachment.path,
+    fileName: attachment.fileName || '',
+    mimeType: attachment.mimeType || '',
+    size: Number(attachment.size || 0),
+    hasSignedUrl: Boolean(attachment.signedUrl),
+    signedUrlReachable
+  };
+}
+
+async function requestMultipart({
+  baseUrl,
+  path,
+  formData,
+  clientInstanceId,
+  publishableKey,
+  timeoutMs,
+  fetchImpl
+}) {
+  const headers = {
+    'x-client-instance-id': clientInstanceId
+  };
+  if (publishableKey) headers.apikey = publishableKey;
+
+  const response = await fetchWithTimeout(fetchImpl, `${baseUrl}${path}`, {
+    method: 'POST',
+    headers,
+    body: formData
+  }, { timeoutMs });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`POST ${path} returned ${response.status}: ${text.slice(0, 240)}`);
+  }
+  return text ? JSON.parse(text) : null;
+}
+
+async function fetchWithTimeout(fetchImpl, url, init = {}, { timeoutMs } = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs || DEFAULT_TIMEOUT_MS);
+  try {
+    return await fetchImpl(url, {
+      ...init,
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export function buildSmokePdfBytes() {
+  return new TextEncoder().encode([
+    '%PDF-1.4',
+    '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj',
+    '2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj',
+    '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 120 80] >> endobj',
+    'trailer << /Root 1 0 R >>',
+    '%%EOF'
+  ].join('\n'));
+}
+
+export function parseApiFlowBoolean(value, fallback = false) {
+  if (value === undefined || value === null || value === '') return fallback;
+  const normalized = String(value).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+  throw new Error(`Invalid API flow boolean value: ${value}`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

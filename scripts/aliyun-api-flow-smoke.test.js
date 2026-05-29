@@ -1,7 +1,9 @@
 import { createServer } from 'node:http';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  buildSmokePdfBytes,
   buildSmokeRecordPayload,
+  parseApiFlowBoolean,
   runAliyunApiFlowSmoke
 } from './aliyun-api-flow-smoke.mjs';
 
@@ -56,7 +58,36 @@ describe('Aliyun API flow smoke', () => {
       history: {
         recordCount: 1,
         includesSavedRecord: true
-      }
+      },
+      attachment: null
+    });
+  });
+
+  it('optionally uploads an evidence attachment and checks the signed URL', async () => {
+    const state = { records: [], verificationLogs: [], attachments: [] };
+    const baseUrl = await listen(createSmokeApiHandler(state));
+
+    const result = await runAliyunApiFlowSmoke({
+      baseUrl,
+      clientInstanceId: 'client-flow-attachment',
+      uploadAttachment: true,
+      verifySignedUrl: true,
+      now: () => new Date('2026-05-30T00:00:00.000Z')
+    });
+
+    expect(state.attachments).toHaveLength(1);
+    expect(state.attachments[0]).toMatchObject({
+      recordId: 'api-flow-20260530000000',
+      contentType: expect.stringContaining('multipart/form-data')
+    });
+    expect(result.attachment).toMatchObject({
+      id: 'attachment-1',
+      bucket: 'medical-credit-verification-evidence',
+      path: 'verification-evidence/client-flow-attachment/api-flow-20260530000000/20260530/attachment-1-pr23-smoke-evidence.pdf',
+      fileName: 'pr23-smoke-evidence.pdf',
+      mimeType: 'application/pdf',
+      hasSignedUrl: true,
+      signedUrlReachable: true
     });
   });
 
@@ -90,6 +121,15 @@ describe('Aliyun API flow smoke', () => {
         finalGrade: 'C'
       }
     });
+  });
+
+  it('builds a tiny PDF and parses optional booleans', () => {
+    expect(new TextDecoder().decode(buildSmokePdfBytes())).toContain('%PDF-1.4');
+    expect(parseApiFlowBoolean(undefined)).toBe(false);
+    expect(parseApiFlowBoolean('', true)).toBe(true);
+    expect(parseApiFlowBoolean('yes')).toBe(true);
+    expect(parseApiFlowBoolean('off', true)).toBe(false);
+    expect(() => parseApiFlowBoolean('later')).toThrow('Invalid API flow boolean value');
   });
 });
 
@@ -155,22 +195,46 @@ function createSmokeApiHandler(state, { skipVerificationLog = false } = {}) {
       return;
     }
 
+    const attachmentMatch = url.pathname.match(/^\/api\/records\/([^/]+)\/verification-attachments$/);
+    if (request.method === 'POST' && attachmentMatch) {
+      const recordId = decodeURIComponent(attachmentMatch[1]);
+      const body = await readBuffer(request);
+      const contentType = request.headers['content-type'] || '';
+      state.attachments.push({ recordId, contentType, size: body.length });
+      writeJson(response, 201, {
+        attachment: {
+          id: 'attachment-1',
+          bucket: 'medical-credit-verification-evidence',
+          path: `verification-evidence/${request.headers['x-client-instance-id']}/${recordId}/20260530/attachment-1-pr23-smoke-evidence.pdf`,
+          fileName: 'pr23-smoke-evidence.pdf',
+          mimeType: 'application/pdf',
+          size: body.length,
+          signedUrl: `http://${request.headers.host}/signed/evidence.pdf`
+        }
+      });
+      return;
+    }
+
+    if (request.method === 'GET' && url.pathname === '/signed/evidence.pdf') {
+      response.writeHead(200, { 'Content-Type': 'application/pdf' });
+      response.end(Buffer.from(buildSmokePdfBytes()));
+      return;
+    }
+
     writeJson(response, 404, { error: 'Not found.' });
   };
 }
 
 function readJson(request) {
+  return readBuffer(request).then((buffer) => JSON.parse(buffer.toString('utf8') || '{}'));
+}
+
+function readBuffer(request) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     request.on('data', (chunk) => chunks.push(chunk));
     request.on('error', reject);
-    request.on('end', () => {
-      try {
-        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'));
-      } catch (error) {
-        reject(error);
-      }
-    });
+    request.on('end', () => resolve(Buffer.concat(chunks)));
   });
 }
 

@@ -37,7 +37,7 @@
 - 暂未登录，暂无角色权限。
 - 未配置远端 API 时评估记录只保存在当前浏览器。
 - 联网核验结果仍是辅助核验日志；公共信用建议必须通过人工确认日志采用或改判，不会由后台自动改写风控评分或红线判断。
-- 证据附件通过 Supabase Edge Function 写入私有 Storage bucket；未接登录前仍按当前浏览器实例隔离。
+- 证据附件通过远端 API 写入私有存储；PR23 阿里云模式下写入 OSS，旧链路仍可回滚到 Supabase Storage。
 - 未取得授权工商 API Key 前，默认使用智谱 Web Search 轻量核验；授权工商 API 仅作为条件触发的深度核验预留。
 - 暂无正式特批审批流，只显示“需特批”和原因标签。
 - 暂无管理端报表。
@@ -121,6 +121,7 @@ SMOKE_BASE_URL=https://credit.xxx.com npm run smoke:aliyun
 SMOKE_BASE_URL=https://credit.xxx.com SMOKE_FULL_FLOW=true npm run smoke:aliyun
 SMOKE_BASE_URL=https://credit.xxx.com SMOKE_EXPECT_API_READY=true SMOKE_EXPECT_BACKEND_MODE=aliyun npm run smoke:aliyun
 API_FLOW_BASE_URL=https://credit.xxx.com API_FLOW_EXPECT_API_READY=true API_FLOW_EXPECT_BACKEND_MODE=aliyun API_FLOW_EXPECT_BACKEND_DATABASE=postgres API_FLOW_EXPECT_STORAGE_CONFIGURED=true API_FLOW_EXPECT_VERIFICATION_CONFIGURED=true npm run smoke:aliyun:api-flow
+API_FLOW_BASE_URL=https://credit.xxx.com API_FLOW_EXPECT_API_READY=true API_FLOW_EXPECT_BACKEND_MODE=aliyun API_FLOW_EXPECT_BACKEND_DATABASE=postgres API_FLOW_EXPECT_STORAGE_CONFIGURED=true API_FLOW_EXPECT_VERIFICATION_CONFIGURED=true API_FLOW_UPLOAD_ATTACHMENT=true API_FLOW_VERIFY_SIGNED_URL=true npm run smoke:aliyun:api-flow
 ```
 
 PR23 数据库回填：
@@ -251,7 +252,7 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `scripts/verify-dist-no-secrets.mjs`：构建产物密钥与上游地址扫描脚本；PR23 起同时确认阿里云发布构建的前端 API base 为同源 `/api`，并阻断 Supabase / 智谱 / 阿里云密钥标记进入浏览器文件。
 - `scripts/build-aliyun-release.mjs`：生成阿里云部署发布包，PR23 起包含完整 Node API、RDS migration 和 OSS / 智谱依赖声明。
 - `scripts/check-aliyun-health.mjs`：部署后检查 `/api/health` readiness，可要求 RDS / OSS / 智谱均已配置。
-- `scripts/aliyun-api-flow-smoke.mjs`：PR23 部署后检查保存评估记录、立即可见核验日志、历史列表返回记录。
+- `scripts/aliyun-api-flow-smoke.mjs`：PR23 部署后检查保存评估记录、立即可见核验日志、历史列表返回记录；可选上传测试 PDF 到 OSS 并校验签名链接。
 - `scripts/format-aliyun-inventory-report.mjs`：把阿里云服务器只读盘点日志转换为脱敏 JSON / Markdown 报告。
 - `scripts/aliyun-inventory-gate.mjs`：根据脱敏盘点报告判断 PR23 是否可进入部署前配置预检。
 - `scripts/backup-supabase.mjs`：PR23 迁移前备份脚本，导出 Supabase 业务表和证据附件清单。

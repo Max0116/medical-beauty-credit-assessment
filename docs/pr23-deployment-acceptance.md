@@ -236,6 +236,16 @@ API_FLOW_EXPECT_BACKEND_DATABASE=postgres \
 API_FLOW_EXPECT_STORAGE_CONFIGURED=true \
 API_FLOW_EXPECT_VERIFICATION_CONFIGURED=true \
 npm run smoke:aliyun:api-flow
+
+API_FLOW_BASE_URL=https://credit.xxx.com \
+API_FLOW_EXPECT_API_READY=true \
+API_FLOW_EXPECT_BACKEND_MODE=aliyun \
+API_FLOW_EXPECT_BACKEND_DATABASE=postgres \
+API_FLOW_EXPECT_STORAGE_CONFIGURED=true \
+API_FLOW_EXPECT_VERIFICATION_CONFIGURED=true \
+API_FLOW_UPLOAD_ATTACHMENT=true \
+API_FLOW_VERIFY_SIGNED_URL=true \
+npm run smoke:aliyun:api-flow
 ```
 
 | 验收项 | 结果 | 备注 |
@@ -248,8 +258,8 @@ npm run smoke:aliyun:api-flow
 | 智谱完成后同一条日志更新为 `running` / `completed` / `failed` |  |  |
 | 核验证据和原文链接可展示 |  |  |
 | 人工确认后 `verification_reviews` 写入 |  |  |
-| 上传截图 / PDF 到 OSS |  |  |
-| 签名链接可打开 |  |  |
+| `API_FLOW_UPLOAD_ATTACHMENT=true` 已上传测试 PDF 到 OSS |  |  |
+| `API_FLOW_VERIFY_SIGNED_URL=true` 已确认签名链接可打开 |  |  |
 | 历史记录可展示最终等级 |  |  |
 
 ## 八、回滚记录
