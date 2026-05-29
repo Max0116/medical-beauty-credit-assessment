@@ -99,10 +99,17 @@ ASSESSMENT_UPSTREAM_API_KEY=sb_publishable_xxx
 
 ```text
 ops/aliyun/nginx-medical-credit.conf.example
+ops/aliyun/nginx-medical-credit-https.conf.example
 ops/aliyun/medical-credit-api.service.example
 ops/aliyun/medical-credit-api.env.example
 ops/aliyun/deploy-release.sh.example
 ops/aliyun/rollback-release.sh.example
+```
+
+给 IT 的部署交接单：
+
+```text
+docs/aliyun-pr22-it-handoff.md
 ```
 
 推荐使用版本化目录，便于回滚：

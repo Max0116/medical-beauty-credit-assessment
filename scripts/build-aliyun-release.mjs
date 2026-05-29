@@ -24,6 +24,7 @@ await cp(join(root, 'aliyun-api', 'server.js'), join(packageDir, 'api', 'aliyun-
 await cp(join(root, 'aliyun-api', 'proxyServer.js'), join(packageDir, 'api', 'aliyun-api', 'proxyServer.js'));
 await cp(join(root, 'ops', 'aliyun'), join(packageDir, 'ops', 'aliyun'), { recursive: true });
 await cp(join(root, 'docs', 'aliyun-pr22-api-proxy.md'), join(packageDir, 'docs', 'aliyun-pr22-api-proxy.md'));
+await cp(join(root, 'docs', 'aliyun-pr22-it-handoff.md'), join(packageDir, 'docs', 'aliyun-pr22-it-handoff.md'));
 await cp(join(root, 'docs', 'pr22-deployment-acceptance.md'), join(packageDir, 'docs', 'pr22-deployment-acceptance.md'));
 await writeFile(join(packageDir, 'api', 'package.json'), `${JSON.stringify({
   name: 'medical-credit-assessment-api-proxy',
@@ -56,7 +57,9 @@ const manifest = {
     'ops/aliyun/',
     'ops/aliyun/deploy-release.sh.example',
     'ops/aliyun/rollback-release.sh.example',
+    'ops/aliyun/nginx-medical-credit-https.conf.example',
     'docs/aliyun-pr22-api-proxy.md',
+    'docs/aliyun-pr22-it-handoff.md',
     'docs/pr22-deployment-acceptance.md'
   ],
   deploymentNotes: [
