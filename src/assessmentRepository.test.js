@@ -165,14 +165,34 @@ describe('remote assessment repository wiring', () => {
   it('selects remote mode from Vite environment config', () => {
     expect(getAssessmentRepositoryRuntimeConfig({
       VITE_ASSESSMENT_API_URL: ' https://credit-api.example.com ',
+      VITE_ASSESSMENT_API_KEY: 'domestic-proxy-key',
       VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test',
       VITE_ASSESSMENT_API_TIMEOUT_MS: '12000'
     })).toEqual({
       mode: 'remote',
       remoteBaseUrl: 'https://credit-api.example.com',
-      remotePublishableKey: 'sb_publishable_test',
+      remotePublishableKey: 'domestic-proxy-key',
       remoteTimeoutMs: 12000
     });
+  });
+
+  it('allows the domestic Aliyun proxy mode to omit browser-visible API keys', async () => {
+    const calls = [];
+    const repository = createRemoteAssessmentRepository({
+      baseUrl: '/api',
+      clientInstanceId: 'client-1',
+      fetchImpl: async (url, options = {}) => {
+        calls.push({ url, options });
+        return createJsonResponse({ records: [] });
+      }
+    });
+
+    await repository.listRecords();
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe('/api/records');
+    expect(calls[0].options.headers.apikey).toBeUndefined();
+    expect(calls[0].options.headers['x-client-instance-id']).toBe('client-1');
   });
 
   it('creates a local repository from config by default', () => {

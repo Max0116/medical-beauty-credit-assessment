@@ -1,18 +1,26 @@
-# Supabase 远端持久化适配器契约
+# 远端持久化适配器契约
 
-PR3 引入的是前端数据访问层到 Supabase 远端持久化的适配边界。默认没有配置 `VITE_ASSESSMENT_API_URL` 时，系统仍使用 `localStorage`。
+PR3 引入的是前端数据访问层到远端持久化服务的适配边界。默认没有配置 `VITE_ASSESSMENT_API_URL` 时，系统仍使用 `localStorage`。
 
-推荐落地方式是 **H5 前端 → Supabase Edge Function → Supabase Postgres**。不要让 H5 直接写表，也不要在浏览器中暴露 `service_role` / secret key。
+PR22 起，国内部署推荐落地方式是 **H5 前端 → 阿里云 `/api` 中转 → Supabase Edge Function → Supabase Postgres**。不要让 H5 直接写表，也不要在浏览器中暴露 `service_role` / secret key。后续 PR23 会把中转后面的 Supabase 替换为阿里云 RDS / OSS。
 
 ## 环境变量
 
 ```bash
-VITE_ASSESSMENT_API_URL=https://<project-ref>.supabase.co/functions/v1/assessments
-VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
+VITE_ASSESSMENT_API_URL=/api
+VITE_ASSESSMENT_API_KEY=
 VITE_ASSESSMENT_API_TIMEOUT_MS=8000
 ```
 
-`VITE_SUPABASE_PUBLISHABLE_KEY` 只能是 Supabase publishable key 或 legacy anon key。`service_role` / secret key 只能放在 Supabase Edge Function secrets 中。
+国内 `/api` 中转模式不需要浏览器携带 Supabase key。`VITE_ASSESSMENT_API_KEY` 仅预留给后续国内 API 自有鉴权。旧的 Supabase 直连回滚链路仍可使用 `VITE_SUPABASE_PUBLISHABLE_KEY`，但它只能是 Supabase publishable key 或 legacy anon key。`service_role` / secret key 只能放在服务端环境变量中。
+
+阿里云 API 中转需要配置：
+
+```bash
+MEDICAL_CREDIT_ALLOWED_ORIGINS=https://credit.xxx.com
+ASSESSMENT_UPSTREAM_URL=https://<project-ref>.supabase.co/functions/v1/assessments
+ASSESSMENT_UPSTREAM_API_KEY=sb_publishable_xxx
+```
 
 Edge Function 需要配置：
 
@@ -27,7 +35,7 @@ Supabase CLI 不允许自定义 secrets 使用 `SUPABASE_` 前缀，因此业务
 
 ## API 端点
 
-Supabase Edge Function `assessments` 需要实现以下 JSON API：
+远端服务需要实现以下 JSON API。前端以 `VITE_ASSESSMENT_API_URL` 为 base URL；国内部署时 base URL 为 `/api`，所以浏览器实际请求形如 `/api/draft`：
 
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
@@ -48,10 +56,11 @@ Supabase Edge Function `assessments` 需要实现以下 JSON API：
 前端会发送：
 
 ```http
-apikey: <VITE_SUPABASE_PUBLISHABLE_KEY>
 x-client-instance-id: <browser-local-uuid>
 content-type: application/json
 ```
+
+国内 `/api` 中转模式默认不发送 `apikey`，由阿里云服务端补充 `ASSESSMENT_UPSTREAM_API_KEY` 后访问上游。只有旧的 Supabase 直连回滚链路会从浏览器发送 `apikey: <VITE_SUPABASE_PUBLISHABLE_KEY>`。
 
 当前阶段未接登录，`x-client-instance-id` 用于隔离同一浏览器的草稿和历史记录。接入 Supabase Auth 后，应改为基于 `auth.uid()` 做 RLS 和服务端权限校验。
 

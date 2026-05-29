@@ -19,7 +19,7 @@
 - 准入红线、评分体系、等级封顶、额度和特批规则。
 - localStorage 自动保存最近草稿。
 - 保存当前评估记录并查看历史记录。
-- `assessmentRepository` 数据访问层，支持默认本地模式和通过环境变量开启的远端 API 模式。
+- `assessmentRepository` 数据访问层，支持默认本地模式、Supabase 直连回滚模式，以及阿里云 `/api` 中转模式。
 - 远端模式显示同步状态，并在保存失败时保留本机兜底记录。
 - Supabase Edge Function 保存评估记录，并触发智谱联网核验日志。
 - 核验页以“公共风险核验”工作台呈现智谱联网核验的进度、结构化判断、AI 线索摘要、建议、风险证据和原始来源链接。
@@ -79,21 +79,45 @@ PR 检查由 `.github/workflows/ci.yml` 自动执行：
 默认不需要环境变量，系统使用 localStorage。需要接入远端数据库或 API 时，复制 `.env.example` 并配置：
 
 ```bash
-VITE_ASSESSMENT_API_URL=https://<project-ref>.supabase.co/functions/v1/assessments
-VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
+VITE_ASSESSMENT_API_URL=/api
+VITE_ASSESSMENT_API_KEY=
 VITE_ASSESSMENT_API_TIMEOUT_MS=8000
 VITE_DEEP_VERIFICATION_HIGH_LIMIT=50000
 ```
 
-配置 `VITE_ASSESSMENT_API_URL` 后，前端会自动切换为 Supabase Edge Function 远端持久化模式。`VITE_SUPABASE_PUBLISHABLE_KEY` 只能填写 publishable / anon key，不能填写 `service_role` / secret key。`VITE_DEEP_VERIFICATION_HIGH_LIMIT` 用于配置触发授权工商深度核验提示的高额度阈值，未配置时默认 `50000`。API 契约见：
+配置 `VITE_ASSESSMENT_API_URL` 后，前端会自动切换为远端持久化模式。国内部署推荐使用同域 `/api`，由阿里云 Node API 中转到当前后端；此时前端不需要 Supabase key。`VITE_SUPABASE_PUBLISHABLE_KEY` 仅保留给旧的 Supabase 直连回滚链路，不能填写 `service_role` / secret key。`VITE_DEEP_VERIFICATION_HIGH_LIMIT` 用于配置触发授权工商深度核验提示的高额度阈值，未配置时默认 `50000`。API 契约见：
 
 ```text
 docs/remote-persistence-contract.md
 ```
 
+PR22 的阿里云中转部署说明见：
+
+```text
+docs/aliyun-pr22-api-proxy.md
+```
+
 ## 在线部署
 
-本项目使用 GitHub Pages 部署 Vite 静态站点。
+当前 GitHub Pages 保留为回滚和对照链路；国内交付推荐使用阿里云 H5 静态入口 + `/api` 中转。
+
+### 阿里云国内部署
+
+推荐部署流程：
+
+1. `VITE_ASSESSMENT_API_URL=/api npm run build`。
+2. 将 `dist` 发布到阿里云 OSS 静态网站、CDN，或 ECS Nginx 独立目录。
+3. 在同一域名下配置 `/api/` 反代到 `aliyun-api/server.js`。
+4. Node API 环境变量中配置 `ASSESSMENT_UPSTREAM_URL` 和 `ASSESSMENT_UPSTREAM_API_KEY`。
+5. 微信扫码访问备案域名，例如 `https://credit.xxx.com`。
+
+详见：
+
+```text
+docs/aliyun-pr22-api-proxy.md
+```
+
+### GitHub Pages 回滚链路
 
 部署流程：
 
@@ -117,7 +141,7 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 
 - `src/riskEngine.js`：唯一风控规则入口。
 - `src/riskEngine.test.js`：核心规则测试。
-- `src/assessmentRepository.js`：评估草稿与历史记录的数据访问层，当前默认使用 localStorage。
+- `src/assessmentRepository.js`：评估草稿与历史记录的数据访问层，当前默认使用 localStorage，支持配置 `/api` 国内中转。
 - `src/assessmentRepository.test.js`：数据访问层单元测试。
 - `src/App.jsx`：H5 应用主界面和交互。
 - `src/styles.css`：移动端 UI 样式。
@@ -126,12 +150,14 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `docs/product-roadmap.md`：产品化开发路线图。
 - `docs/database-integration-prompt.md`：后续数据库接入提示词与表结构建议。
 - `docs/remote-persistence-contract.md`：远端持久化 API 契约。
+- `docs/aliyun-pr22-api-proxy.md`：阿里云 API 中转部署、验收和回滚说明。
 - `docs/ai-verification-plan.md`：智谱联网核验与多 AI Provider 规划。
 - `.env.example`：远端持久化环境变量示例。
 - `.github/workflows/ci.yml`：PR 自动测试与构建。
 - `.github/workflows/deploy-pages.yml`：GitHub Pages 自动部署。
 - `supabase/migrations/`：Supabase 数据表迁移。
 - `supabase/functions/assessments/`：评估记录持久化与后台核验 Edge Function。
+- `aliyun-api/`：PR22 新增的阿里云 Node API 中转服务，阶段一暂时代理 Supabase Function。
 
 ## 产品化路线
 
