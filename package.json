@@ -11,7 +11,8 @@
     "preview": "vite preview --host 0.0.0.0",
     "test": "vitest run",
     "verify:release": "npm run build:aliyun && npm run verify:dist",
-    "verify:dist": "node scripts/verify-dist-no-secrets.mjs"
+    "verify:dist": "node scripts/verify-dist-no-secrets.mjs",
+    "release:aliyun": "npm run verify:release && node scripts/build-aliyun-release.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.4",

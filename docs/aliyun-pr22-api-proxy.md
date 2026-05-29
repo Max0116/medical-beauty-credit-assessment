@@ -51,6 +51,23 @@ npm run verify:release
 
 该命令会构建 `/api` 国内模式，并执行 `npm run verify:dist`，防止 Supabase Function URL、Supabase publishable key、智谱 key 或阿里云上游 key 标记进入 H5 产物。
 
+如果需要一个可交给 IT 的发布包，使用：
+
+```bash
+npm run release:aliyun
+```
+
+发布包会生成在 `release/medical-credit-assessment-pr22-*.tar.gz`，同时生成 `.sha256`。包内结构：
+
+```text
+h5/                         # 可复制到 /var/www/medical-credit
+api/aliyun-api/             # 可复制到 /var/www/medical-credit-api/aliyun-api
+api/package.json
+ops/aliyun/                 # Nginx / systemd / .env 模板
+docs/aliyun-pr22-api-proxy.md
+MANIFEST.json
+```
+
 ## 阿里云 API 环境变量
 
 这些变量只配置在 ECS / 宝塔 Node 项目 / systemd / PM2 环境中，不能进入前端：
@@ -136,6 +153,7 @@ PR22 必须验证：
 - `npm run build`
 - `npm run verify:dist`
 - `npm run verify:release`
+- `npm run release:aliyun`
 - `GET /api/health` 返回 200。
 - 前端构建产物不包含 `supabase.co/functions/v1/assessments`。
 - 前端构建产物不包含 `sb_publishable`。
@@ -154,7 +172,7 @@ VITE_ASSESSMENT_API_URL=https://<project-ref>.supabase.co/functions/v1/assessmen
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
 ```
 
-2. 重新 `npm run build` 并部署静态文件。
+2. 重新 `npm run build` 并部署静态文件，或切回上一份 `release/*.tar.gz` 发布包。
 3. 停止 `medical-credit-api` Node 服务，不影响旧 Supabase Function。
 
 ## 下一阶段

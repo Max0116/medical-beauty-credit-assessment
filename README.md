@@ -77,6 +77,14 @@ npm run verify:release
 
 该命令会以 `VITE_ASSESSMENT_API_URL=/api` 构建，并扫描 `dist`，确认不会把 Supabase Function URL、Supabase publishable key、智谱 key 或阿里云上游 key 标记打进前端产物。
 
+需要交给 IT 或上传到 ECS 时，使用：
+
+```bash
+npm run release:aliyun
+```
+
+该命令会生成 `release/medical-credit-assessment-pr22-*.tar.gz` 和对应 `.sha256`，包内包含 `h5/`、`api/`、`ops/aliyun/` 和发布清单。
+
 PR 检查由 `.github/workflows/ci.yml` 自动执行：
 
 - `npm ci`
@@ -162,6 +170,7 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `docs/aliyun-pr22-api-proxy.md`：阿里云 API 中转部署、验收和回滚说明。
 - `ops/aliyun/`：阿里云 Nginx、systemd、环境变量模板。
 - `scripts/verify-dist-no-secrets.mjs`：构建产物密钥与上游地址扫描脚本。
+- `scripts/build-aliyun-release.mjs`：生成阿里云部署发布包。
 - `docs/ai-verification-plan.md`：智谱联网核验与多 AI Provider 规划。
 - `.env.example`：远端持久化环境变量示例。
 - `.github/workflows/ci.yml`：PR 自动测试与构建。
