@@ -26,6 +26,7 @@ await cp(join(root, 'ops', 'aliyun'), join(packageDir, 'ops', 'aliyun'), { recur
 await cp(join(root, 'docs', 'aliyun-pr22-api-proxy.md'), join(packageDir, 'docs', 'aliyun-pr22-api-proxy.md'));
 await cp(join(root, 'docs', 'aliyun-pr22-it-handoff.md'), join(packageDir, 'docs', 'aliyun-pr22-it-handoff.md'));
 await cp(join(root, 'docs', 'pr22-deployment-acceptance.md'), join(packageDir, 'docs', 'pr22-deployment-acceptance.md'));
+await cp(join(root, 'docs', 'pr23-aliyun-rds-oss-migration-plan.md'), join(packageDir, 'docs', 'pr23-aliyun-rds-oss-migration-plan.md'));
 await writeFile(join(packageDir, 'api', 'package.json'), `${JSON.stringify({
   name: 'medical-credit-assessment-api-proxy',
   version: '0.1.0',
@@ -61,7 +62,8 @@ const manifest = {
     'ops/aliyun/nginx-medical-credit-https.conf.example',
     'docs/aliyun-pr22-api-proxy.md',
     'docs/aliyun-pr22-it-handoff.md',
-    'docs/pr22-deployment-acceptance.md'
+    'docs/pr22-deployment-acceptance.md',
+    'docs/pr23-aliyun-rds-oss-migration-plan.md'
   ],
   deploymentNotes: [
     'Copy h5/* into the independent static root, for example /var/www/medical-credit.',

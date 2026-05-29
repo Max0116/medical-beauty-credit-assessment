@@ -227,3 +227,9 @@ PR23 再迁移数据和附件：
 - Supabase Postgres → 阿里云 RDS
 - Supabase Storage → 阿里云 OSS
 - Node API 从 proxy 模式切为真实持久化模式
+
+迁移设计草案见：
+
+```text
+docs/pr23-aliyun-rds-oss-migration-plan.md
+```
