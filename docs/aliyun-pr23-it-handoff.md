@@ -1,0 +1,207 @@
+# PR23 阿里云 RDS / OSS 迁移 IT 交接单
+
+本文用于把 `medical-credit-assessment` 从 PR22 的 Supabase 中转模式推进到 PR23 的阿里云 RDS / OSS 模式。PR23 不改风控评分规则，不改前端 API 契约，不删除 Supabase 旧链路。
+
+## 一、部署边界
+
+必须遵守：
+
+- 不改动公司现有业务项目目录。
+- 不覆盖现有 Nginx 站点配置。
+- 不删除历史发布包、备份目录或 Supabase 数据。
+- 不把 Supabase service role、智谱 Key、RDS 密码、OSS AccessKey 放进 H5 静态目录。
+- 优先使用独立目录、独立 Node 服务、独立 RDS 库、独立 OSS bucket。
+- PR23 先用 `dual_write` 灰度，验收通过后再切 `aliyun`。
+
+推荐独立资源：
+
+| 用途 | 推荐值 |
+| --- | --- |
+| H5 静态目录 | `/var/www/medical-credit` |
+| Node API 目录 | `/var/www/medical-credit-api` |
+| 临时解包目录 | `/var/www/medical-credit-deploy-work` |
+| RDS 库名 | `medical_credit` |
+| RDS 账号 | `medical_credit_app` |
+| OSS bucket | `medical-credit-verification-evidence` |
+| systemd 服务 | `medical-credit-api` |
+
+## 二、IT 需要提供
+
+| 项目 | 说明 |
+| --- | --- |
+| 已备案域名 | 例如 `credit.xxx.com` |
+| HTTPS 证书 | 阿里云证书或宝塔证书路径 |
+| RDS PostgreSQL | 主机、端口、库名、账号、密码、SSL 要求 |
+| OSS bucket | region、bucket 名、私有读写权限 |
+| RAM 权限 | 仅允许指定 OSS bucket 上传/读取/签名 |
+| 智谱 Key | 仅配置在服务器 `.env`，不进入前端 |
+| Supabase 迁移 Key | 仅用于一次性备份/回填 shell，会后清理 |
+| 出网能力 | 服务器可访问 Supabase、OSS、智谱 API |
+
+## 三、部署包
+
+开发侧生成：
+
+```bash
+npm run release:aliyun
+```
+
+PR23 发布包应包含：
+
+- `h5/`
+- `api/aliyun-api/`
+- `api/aliyun-api/migrations/001_init_postgres.sql`
+- `api/scripts/backup-supabase.mjs`
+- `api/scripts/migrate-supabase-to-aliyun-rds.mjs`
+- `api/scripts/migrate-supabase-evidence-to-aliyun-oss.mjs`
+- `api/scripts/verify-aliyun-migration.mjs`
+- `ops/aliyun/`
+- `docs/pr23-deployment-acceptance.md`
+
+## 四、服务器部署顺序
+
+```bash
+RELEASE_ARCHIVE=/tmp/medical-credit-assessment-aliyun-xxx.tar.gz \
+RELEASE_SHA256=/tmp/medical-credit-assessment-aliyun-xxx.tar.gz.sha256 \
+sudo -E bash ops/aliyun/deploy-release.sh.example
+
+cd /var/www/medical-credit-api/current
+npm install --omit=dev --package-lock=false
+```
+
+创建或更新 API 环境变量：
+
+```bash
+sudo cp /var/www/medical-credit-api/ops/aliyun/medical-credit-api.env.example \
+  /var/www/medical-credit-api/.env
+sudo vi /var/www/medical-credit-api/.env
+```
+
+PR23 推荐先配置：
+
+```bash
+MEDICAL_CREDIT_BACKEND_MODE=dual_write
+MEDICAL_CREDIT_ALLOWED_ORIGINS=https://credit.xxx.com
+ALIYUN_RDS_HOST=<rds-host>
+ALIYUN_RDS_PORT=5432
+ALIYUN_RDS_DATABASE=medical_credit
+ALIYUN_RDS_USER=medical_credit_app
+ALIYUN_RDS_PASSWORD=<password>
+ALIYUN_RDS_SSL=true
+ALIYUN_OSS_REGION=oss-cn-shanghai
+ALIYUN_OSS_BUCKET=medical-credit-verification-evidence
+ALIYUN_OSS_ACCESS_KEY_ID=<ram-access-key-id>
+ALIYUN_OSS_ACCESS_KEY_SECRET=<ram-access-key-secret>
+ZHIPUAI_API_KEY=<zhipu-key>
+ASSESSMENT_UPSTREAM_URL=https://<project-ref>.supabase.co/functions/v1/assessments
+ASSESSMENT_UPSTREAM_API_KEY=<server-side-key>
+```
+
+## 五、迁移顺序
+
+```bash
+# 1. RDS 建表
+npm run db:migrate:aliyun
+
+# 2. 迁移前备份
+SUPABASE_URL=https://<project-ref>.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
+npm run backup:supabase
+
+# 3. 附件 dry-run
+SUPABASE_URL=https://<project-ref>.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
+MIGRATE_DRY_RUN=true \
+npm run storage:migrate:supabase-to-oss
+
+# 4. 数据 dry-run
+SUPABASE_URL=https://<project-ref>.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
+MIGRATE_DRY_RUN=true \
+npm run db:migrate:supabase-to-aliyun
+
+# 5. 正式附件回填
+SUPABASE_URL=https://<project-ref>.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
+MIGRATE_DRY_RUN=false \
+npm run storage:migrate:supabase-to-oss
+
+# 6. 正式数据回填
+SUPABASE_URL=https://<project-ref>.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
+MIGRATE_DRY_RUN=false \
+npm run db:migrate:supabase-to-aliyun
+
+# 7. 目标端验收
+BACKUP_DIR=/path/to/backups/supabase-pre-aliyun-xxx \
+VERIFY_OSS=true \
+npm run migration:verify:aliyun
+```
+
+迁移完成后，从 shell 历史、临时文件、CI 日志中清理 `SUPABASE_SERVICE_ROLE_KEY`。
+
+## 六、服务重启与健康检查
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart medical-credit-api
+sudo nginx -t
+sudo systemctl reload nginx
+
+HEALTH_BASE_URL=https://credit.xxx.com \
+HEALTH_EXPECT_READY=true \
+HEALTH_EXPECT_BACKEND_MODE=dual_write \
+npm run health:aliyun
+```
+
+`/api/health` 应显示：
+
+- `ready: true`
+- `mode: dual_write`
+- `backend.database: postgres`
+- `storage.configured: true`
+- `verification.configured: true`
+
+## 七、灰度与切换
+
+先保持：
+
+```bash
+MEDICAL_CREDIT_BACKEND_MODE=dual_write
+```
+
+业务 smoke 通过后再改为：
+
+```bash
+MEDICAL_CREDIT_BACKEND_MODE=aliyun
+```
+
+切换后重启服务，并再次执行：
+
+```bash
+HEALTH_BASE_URL=https://credit.xxx.com HEALTH_EXPECT_READY=true HEALTH_EXPECT_BACKEND_MODE=aliyun npm run health:aliyun
+SMOKE_BASE_URL=https://credit.xxx.com SMOKE_EXPECT_API_READY=true SMOKE_EXPECT_BACKEND_MODE=aliyun npm run smoke:aliyun
+```
+
+## 八、回滚
+
+优先回滚模式，不删除 RDS / OSS / 备份：
+
+```bash
+MEDICAL_CREDIT_BACKEND_MODE=proxy
+sudo systemctl restart medical-credit-api
+```
+
+如需回滚发布包，只切换 `current` 软链接：
+
+```bash
+RELEASE_NAME=<previous-release-name> \
+sudo -E bash ops/aliyun/rollback-release.sh.example
+```
+
+回滚后验证：
+
+```bash
+curl -i https://credit.xxx.com/api/health
+SMOKE_BASE_URL=https://credit.xxx.com npm run smoke:aliyun
+```

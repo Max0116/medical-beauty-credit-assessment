@@ -214,6 +214,8 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `docs/aliyun-pr22-api-proxy.md`：阿里云 API 中转部署、验收和回滚说明。
 - `docs/aliyun-pr22-it-handoff.md`：给 IT 的 PR22 独立部署交接单。
 - `docs/pr23-aliyun-rds-oss-migration-plan.md`：PR23 阿里云 RDS / OSS 迁移设计草案。
+- `docs/aliyun-pr23-it-handoff.md`：给 IT 的 PR23 RDS / OSS 迁移交接单。
+- `docs/pr23-deployment-acceptance.md`：PR23 迁移部署验收记录模板。
 - `ops/aliyun/`：阿里云 Nginx、systemd、环境变量、部署预检模板。
 - `scripts/verify-dist-no-secrets.mjs`：构建产物密钥与上游地址扫描脚本。
 - `scripts/build-aliyun-release.mjs`：生成阿里云部署发布包，PR23 起包含完整 Node API、RDS migration 和 OSS / 智谱依赖声明。

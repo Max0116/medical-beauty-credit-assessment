@@ -41,6 +41,8 @@ await cp(join(root, 'docs', 'aliyun-pr22-api-proxy.md'), join(packageDir, 'docs'
 await cp(join(root, 'docs', 'aliyun-pr22-it-handoff.md'), join(packageDir, 'docs', 'aliyun-pr22-it-handoff.md'));
 await cp(join(root, 'docs', 'pr22-deployment-acceptance.md'), join(packageDir, 'docs', 'pr22-deployment-acceptance.md'));
 await cp(join(root, 'docs', 'pr23-aliyun-rds-oss-migration-plan.md'), join(packageDir, 'docs', 'pr23-aliyun-rds-oss-migration-plan.md'));
+await cp(join(root, 'docs', 'aliyun-pr23-it-handoff.md'), join(packageDir, 'docs', 'aliyun-pr23-it-handoff.md'));
+await cp(join(root, 'docs', 'pr23-deployment-acceptance.md'), join(packageDir, 'docs', 'pr23-deployment-acceptance.md'));
 await writeFile(join(packageDir, 'api', 'package.json'), `${JSON.stringify({
   name: 'medical-credit-assessment-api',
   version: '0.1.0',
@@ -96,7 +98,9 @@ const manifest = {
     'docs/aliyun-pr22-api-proxy.md',
     'docs/aliyun-pr22-it-handoff.md',
     'docs/pr22-deployment-acceptance.md',
-    'docs/pr23-aliyun-rds-oss-migration-plan.md'
+    'docs/pr23-aliyun-rds-oss-migration-plan.md',
+    'docs/aliyun-pr23-it-handoff.md',
+    'docs/pr23-deployment-acceptance.md'
   ],
   deploymentNotes: [
     'Copy h5/* into the independent static root, for example /var/www/medical-credit.',
