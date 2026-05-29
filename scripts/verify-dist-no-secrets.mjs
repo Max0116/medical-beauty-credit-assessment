@@ -3,34 +3,64 @@ import { join, relative } from 'node:path';
 
 const distDir = new URL('../dist', import.meta.url).pathname;
 
-const forbiddenPatterns = [
+export const forbiddenDistPatterns = [
+  { label: 'Any Supabase project URL', pattern: /https?:\/\/[^"'`\s]*supabase\.co/i },
   { label: 'Supabase Function URL', pattern: /supabase\.co\/functions\/v1\/assessments/i },
   { label: 'Supabase publishable key', pattern: /sb_publishable_[a-z0-9_]+/i },
   { label: 'Supabase service role marker', pattern: /service_role/i },
+  { label: 'Zhipu Web Search endpoint', pattern: /open\.bigmodel\.cn\/api\/paas\/v4/i },
   { label: '智谱 API key marker', pattern: /ZHIPUAI_API_KEY/i },
+  { label: 'Aliyun OSS AccessKey marker', pattern: /ALIYUN_OSS_ACCESS_KEY/i },
+  { label: 'Aliyun RDS password marker', pattern: /ALIYUN_RDS_PASSWORD/i },
+  { label: 'Aliyun AccessKey ID marker', pattern: /ACCESS_KEY_ID/i },
+  { label: 'Aliyun AccessKey secret marker', pattern: /ACCESS_KEY_SECRET/i },
+  { label: 'Aliyun upstream URL marker', pattern: /ASSESSMENT_UPSTREAM_URL/i },
   { label: 'Aliyun upstream API key marker', pattern: /ASSESSMENT_UPSTREAM_API_KEY/i },
   { label: 'Raw upstream secret marker', pattern: /ASSESSMENT_SECRET_KEYS/i }
 ];
 
-const files = await listFiles(distDir);
-const findings = [];
+export const requiredDomesticDistPatterns = [
+  {
+    label: 'Frontend API base is same-origin /api',
+    pattern: /VITE_ASSESSMENT_API_URL["']?\s*:\s*["']\/api["']/i
+  }
+];
 
-for (const file of files) {
-  const content = await readFile(file, 'utf8');
-  for (const { label, pattern } of forbiddenPatterns) {
-    if (pattern.test(content)) {
-      findings.push(`${label}: ${relative(process.cwd(), file)}`);
+export async function verifyDistNoSecrets({
+  directory = distDir,
+  forbiddenPatterns = forbiddenDistPatterns,
+  requiredPatterns = requiredDomesticDistPatterns,
+  cwd = process.cwd()
+} = {}) {
+  const files = await listFiles(directory);
+  const findings = [];
+  const requiredMatches = new Map(requiredPatterns.map((item) => [item.label, false]));
+
+  for (const file of files) {
+    const content = await readFile(file, 'utf8');
+    for (const { label, pattern } of forbiddenPatterns) {
+      if (pattern.test(content)) {
+        findings.push(`${label}: ${relative(cwd, file)}`);
+      }
+    }
+    for (const { label, pattern } of requiredPatterns) {
+      if (!requiredMatches.get(label) && pattern.test(content)) {
+        requiredMatches.set(label, true);
+      }
     }
   }
-}
 
-if (findings.length) {
-  console.error('Forbidden backend secret/upstream markers found in dist:');
-  for (const finding of findings) console.error(`- ${finding}`);
-  process.exit(1);
-}
+  const missingRequired = [...requiredMatches.entries()]
+    .filter(([, matched]) => !matched)
+    .map(([label]) => label);
 
-console.log(`dist secret scan passed (${files.length} files checked).`);
+  return {
+    ok: findings.length === 0 && missingRequired.length === 0,
+    checkedFiles: files.length,
+    findings,
+    missingRequired
+  };
+}
 
 async function listFiles(dir) {
   const dirStat = await stat(dir).catch(() => null);
@@ -49,4 +79,22 @@ async function listFiles(dir) {
     }
   }
   return result;
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const result = await verifyDistNoSecrets();
+
+  if (!result.ok) {
+    if (result.findings.length) {
+      console.error('Forbidden backend secret/upstream markers found in dist:');
+      for (const finding of result.findings) console.error(`- ${finding}`);
+    }
+    if (result.missingRequired.length) {
+      console.error('Required Aliyun domestic build markers were not found in dist:');
+      for (const label of result.missingRequired) console.error(`- ${label}`);
+    }
+    process.exit(1);
+  }
+
+  console.log(`dist secret/domestic route scan passed (${result.checkedFiles} files checked).`);
 }

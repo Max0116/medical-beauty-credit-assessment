@@ -71,6 +71,8 @@ bash ops/aliyun/preflight-release.sh.example
 | 发布包包含 `storage:migrate:supabase-to-oss` |  |  |
 | 发布包包含 `migration:verify:aliyun` |  |  |
 | API 目录已执行生产依赖安装 |  |  |
+| `npm run verify:dist` 已确认 H5 只请求同源 `/api` |  |  |
+| `npm run verify:dist` 未发现 Supabase / 智谱 / 阿里云密钥标记进入 H5 |  |  |
 
 ## 四、现有服务器只读盘点
 

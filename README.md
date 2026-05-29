@@ -246,7 +246,7 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `docs/pr23-aliyun-public-reachability-log.md`：PR23 迁移前公网只读可达性记录。
 - `docs/pr23-deployment-acceptance.md`：PR23 迁移部署验收记录模板。
 - `ops/aliyun/`：阿里云 Nginx、systemd、环境变量、只读服务器盘点和部署预检模板。
-- `scripts/verify-dist-no-secrets.mjs`：构建产物密钥与上游地址扫描脚本。
+- `scripts/verify-dist-no-secrets.mjs`：构建产物密钥与上游地址扫描脚本；PR23 起同时确认阿里云发布构建的前端 API base 为同源 `/api`，并阻断 Supabase / 智谱 / 阿里云密钥标记进入浏览器文件。
 - `scripts/build-aliyun-release.mjs`：生成阿里云部署发布包，PR23 起包含完整 Node API、RDS migration 和 OSS / 智谱依赖声明。
 - `scripts/check-aliyun-health.mjs`：部署后检查 `/api/health` readiness，可要求 RDS / OSS / 智谱均已配置。
 - `scripts/aliyun-api-flow-smoke.mjs`：PR23 部署后检查保存评估记录、立即可见核验日志、历史列表返回记录。
