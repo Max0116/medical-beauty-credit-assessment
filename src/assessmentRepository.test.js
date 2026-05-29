@@ -185,6 +185,23 @@ describe('remote assessment repository wiring', () => {
     expect(repository.loadDraft()).toEqual(DEFAULT_FORM);
   });
 
+  it('merges remote draft payloads with default form fields', async () => {
+    const repository = createRemoteAssessmentRepository({
+      baseUrl: 'https://credit-api.example.com/',
+      publishableKey: 'sb_publishable_test',
+      clientInstanceId: 'client-1',
+      fetchImpl: async () => createJsonResponse({ form: { institutionName: '远端草稿机构' } })
+    });
+
+    const draft = await repository.loadDraft();
+
+    expect(draft).toMatchObject({
+      ...DEFAULT_FORM,
+      institutionName: '远端草稿机构'
+    });
+    expect(Array.isArray(draft.monthlyPurchases)).toBe(true);
+  });
+
   it('calls the remote persistence contract with auth and normalized payloads', async () => {
     const calls = [];
     const fetchImpl = async (url, options = {}) => {

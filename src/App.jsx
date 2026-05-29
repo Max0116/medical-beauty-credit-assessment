@@ -4,6 +4,7 @@ import {
   BadgeCheck,
   CheckCircle2,
   CircleDashed,
+  Clock,
   ClipboardCheck,
   Cloud,
   CloudOff,
@@ -44,6 +45,12 @@ import {
   exportApprovalReportImage
 } from './approvalReport';
 import { buildDisplayAssessmentResult } from './displayAssessmentResult';
+import {
+  buildCommandCenterModel,
+  getVerificationProgress,
+  getVerificationStatusLabel,
+  getVerificationTone
+} from './workflowPresentation';
 
 const tabs = [
   { id: 'institution', label: '机构', icon: FileText },
@@ -120,6 +127,27 @@ function App() {
     verificationReviews
   ]);
   const displayResult = displayAssessment.result;
+  const commandCenter = useMemo(() => buildCommandCenterModel({
+    form,
+    result,
+    displayResult,
+    assessmentStage,
+    activeRecordId,
+    verificationLogStatus,
+    latestVerificationSummary,
+    verificationReviews,
+    activeTab
+  }), [
+    activeRecordId,
+    activeTab,
+    assessmentStage,
+    displayResult,
+    form,
+    latestVerificationSummary,
+    result,
+    verificationLogStatus,
+    verificationReviews
+  ]);
 
   const markRepositorySynced = (message = '已同步到远端') => {
     setRepositoryStatus('synced');
@@ -208,6 +236,7 @@ function App() {
   };
 
   const saveRecord = async () => {
+    const shouldAdvanceToAssessment = activeTab === 'institution';
     try {
       setRepositoryStatus(isRemoteMode ? 'syncing' : 'saving');
       setRepositoryMessage(isRemoteMode ? '正在保存并同步评估记录' : '正在保存评估记录');
@@ -223,7 +252,7 @@ function App() {
       setVerificationReviewStatus(isRemoteMode ? 'idle' : 'unavailable');
       markRepositorySynced(isRemoteMode ? '评估记录已同步' : '评估记录已保存');
       setToast(isRemoteMode ? '已保存，正在自动联网核验' : '已保存当前评估记录');
-      setActiveTab(isRemoteMode ? 'verify' : 'result');
+      setActiveTab(shouldAdvanceToAssessment ? 'assessment' : activeTab);
       refreshVerificationLogs(savedRecord.id);
       refreshVerificationReviews(savedRecord.id, { silent: true });
       if (isRemoteMode) {
@@ -242,7 +271,7 @@ function App() {
         setRepositoryStatus('failed');
         setRepositoryMessage('远端保存失败，本机已保存');
         setToast('远端保存失败，记录已保存在本机');
-        setActiveTab('result');
+        setActiveTab(shouldAdvanceToAssessment ? 'assessment' : activeTab);
       } else {
         setRepositoryStatus('error');
         setRepositoryMessage('本机保存失败');
@@ -339,7 +368,13 @@ function App() {
 
     window.setTimeout(async () => {
       const logs = await refreshVerificationLogs(recordId, { silent: true });
-      if (hasTerminalVerificationLog(logs)) return;
+      if (hasTerminalVerificationLog(logs)) {
+        const summary = getVerificationSummary(logs?.[0]);
+        if (summary?.status === 'completed' && verificationReviews.length === 0) {
+          setToast('公共风险核验已完成，可前往核验页确认');
+        }
+        return;
+      }
       if (Date.now() - startedAt >= VERIFICATION_POLL_TIMEOUT_MS) return;
       scheduleVerificationPolling(recordId, startedAt);
     }, VERIFICATION_POLL_INTERVAL_MS);
@@ -503,8 +538,6 @@ function App() {
     }
   };
 
-  const statusClass = displayAssessment.tone;
-
   return (
     <main className="page-shell">
       <section className="phone-frame" aria-label="医美机构账期评估系统 H5 原型">
@@ -518,57 +551,37 @@ function App() {
           </div>
         </header>
 
-        <ResultCard result={displayResult} statusClass={statusClass} overlay={displayAssessment.overlay} />
-
-        <AssessmentStageBanner
-          stage={assessmentStage}
-          onAction={() => setActiveTab(assessmentStage.actionTarget || 'result')}
-        />
-
-        <CurrentInstitutionBar
+        <CommandCenter
+          model={commandCenter}
           form={form}
-          activeRecordId={activeRecordId}
-          verificationLogStatus={verificationLogStatus}
-          latestVerificationSummary={latestVerificationSummary}
+          updateField={updateField}
+          onSaveRecord={saveRecord}
+          onNavigate={setActiveTab}
+          activeTab={activeTab}
+          overlay={displayAssessment.overlay}
         />
 
-        <nav className="tab-bar" aria-label="评估步骤">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
-                key={tab.id}
-                type="button"
-                aria-current={activeTab === tab.id ? 'step' : undefined}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                <Icon size={17} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-
-        <StepProgress activeStepIndex={activeStepIndex} />
-
-        <div className="action-row">
+        <div className={`action-row ${activeTab === 'institution' ? 'single' : ''}`}>
           <button className="ghost-button" type="button" onClick={resetForm}>
             <RotateCcw size={16} />
             重置表单
           </button>
-          <button className="primary-button" type="button" onClick={saveRecord}>
-            <Save size={16} />
-            保存当前评估
-          </button>
+          {activeTab !== 'institution' && (
+            <button className="primary-button" type="button" onClick={saveRecord} disabled={!form.institutionName.trim()}>
+              <Save size={16} />
+              保存当前评估
+            </button>
+          )}
         </div>
 
-        <RepositoryStatusBadge
-          mode={assessmentRepository.mode}
-          status={repositoryStatus}
-          message={repositoryMessage}
-          lastSyncedAt={lastSyncedAt}
-        />
+        {repositoryStatus !== 'synced' && (
+          <RepositoryStatusBadge
+            mode={assessmentRepository.mode}
+            status={repositoryStatus}
+            message={repositoryMessage}
+            lastSyncedAt={lastSyncedAt}
+          />
+        )}
 
         <section className="content-panel">
           {activeTab === 'institution' && (
@@ -577,9 +590,6 @@ function App() {
               updateField={updateField}
               activeRecordId={activeRecordId}
               latestVerificationSummary={latestVerificationSummary}
-              verificationLogStatus={verificationLogStatus}
-              onSaveRecord={saveRecord}
-              isRemoteMode={isRemoteMode}
             />
           )}
           {activeTab === 'assessment' && (
@@ -677,6 +687,75 @@ function StepProgress({ activeStepIndex }) {
         ))}
       </div>
     </div>
+  );
+}
+
+function CommandCenter({ model, form, updateField, onSaveRecord, onNavigate, activeTab, overlay }) {
+  const limitValue = typeof model.limitLabel === 'number' ? formatMoney(model.limitLabel) : model.limitLabel;
+
+  return (
+    <section className={`command-center ${model.tone}`} aria-live="polite">
+      <div className="command-center-head">
+        <div>
+          <span>授信工作台</span>
+          <strong>{model.institutionLabel}</strong>
+        </div>
+        <b>{model.decisionLabel}</b>
+      </div>
+
+      <div className="command-input-panel">
+        <TextField
+          label="机构名称"
+          value={form.institutionName}
+          onChange={(value) => updateField('institutionName', value)}
+          placeholder="先输入机构名称，例如：杭州星澜医疗美容诊所"
+        />
+        <TextField
+          label="统一社会信用代码"
+          value={form.creditCode}
+          onChange={(value) => updateField('creditCode', value)}
+          placeholder="可选，核验返回候选后也可采用"
+        />
+        <button className="command-save-button" type="button" onClick={onSaveRecord} disabled={!form.institutionName.trim()}>
+          <Save size={16} />
+          {model.primaryActionLabel}
+        </button>
+      </div>
+
+      <div className="command-metrics">
+        <Metric label="核验状态" value={model.verificationLabel} />
+        <Metric label="打分状态" value={model.assessmentLabel} />
+        <Metric label="等级" value={model.gradeLabel} />
+        <Metric label="建议账期" value={model.termLabel} />
+        <Metric label="建议额度" value={limitValue} />
+      </div>
+
+      <div className="command-progress">
+        <span>核验进度</span>
+        <i><b style={{ width: `${model.progress}%` }} /></i>
+      </div>
+
+      {overlay && (
+        <div className="command-overlay-alert">
+          <AlertTriangle size={15} />
+          <span>{overlay.title} · {overlay.statusLabel}</span>
+        </div>
+      )}
+
+      <div className="workflow-rail" aria-label="业务步骤">
+        {model.steps.map((step, index) => (
+          <button
+            key={step.id}
+            className={`${step.state} ${activeTab === step.tab ? 'current' : ''}`}
+            type="button"
+            onClick={() => onNavigate(step.tab)}
+          >
+            <span>{index + 1}</span>
+            <strong>{step.label}</strong>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -798,50 +877,20 @@ function InstitutionStep({
   form,
   updateField,
   activeRecordId,
-  latestVerificationSummary,
-  verificationLogStatus,
-  onSaveRecord,
-  isRemoteMode
+  latestVerificationSummary
 }) {
   const creditCodeCandidates = getCreditCodeCandidates(latestVerificationSummary);
-  const verificationProgress = getVerificationProgress({
-    activeRecordId,
-    status: verificationLogStatus,
-    summary: latestVerificationSummary
-  });
-  const verificationStatusLabel = getVerificationStatusLabel({
-    activeRecordId,
-    status: verificationLogStatus,
-    summary: latestVerificationSummary
-  });
 
   return (
     <div className="step-stack">
-      <SectionTitle icon={FileText} title="机构基础信息" />
-      <TextField
-        label="机构名称"
-        value={form.institutionName}
-        onChange={(value) => updateField('institutionName', value)}
-        placeholder="例如：杭州星澜医疗美容诊所"
-      />
-      <div className="basic-verification-launch">
-        <div>
-          <strong>{isRemoteMode ? '保存并启动后台核验' : '保存当前评估'}</strong>
-          <span>{isRemoteMode ? verificationStatusLabel : '本地模式不会发起联网核验'}</span>
-          <i><b style={{ width: `${verificationProgress}%` }} /></i>
-        </div>
-        <button type="button" onClick={onSaveRecord} disabled={!form.institutionName.trim()}>
-          <Save size={15} />
-          保存并核验
-        </button>
-      </div>
-      <TextField label="统一社会信用代码" value={form.creditCode} onChange={(value) => updateField('creditCode', value)} placeholder="可暂不填写" />
+      <SectionTitle icon={FileText} title="机构档案补充" />
+      <FieldAlert tone="neutral" text="机构名称和统一社会信用代码已放在顶部工作台，先保存机构即可在后台启动公共风险核验。" />
       <CreditCodeSuggestions
         candidates={creditCodeCandidates}
         hasActiveRecord={Boolean(activeRecordId)}
         onApply={(value) => updateField('creditCode', value)}
       />
-      <FieldAlert tone="warning" text="建议先完成机构名称核验和人工确认，再进入评估页填写采购、履约、资质和账期额度。" />
+      <FieldAlert tone="warning" text="核验会在后台进行，等待期间可以继续填写评估资料；系统只在人工确认后写入正式风控字段。" />
     </div>
   );
 }
@@ -912,11 +961,11 @@ function AssessmentInputStep({ form, updateField, updatePurchase, result }) {
 
 function CreditCodeSuggestions({ candidates, hasActiveRecord, onApply }) {
   if (!hasActiveRecord) {
-    return <FieldAlert tone="warning" text="填写机构名称后点击“保存并核验”，系统会尝试通过官方企业信用接口识别统一社会信用代码候选。" />;
+    return null;
   }
 
   if (!candidates.length) {
-    return <FieldAlert tone="warning" text="官方企业信用接口暂未返回统一社会信用代码候选，可继续人工填写或确认接口配置。" />;
+    return null;
   }
 
   return (
@@ -1039,6 +1088,14 @@ function VerifyStep({
         isRemoteMode={isRemoteMode}
         updateField={updateField}
       />
+      <VerificationLogPanel
+        activeRecordId={activeRecordId}
+        logs={verificationLogs}
+        status={verificationLogStatus}
+        onRefresh={refreshVerificationLogs}
+        onRerun={rerunVerification}
+        isRemoteMode={isRemoteMode}
+      />
       <VerificationReviewPanel
         activeRecordId={activeRecordId}
         summary={latestSummary}
@@ -1081,9 +1138,15 @@ function VerificationWorkbenchHeader({ activeRecordId, summary, latestLog, statu
         <span>进度 {progress}%</span>
         <i><b style={{ width: `${progress}%` }} /></i>
       </div>
+      {summary?.totalKeywords && (
+        <small className="verification-progress-caption">
+          已完成 {summary.completedKeywords || 0} / {summary.totalKeywords} 个关键词
+          {summary.partial ? ' · 部分结果待补全' : ''}
+        </small>
+      )}
       <div className="verification-meta-grid">
         <Metric label="核验方式" value="轻量搜索" />
-        <Metric label="核验范围" value="公开网页 / 7 词" />
+        <Metric label="核验范围" value={summary?.totalKeywords ? `公开网页 / ${summary.totalKeywords} 词` : '公开网页 / 分阶段'} />
         <Metric label="最近核验" value={latestAt ? formatDateTime(latestAt) : '未生成'} />
         <Metric label="确认日志" value={`${reviewCount} 条`} />
       </div>
@@ -1142,6 +1205,10 @@ function CreditVerificationPanel({ activeRecordId, form, result, summary, logs, 
         <Metric label="搜索结果" value={`${summary?.sourceCount ?? latestLog?.rawResultCount ?? 0} 条`} />
         <Metric label="匹配证据" value={`${summary?.matchedSourceCount ?? 0} 条`} />
       </div>
+      {summary?.partial && (
+        <FieldAlert tone="warning" text="部分关键词查询失败或超时，当前先展示已返回线索；可稍后重新核验补全。" />
+      )}
+      <VerificationTransparencyPanel summary={summary} queryKeywords={latestLog?.queryKeywords || result.queryKeywords || []} />
       {deepVerification.shouldShow && (
         <DeepVerificationPrompt
           businessProfile={businessProfile}
@@ -1179,7 +1246,7 @@ function CreditVerificationPanel({ activeRecordId, form, result, summary, logs, 
       {summary?.status === 'completed' && !summary?.evidenceSummaries?.length && (
         <div className="verification-empty-state">
           <CheckCircle2 size={16} />
-          <span>未发现与机构名称直接匹配的明显负面风险线索。</span>
+          <span>已查询但未形成风险证据；原始结果已留痕，建议人工抽查关键页面。</span>
         </div>
       )}
       {summary?.evidenceSummaries?.length > 0 && (
@@ -1203,6 +1270,90 @@ function CreditVerificationPanel({ activeRecordId, form, result, summary, logs, 
               {item.snippet && <p className="evidence-snippet">{item.snippet}</p>}
             </article>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VerificationTransparencyPanel({ summary, queryKeywords }) {
+  const keywords = Array.isArray(queryKeywords) ? queryKeywords.filter(Boolean) : [];
+  const keywordDiagnostics = Array.isArray(summary?.keywordDiagnostics) ? summary.keywordDiagnostics : [];
+  const rawResultItems = Array.isArray(summary?.rawResultItems) ? summary.rawResultItems : [];
+
+  if (!summary && !keywords.length) return null;
+
+  return (
+    <div className="verification-transparency-panel">
+      <div className="transparency-head">
+        <div>
+          <Search size={15} />
+          <strong>查询透明度</strong>
+        </div>
+        <span>搜索线索，仅供人工复核</span>
+      </div>
+
+      {keywords.length > 0 && (
+        <div className="query-keyword-stack">
+          <span className="field-label">实际查询关键词</span>
+          <div className="query-keyword-list">
+            {keywords.map((keyword) => (
+              <span key={keyword}>{keyword}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {keywordDiagnostics.length > 0 && (
+        <div className="keyword-diagnostics-grid">
+          {keywordDiagnostics.map((item) => (
+            <div className={`keyword-diagnostic ${item.failed ? 'failed' : ''}`} key={`${item.keyword}-${item.errorMessage || ''}`}>
+              <strong>{item.keyword || '未标记关键词'}</strong>
+              <span>原始结果 {Number(item.resultCount || 0)} 条 · 风险证据 {Number(item.evidenceCount || 0)} 条</span>
+              {item.failed && <small>{item.errorMessage || '该关键词查询失败或超时'}</small>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {rawResultItems.length > 0 ? (
+        <div className="raw-search-list">
+          <span className="field-label">原始搜索结果</span>
+          {rawResultItems.map((item, index) => (
+            <article className={`raw-search-item ${item.isRelevant ? 'relevant' : 'unrelated'}`} key={`${item.url || item.title}-${index}`}>
+              <div className="raw-search-top">
+                <span className={`relevance-badge ${item.isRelevant ? 'relevant' : 'unrelated'}`}>
+                  {item.isRelevant ? '相关线索' : '未采纳'}
+                </span>
+                {item.url ? (
+                  <a href={item.url} target="_blank" rel="noreferrer">
+                    <ExternalLink size={13} />
+                    原文
+                  </a>
+                ) : (
+                  <small>无原文链接</small>
+                )}
+              </div>
+              <strong>{item.title || '未命名结果'}</strong>
+              <small className="raw-search-meta">
+                {[item.source, item.sourceHost, item.publishDate].filter(Boolean).join(' · ') || '来源待确认'}
+              </small>
+              {item.keyword && <small className="raw-search-keyword">关键词：{item.keyword}</small>}
+              {item.riskTags?.length > 0 && <TagStrip items={item.riskTags} tone={item.isRelevant ? 'warning' : 'neutral'} />}
+              {item.snippet && <p>{item.snippet}</p>}
+              <em>{item.relevanceReason || '系统未给出相关性说明。'}</em>
+            </article>
+          ))}
+        </div>
+      ) : summary?.status === 'completed' ? (
+        <div className="verification-empty-state">
+          <CheckCircle2 size={16} />
+          <span>已查询但未返回可展示的原始搜索结果；未形成风险证据。</span>
+        </div>
+      ) : (
+        <div className="verification-empty-state pending">
+          <Clock size={16} />
+          <span>正在等待智谱返回原始搜索结果，返回后会逐条展示来源和相关性理由。</span>
         </div>
       )}
     </div>
@@ -1309,17 +1460,18 @@ function ManualRiskInputPanel({ form, updateField }) {
 
 function VerificationKeywordPanel({ result, copyKeyword }) {
   return (
-    <div className="verification-module">
-      <div>
-        <Database size={17} />
-        <strong>查询关键词</strong>
-        <span>默认使用智谱轻量搜索查询风险关键词，作为人工复核线索。</span>
-      </div>
+    <details className="verification-module keyword-debug-panel">
+      <summary>
+        <span>
+          <Database size={17} />
+          查询关键词
+        </span>
+        <small>高级信息</small>
+      </summary>
       <button type="button" onClick={() => copyKeyword(result.queryKeywords.join('\n'))}>
         复制全部
       </button>
       <div className="keyword-list">
-        <span className="field-label">推荐查询关键词</span>
         {result.queryKeywords.map((item) => (
           <button type="button" key={item} onClick={() => copyKeyword(item)}>
             <Copy size={14} />
@@ -1327,7 +1479,7 @@ function VerificationKeywordPanel({ result, copyKeyword }) {
           </button>
         ))}
       </div>
-    </div>
+    </details>
   );
 }
 
@@ -1910,33 +2062,6 @@ function VerificationLogSummaryText({ log }) {
   const summary = getVerificationSummary(log);
   if (!summary?.judgmentLabel) return null;
   return <small>{summary.judgmentLabel}：{summary.conclusion}</small>;
-}
-
-function getVerificationProgress({ activeRecordId, status, summary }) {
-  if (!activeRecordId) return 0;
-  if (summary?.status === 'completed') return 100;
-  if (summary?.status === 'failed' || summary?.status === 'skipped') return 100;
-  if (summary?.status === 'pending') return 35;
-  if (status === 'loading') return 65;
-  if (status === 'ready') return 88;
-  if (status === 'error') return 100;
-  return 45;
-}
-
-function getVerificationStatusLabel({ activeRecordId, status, summary }) {
-  if (!activeRecordId) return '待保存，未发起核验';
-  if (status === 'loading') return '正在读取核验结果';
-  if (summary?.judgmentLabel) return summary.judgmentLabel;
-  if (summary?.status === 'pending') return '后台核验排队中';
-  if (summary?.status === 'failed') return '核验失败，需人工复核';
-  if (status === 'error') return '核验状态读取失败';
-  return '后台核验进行中';
-}
-
-function getVerificationTone(riskLevel, status) {
-  if (status === 'error' || riskLevel === 'high') return 'danger';
-  if (status === 'loading' || riskLevel === 'unknown' || riskLevel === 'medium') return 'warning';
-  return 'stable';
 }
 
 function HistoryList({ history, loadRecord }) {

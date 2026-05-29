@@ -64,6 +64,8 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ASSESSMENT
 const LEGACY_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const ZHIPUAI_API_KEY = Deno.env.get("ZHIPUAI_API_KEY") || "";
 const ZHIPUAI_SUMMARY_MODEL = Deno.env.get("ZHIPUAI_SUMMARY_MODEL") || "glm-4-flash";
+const ZHIPUAI_SEARCH_TIMEOUT_MS = Number(Deno.env.get("ZHIPUAI_SEARCH_TIMEOUT_MS") || 12000);
+const ZHIPUAI_SUMMARY_TIMEOUT_MS = Number(Deno.env.get("ZHIPUAI_SUMMARY_TIMEOUT_MS") || 12000);
 const EVIDENCE_BUCKET = "verification-evidence";
 const EVIDENCE_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
 const EVIDENCE_ATTACHMENT_SIGNED_URL_SECONDS = 60 * 60 * 24 * 7;
@@ -81,10 +83,19 @@ const OFFICIAL_REGISTRY_CONFIG = createOfficialRegistryConfig({
   authHeaderName: Deno.env.get("OFFICIAL_REGISTRY_AUTH_HEADER_NAME") || "",
   authHeaderPrefix: Deno.env.get("OFFICIAL_REGISTRY_AUTH_HEADER_PREFIX") || ""
 });
-const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") || "")
-  .split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+const DEFAULT_ALLOWED_ORIGINS = [
+  "https://max0116.github.io",
+  "http://101.132.137.25",
+  "https://101.132.137.25"
+];
+const ALLOWED_ORIGINS = [...new Set([
+  ...DEFAULT_ALLOWED_ORIGINS,
+  ...(Deno.env.get("ALLOWED_ORIGINS") || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+])];
+const FAST_SEARCH_PATTERNS = [/行政处罚/, /被执行人/, /失信被执行人/, /非法行医/];
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false }
@@ -483,12 +494,81 @@ async function createVerificationLog({
   }
 
   try {
-    const rawResults = await runZhipuSearch(queryKeywords.slice(0, 7), clientInstanceId);
+    const searchPlan = splitVerificationKeywords(queryKeywords.slice(0, 7));
+    const totalKeywords = searchPlan.fast.length + searchPlan.remaining.length;
+    const fastSearch = await runZhipuSearch(searchPlan.fast, clientInstanceId);
+    const fastEvidence = extractVerificationEvidence(institutionName, fastSearch.rawResults);
+    const fastRiskTags = [...new Set(fastEvidence.map((item) => item.category))];
+    await insertVerificationLog(
+      recordId,
+      clientInstanceId,
+      queryKeywords,
+      "running",
+      fastSearch.rawResults,
+      buildVerificationSummary({
+        status: "running",
+        institutionName,
+        rawResults: fastSearch.rawResults,
+        riskTags: fastRiskTags,
+        evidence: fastEvidence,
+        officialRegistry,
+        progress: {
+          phase: "searching_full",
+          completedKeywords: fastSearch.completed,
+          totalKeywords,
+          partial: fastSearch.failures.length > 0,
+          keywordDiagnostics: fastSearch.keywordDiagnostics
+        }
+      }),
+      fastRiskTags,
+      startedAt,
+      fastSearch.failures.map((item) => item.message).join("；") || undefined,
+      existingLogId
+    );
+
+    const remainingSearch = searchPlan.remaining.length
+      ? await runZhipuSearch(searchPlan.remaining, clientInstanceId)
+      : { rawResults: [], failures: [], completed: 0, keywordDiagnostics: [] };
+    const rawResults = [...fastSearch.rawResults, ...remainingSearch.rawResults];
+    const failures = [...fastSearch.failures, ...remainingSearch.failures];
+    const keywordDiagnostics = [...fastSearch.keywordDiagnostics, ...remainingSearch.keywordDiagnostics];
+    if (!rawResults.length && failures.length) {
+      throw new Error(failures.map((item) => item.message).join("；"));
+    }
     const evidence = extractVerificationEvidence(institutionName, rawResults);
     const riskTags = [...new Set(evidence.map((item) => item.category))];
-    const evidenceInsight = evidence.length
-      ? await summarizeEvidenceWithAi({ institutionName, evidence, riskTags, clientInstanceId })
-      : undefined;
+    const completedKeywords = fastSearch.completed + remainingSearch.completed;
+    let evidenceInsight: EvidenceInsight | undefined;
+    if (evidence.length) {
+      await insertVerificationLog(
+        recordId,
+        clientInstanceId,
+        queryKeywords,
+        "running",
+        rawResults,
+        buildVerificationSummary({
+          status: "running",
+          institutionName,
+          rawResults,
+          riskTags,
+          evidence,
+          officialRegistry,
+          evidenceInsight: buildFallbackEvidenceInsight(institutionName, riskTags, evidence),
+          progress: {
+            phase: "summarizing",
+            completedKeywords,
+            totalKeywords,
+            partial: failures.length > 0,
+            keywordDiagnostics
+          }
+        }),
+        riskTags,
+        startedAt,
+        failures.map((item) => item.message).join("；") || undefined,
+        existingLogId
+      );
+      evidenceInsight = await summarizeEvidenceWithAi({ institutionName, evidence, riskTags, clientInstanceId });
+    }
     const extractedFlags = buildVerificationSummary({
       status: "completed",
       institutionName,
@@ -496,10 +576,29 @@ async function createVerificationLog({
       riskTags,
       evidence,
       officialRegistry,
-      evidenceInsight
+      evidenceInsight,
+      progress: {
+        phase: "completed",
+        completedKeywords,
+        totalKeywords,
+        partial: failures.length > 0,
+        durationMs: Date.now() - Date.parse(startedAt),
+        keywordDiagnostics
+      }
     });
 
-    await insertVerificationLog(recordId, clientInstanceId, queryKeywords, "completed", rawResults, extractedFlags, riskTags, startedAt, undefined, existingLogId);
+    await insertVerificationLog(
+      recordId,
+      clientInstanceId,
+      queryKeywords,
+      "completed",
+      rawResults,
+      extractedFlags,
+      riskTags,
+      startedAt,
+      failures.map((item) => item.message).join("；") || undefined,
+      existingLogId
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "智谱联网核验失败";
     await insertVerificationLog(
@@ -517,38 +616,95 @@ async function createVerificationLog({
   }
 }
 
+function splitVerificationKeywords(queryKeywords: unknown[]) {
+  const keywords = queryKeywords.map((keyword) => String(keyword || "").trim()).filter(Boolean);
+  const fast: string[] = [];
+  const remaining: string[] = [];
+
+  for (const pattern of FAST_SEARCH_PATTERNS) {
+    const matched = keywords.find((keyword) => pattern.test(keyword) && !fast.includes(keyword));
+    if (matched) fast.push(matched);
+  }
+
+  for (const keyword of keywords) {
+    if (!fast.includes(keyword)) remaining.push(keyword);
+  }
+
+  return {
+    fast: fast.slice(0, 4),
+    remaining
+  };
+}
+
 async function runZhipuSearch(queryKeywords: unknown[], clientInstanceId: string) {
-  const searches = await Promise.all(queryKeywords.map(async (keyword) => {
-    const response = await fetch("https://open.bigmodel.cn/api/paas/v4/web_search", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${ZHIPUAI_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        search_query: String(keyword).slice(0, 70),
-        search_engine: "search_std",
-        search_intent: false,
-        count: 5,
-        search_recency_filter: "noLimit",
-        content_size: "medium",
-        request_id: crypto.randomUUID(),
-        user_id: clientInstanceId.slice(0, 128)
-      })
-    });
+  const settled = await Promise.allSettled(queryKeywords.map(async (keyword) => {
+    const keywordText = String(keyword).slice(0, 70);
+    try {
+      const response = await fetchWithTimeout("https://open.bigmodel.cn/api/paas/v4/web_search", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${ZHIPUAI_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          search_query: keywordText,
+          search_engine: "search_std",
+          search_intent: false,
+          count: 5,
+          search_recency_filter: "noLimit",
+          content_size: "medium",
+          request_id: crypto.randomUUID(),
+          user_id: clientInstanceId.slice(0, 128)
+        })
+      }, ZHIPUAI_SEARCH_TIMEOUT_MS);
 
-    if (!response.ok) {
-      throw new Error(`Zhipu search failed with status ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`Zhipu search failed with status ${response.status}`);
+      }
+
+      const payload = await response.json();
+      return {
+        keyword: keywordText,
+        results: payload.search_result || []
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error || "Zhipu search failed");
+      throw { keyword: keywordText, message: `${keywordText}: ${message}` };
     }
-
-    const payload = await response.json();
-    return {
-      keyword,
-      results: payload.search_result || []
-    };
   }));
 
-  return searches.flatMap((search) => (search.results as unknown[]).map((result) => ({ keyword: search.keyword, result })));
+  const searches = settled
+    .filter((item): item is PromiseFulfilledResult<{ keyword: string; results: unknown[] }> => item.status === "fulfilled")
+    .map((item) => item.value);
+  const failures = settled
+    .filter((item): item is PromiseRejectedResult => item.status === "rejected")
+    .map((item) => ({
+      keyword: typeof item.reason?.keyword === "string" ? item.reason.keyword : "",
+      message: typeof item.reason?.message === "string"
+        ? item.reason.message
+        : item.reason instanceof Error
+          ? item.reason.message
+          : String(item.reason || "Zhipu search failed")
+    }));
+  const keywordDiagnostics = [
+    ...searches.map((search) => ({
+      keyword: search.keyword,
+      resultCount: Array.isArray(search.results) ? search.results.length : 0
+    })),
+    ...failures.map((failure) => ({
+      keyword: failure.keyword,
+      resultCount: 0,
+      failed: true,
+      errorMessage: failure.message
+    }))
+  ];
+
+  return {
+    rawResults: searches.flatMap((search) => (search.results as unknown[]).map((result) => ({ keyword: search.keyword, result }))),
+    failures,
+    completed: searches.length,
+    keywordDiagnostics
+  };
 }
 
 async function summarizeEvidenceWithAi({
@@ -563,7 +719,7 @@ async function summarizeEvidenceWithAi({
   clientInstanceId: string;
 }): Promise<EvidenceInsight> {
   try {
-    const response = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
+    const response = await fetchWithTimeout("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${ZHIPUAI_API_KEY}`,
@@ -609,7 +765,7 @@ async function summarizeEvidenceWithAi({
         temperature: 0.2,
         user_id: clientInstanceId.slice(0, 128)
       })
-    });
+    }, ZHIPUAI_SUMMARY_TIMEOUT_MS);
 
     if (!response.ok) {
       throw new Error(`Zhipu summary failed with status ${response.status}`);
@@ -621,6 +777,19 @@ async function summarizeEvidenceWithAi({
   } catch (error) {
     console.error("evidence summary fallback used", error);
     return buildFallbackEvidenceInsight(institutionName, riskTags, evidence);
+  }
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Math.max(1000, timeoutMs));
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timer);
   }
 }
 

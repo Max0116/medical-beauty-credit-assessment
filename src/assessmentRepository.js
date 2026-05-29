@@ -324,7 +324,8 @@ export function createRemoteAssessmentRepository({
 
   const loadDraft = async () => {
     const payload = await request('/draft');
-    return payload?.form || payload || DEFAULT_FORM;
+    const remoteDraft = payload?.form || payload || {};
+    return { ...DEFAULT_FORM, ...(remoteDraft && typeof remoteDraft === 'object' ? remoteDraft : {}) };
   };
 
   const saveDraft = async (form) => {

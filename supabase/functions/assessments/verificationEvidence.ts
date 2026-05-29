@@ -11,12 +11,43 @@ export type VerificationEvidence = {
   riskSignal: string;
 };
 
+export type RawVerificationResultItem = {
+  keyword: string;
+  title: string;
+  source: string;
+  sourceHost: string;
+  publishDate: string;
+  url: string;
+  snippet: string;
+  riskTags: string[];
+  isRelevant: boolean;
+  relevanceStatus: string;
+  relevanceReason: string;
+};
+
+export type KeywordDiagnostic = {
+  keyword: string;
+  resultCount: number;
+  evidenceCount?: number;
+  failed?: boolean;
+  errorMessage?: string;
+};
+
 export type EvidenceInsight = {
   overview: string;
   keyFindings: string[];
   riskQuestions: string[];
   verificationFocus: string[];
   sourceConfidence: string;
+};
+
+export type VerificationProgress = {
+  phase?: string;
+  completedKeywords?: number;
+  totalKeywords?: number;
+  partial?: boolean;
+  durationMs?: number;
+  keywordDiagnostics?: KeywordDiagnostic[];
 };
 
 type BusinessProfileCandidate = {
@@ -69,12 +100,14 @@ export function extractVerificationEvidence(institutionName: string, rawResults:
 function normalizeSearchResult(item: unknown) {
   const wrapper = item && typeof item === "object" ? item as Record<string, unknown> : {};
   const result = wrapper.result && typeof wrapper.result === "object" ? wrapper.result as Record<string, unknown> : {};
+  const keyword = String(wrapper.keyword || "").trim();
   const title = String(result.title || "").trim();
   const content = stripHtml(String(result.content || "")).trim();
 
   if (!title && !content) return null;
 
   return {
+    keyword,
     title,
     content,
     media: String(result.media || "").trim() || "未知来源",
@@ -139,6 +172,101 @@ function detectRiskCategories(text: string) {
     .map(([label]) => String(label));
 }
 
+export function buildRawResultItems(institutionName: string, rawResults: unknown[]): RawVerificationResultItem[] {
+  return rawResults
+    .map((item) => normalizeSearchResult(item))
+    .filter(Boolean)
+    .map((item) => {
+      const text = `${item!.title} ${item!.content}`;
+      const riskTags = detectRiskCategories(text);
+      const institutionMatched = isInstitutionMatch(institutionName, text);
+      const isRelevant = institutionMatched && riskTags.length > 0;
+      const relevance = getRawResultRelevance({ institutionMatched, riskTags });
+
+      return {
+        keyword: item!.keyword,
+        title: item!.title,
+        source: item!.media,
+        sourceHost: getHostName(item!.link),
+        publishDate: item!.publishDate,
+        url: item!.link,
+        snippet: item!.content.slice(0, 260),
+        riskTags,
+        isRelevant,
+        relevanceStatus: relevance.status,
+        relevanceReason: relevance.reason
+      };
+    });
+}
+
+function getRawResultRelevance({
+  institutionMatched,
+  riskTags
+}: {
+  institutionMatched: boolean;
+  riskTags: string[];
+}) {
+  if (institutionMatched && riskTags.length > 0) {
+    return {
+      status: "relevant",
+      reason: `机构名称与风险关键词同时命中，需人工打开原文确认主体一致性。`
+    };
+  }
+  if (!institutionMatched && riskTags.length > 0) {
+    return {
+      status: "risk_without_subject",
+      reason: `结果包含风险词，但未确认指向本机构，暂不作为匹配证据。`
+    };
+  }
+  if (institutionMatched) {
+    return {
+      status: "subject_without_risk",
+      reason: `机构名称匹配，但正文未命中风险关键词，暂不形成风险证据。`
+    };
+  }
+  return {
+    status: "unrelated",
+    reason: `未确认指向本机构，暂不作为风险证据。`
+  };
+}
+
+function buildKeywordDiagnostics(
+  rawResults: unknown[],
+  rawResultItems: RawVerificationResultItem[],
+  suppliedDiagnostics: KeywordDiagnostic[] = []
+) {
+  const diagnostics = new Map<string, KeywordDiagnostic>();
+
+  for (const item of suppliedDiagnostics) {
+    if (!item.keyword) continue;
+    diagnostics.set(item.keyword, {
+      keyword: item.keyword,
+      resultCount: Number(item.resultCount || 0),
+      evidenceCount: Number(item.evidenceCount || 0),
+      failed: Boolean(item.failed),
+      errorMessage: item.errorMessage || ""
+    });
+  }
+
+  for (const raw of rawResults) {
+    const normalized = normalizeSearchResult(raw);
+    const keyword = normalized?.keyword || "未标记关键词";
+    const current = diagnostics.get(keyword) || { keyword, resultCount: 0, evidenceCount: 0 };
+    current.resultCount = Number(current.resultCount || 0) + 1;
+    diagnostics.set(keyword, current);
+  }
+
+  for (const item of rawResultItems) {
+    if (!item.isRelevant) continue;
+    const keyword = item.keyword || "未标记关键词";
+    const current = diagnostics.get(keyword) || { keyword, resultCount: 0, evidenceCount: 0 };
+    current.evidenceCount = Number(current.evidenceCount || 0) + 1;
+    diagnostics.set(keyword, current);
+  }
+
+  return [...diagnostics.values()];
+}
+
 export function buildVerificationSummary({
   status,
   institutionName,
@@ -147,7 +275,8 @@ export function buildVerificationSummary({
   evidence,
   officialRegistry,
   evidenceInsight,
-  errorMessage = ""
+  errorMessage = "",
+  progress = {}
 }: {
   status: string;
   institutionName: string;
@@ -157,11 +286,20 @@ export function buildVerificationSummary({
   officialRegistry?: OfficialRegistryResult;
   evidenceInsight?: EvidenceInsight;
   errorMessage?: string;
+  progress?: VerificationProgress;
 }) {
   const sourceCount = rawResults.length;
   const evidenceCount = evidence.length;
   const judgment = getVerificationJudgment(status, riskTags, evidenceCount);
   const businessProfile = buildBusinessProfile(officialRegistry);
+  const rawResultItems = buildRawResultItems(institutionName, rawResults);
+  const keywordDiagnostics = buildKeywordDiagnostics(rawResults, rawResultItems, progress.keywordDiagnostics);
+  const insight = evidenceInsight
+    || buildFallbackEvidenceInsight(institutionName, riskTags, evidence, {
+      status,
+      sourceCount,
+      rawResultItems
+    });
 
   return {
     dishonestyHit: riskTags.includes("失信被执行人"),
@@ -182,9 +320,16 @@ export function buildVerificationSummary({
       suggestedPublicCreditStatus: getSuggestedPublicCreditStatus(judgment),
       sourceCount,
       matchedSourceCount: evidenceCount,
+      phase: progress.phase || status,
+      completedKeywords: progress.completedKeywords ?? null,
+      totalKeywords: progress.totalKeywords ?? null,
+      partial: Boolean(progress.partial),
+      durationMs: progress.durationMs ?? null,
       businessProfile,
       riskTags,
-      evidenceInsight: evidenceInsight || (evidenceCount ? buildFallbackEvidenceInsight(institutionName, riskTags, evidence) : null),
+      keywordDiagnostics,
+      rawResultItems: rawResultItems.slice(0, 40),
+      evidenceInsight: insight,
       evidenceSummaries: evidence,
       generatedAt: new Date().toISOString(),
       errorMessage
@@ -195,17 +340,34 @@ export function buildVerificationSummary({
 export function buildFallbackEvidenceInsight(
   institutionName: string,
   riskTags: string[],
-  evidence: VerificationEvidence[]
+  evidence: VerificationEvidence[],
+  context: {
+    status?: string;
+    sourceCount?: number;
+    rawResultItems?: RawVerificationResultItem[];
+  } = {}
 ): EvidenceInsight {
   const uniqueTags = [...new Set(riskTags)];
   const sourceNames = [...new Set(evidence.map((item) => item.sourceHost || item.source).filter(Boolean))].slice(0, 3);
   const topEvidence = evidence.slice(0, 3);
+  const sourceCount = context.sourceCount ?? evidence.length;
+  const hasCompletedClearSearch = context.status === "completed" && !evidence.length;
+  const isWaitingForSearch = ["pending", "running"].includes(String(context.status || ""));
+  const isFailedSearch = context.status === "failed";
 
   return {
-    overview: uniqueTags.length
+    overview: hasCompletedClearSearch
+      ? `已查询 ${sourceCount} 条公开搜索结果，但未形成风险证据；建议业务保留查询记录，并抽查原文确认是否存在同名机构干扰。`
+      : isWaitingForSearch
+        ? `公共风险核验正在进行中，系统会先返回原始搜索结果，再整理风险线索和 AI 摘要。`
+        : isFailedSearch
+          ? `本次联网核验失败，未形成可采信风险证据；建议稍后重新核验。`
+      : uniqueTags.length
       ? `已发现与“${institutionName || "该机构"}”名称匹配的公共风险线索，主要集中在${uniqueTags.join("、")}。以下内容仅为联网公开信息线索，需人工点开原文复核。`
       : `已完成联网核验，当前未形成明确风险分类；建议保留来源记录并人工抽查关键页面。`,
-    keyFindings: topEvidence.map((item) => `${item.category}：${item.title || item.snippet || "待核验来源"}`).slice(0, 4),
+    keyFindings: topEvidence.length
+      ? topEvidence.map((item) => `${item.category}：${item.title || item.snippet || "待核验来源"}`).slice(0, 4)
+      : [`已查询但未形成风险证据，原始结果仍需留痕备查。`],
     riskQuestions: uniqueTags.length
       ? uniqueTags.slice(0, 4).map((tag) => `原文中的“${tag}”是否确认指向本机构主体、同一信用代码或同一经营地址？`)
       : ["搜索结果是否存在同名机构、旧名称或分支机构混淆？"],
@@ -214,7 +376,9 @@ export function buildFallbackEvidenceInsight(
       "核对统一社会信用代码、注册地址、诊疗许可主体是否一致。",
       "将可采信页面链接或截图写入人工确认日志。"
     ],
-    sourceConfidence: sourceNames.length
+    sourceConfidence: hasCompletedClearSearch
+      ? `已返回 ${sourceCount} 条原始搜索结果，系统未识别出可采信风险证据；仍需人工抽查原文。`
+      : sourceNames.length
       ? `已提取 ${evidence.length} 条线索，来源包含 ${sourceNames.join("、")}；仍需人工复核原文。`
       : `已提取 ${evidence.length} 条线索，但来源可信度需人工判断。`
   };
@@ -245,6 +409,7 @@ function getVerificationJudgment(status: string, riskTags: string[], evidenceCou
   if (status === "pending") return "pending";
   if (status === "failed") return "failed";
   if (status === "skipped") return "skipped";
+  if (status === "running" && !evidenceCount) return "pending";
   if (!evidenceCount) return "clear";
   if (riskTags.some((tag) => ["失信被执行人", "严重违法失信", "非法行医", "医美处罚"].includes(tag))) {
     return "redline_suspected";
@@ -281,7 +446,7 @@ function getVerificationConclusion(judgment: string, evidenceCount: number, risk
   if (judgment === "pending") return "已提交后台查询，等待智谱联网核验结果。";
   if (judgment === "failed") return `联网核验失败：${errorMessage || "请稍后重试或人工查询"}`;
   if (judgment === "skipped") return "机构名称为空，未发起联网核验。";
-  if (judgment === "clear") return "已完成联网查询，未发现与该机构名称直接匹配的明显负面风险结果。";
+  if (judgment === "clear") return "已查询公开搜索结果，但未形成风险证据；建议保留记录并人工抽查原文。";
   if (judgment === "redline_suspected") {
     return `发现 ${evidenceCount} 条与机构名称匹配的高风险线索：${riskTags.join("、")}。`;
   }
