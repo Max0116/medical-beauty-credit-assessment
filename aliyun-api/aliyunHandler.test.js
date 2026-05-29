@@ -133,12 +133,17 @@ describe('Aliyun RDS/OSS API handler', () => {
         finalDecision: '不建议授信'
       }
     });
-    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(repository.verificationLogs).toHaveLength(1);
     expect(repository.verificationLogs[0]).toMatchObject({
       recordId: 'record-1',
       status: 'pending',
       queryKeywords: ['上海风险机构 行政处罚']
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(repository.verificationLogs).toHaveLength(1);
+    expect(repository.verificationLogs[0]).toMatchObject({
+      id: 'log-1',
+      errorMessage: '阿里云核验服务待配置'
     });
   });
 
@@ -215,8 +220,15 @@ function createMemoryRepository() {
       return { record: saved };
     },
     listVerificationLogs: async () => ({ verificationLogs }),
-    saveVerificationLog: async (_clientInstanceId, payload) => {
-      const log = { id: `log-${verificationLogs.length + 1}`, ...payload };
+    saveVerificationLog: async (_clientInstanceId, payload, { logId } = {}) => {
+      const existingIndex = logId
+        ? verificationLogs.findIndex((item) => item.id === logId)
+        : -1;
+      const log = { id: logId || `log-${verificationLogs.length + 1}`, ...payload };
+      if (existingIndex >= 0) {
+        verificationLogs[existingIndex] = { ...verificationLogs[existingIndex], ...log };
+        return { verificationLog: verificationLogs[existingIndex] };
+      }
       verificationLogs.unshift(log);
       return { verificationLog: log };
     },

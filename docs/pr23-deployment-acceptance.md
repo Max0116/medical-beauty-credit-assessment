@@ -233,7 +233,8 @@ npm run smoke:aliyun
 | 手机 390px 无横向滚动 |  |  |
 | 控制台无明显错误 |  |  |
 | 保存机构后 RDS 出现记录 |  |  |
-| 自动生成核验日志 |  |  |
+| 保存机构后立即生成 `pending` 核验日志，不等待智谱首批结果 |  |  |
+| 智谱完成后同一条日志更新为 `running` / `completed` / `failed` |  |  |
 | 核验证据和原文链接可展示 |  |  |
 | 人工确认后 `verification_reviews` 写入 |  |  |
 | 上传截图 / PDF 到 OSS |  |  |

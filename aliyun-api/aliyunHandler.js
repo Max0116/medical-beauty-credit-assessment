@@ -194,7 +194,25 @@ async function handleRecords({
     requireObject(body.result, 'result');
     requireObject(body.record, 'record');
     const payload = await repository.saveRecord(clientInstanceId, body);
-    scheduleVerification({ repository, verificationService, clientInstanceId, record: payload.record, form: body.form, result: body.result, now });
+    const pending = await createPendingVerificationLog({
+      repository,
+      clientInstanceId,
+      record: payload.record,
+      form: body.form,
+      result: body.result,
+      now,
+      reason: '后台核验已入队'
+    });
+    scheduleVerification({
+      repository,
+      verificationService,
+      clientInstanceId,
+      record: payload.record,
+      form: body.form,
+      result: body.result,
+      existingLogId: pending.verificationLog?.id,
+      now
+    });
     writeJson(response, 201, payload, corsHeaders);
     return;
   }
