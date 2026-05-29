@@ -1,8 +1,10 @@
 import { createServer } from 'node:http';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  API_FLOW_SMOKE_MARKER,
   buildSmokePdfBytes,
   buildSmokeRecordPayload,
+  normalizeSmokeRunId,
   parseApiFlowBoolean,
   runAliyunApiFlowSmoke
 } from './aliyun-api-flow-smoke.mjs';
@@ -38,6 +40,15 @@ describe('Aliyun API flow smoke', () => {
     expect(result).toMatchObject({
       baseUrl,
       clientInstanceId: 'client-flow-1',
+      smoke: {
+        marker: API_FLOW_SMOKE_MARKER,
+        runId: '20260530000000',
+        recordId: 'api-flow-20260530000000',
+        searchHints: {
+          remarksContains: API_FLOW_SMOKE_MARKER,
+          attachmentFilePrefix: 'pr23-api-flow-smoke-20260530000000'
+        }
+      },
       health: {
         ready: true,
         mode: 'aliyun',
@@ -78,13 +89,14 @@ describe('Aliyun API flow smoke', () => {
     expect(state.attachments).toHaveLength(1);
     expect(state.attachments[0]).toMatchObject({
       recordId: 'api-flow-20260530000000',
-      contentType: expect.stringContaining('multipart/form-data')
+      contentType: expect.stringContaining('multipart/form-data'),
+      fileName: 'pr23-api-flow-smoke-20260530000000.pdf'
     });
     expect(result.attachment).toMatchObject({
       id: 'attachment-1',
       bucket: 'medical-credit-verification-evidence',
-      path: 'verification-evidence/client-flow-attachment/api-flow-20260530000000/20260530/attachment-1-pr23-smoke-evidence.pdf',
-      fileName: 'pr23-smoke-evidence.pdf',
+      path: 'verification-evidence/client-flow-attachment/api-flow-20260530000000/20260530/attachment-1-pr23-api-flow-smoke-20260530000000.pdf',
+      fileName: 'pr23-api-flow-smoke-20260530000000.pdf',
       mimeType: 'application/pdf',
       hasSignedUrl: true,
       signedUrlReachable: true
@@ -109,7 +121,8 @@ describe('Aliyun API flow smoke', () => {
     expect(payload).toMatchObject({
       form: {
         institutionName: 'PR23阿里云链路验收机构20260530000000',
-        publicCreditStatus: 'unknown'
+        publicCreditStatus: 'unknown',
+        remarks: `${API_FLOW_SMOKE_MARKER} | runId=20260530000000 | PR23 阿里云 API 链路 smoke 自动生成`
       },
       result: {
         finalGrade: 'C',
@@ -119,12 +132,45 @@ describe('Aliyun API flow smoke', () => {
       record: {
         id: 'api-flow-20260530000000',
         finalGrade: 'C'
+      },
+      smoke: {
+        marker: API_FLOW_SMOKE_MARKER,
+        runId: '20260530000000',
+        recordId: 'api-flow-20260530000000',
+        institutionName: 'PR23阿里云链路验收机构20260530000000'
+      }
+    });
+  });
+
+  it('accepts a custom smoke run id for RDS and OSS traceability', () => {
+    const payload = buildSmokeRecordPayload({
+      smokeRunId: ' manual run / 01 ',
+      now: () => new Date('2026-05-30T00:00:00.000Z')
+    });
+
+    expect(payload).toMatchObject({
+      form: {
+        institutionName: 'PR23阿里云链路验收机构manual-run-01',
+        remarks: `${API_FLOW_SMOKE_MARKER} | runId=manual-run-01 | PR23 阿里云 API 链路 smoke 自动生成`
+      },
+      record: {
+        id: 'api-flow-manual-run-01'
+      },
+      smoke: {
+        marker: API_FLOW_SMOKE_MARKER,
+        runId: 'manual-run-01',
+        recordId: 'api-flow-manual-run-01',
+        searchHints: {
+          attachmentFilePrefix: 'pr23-api-flow-smoke-manual-run-01'
+        }
       }
     });
   });
 
   it('builds a tiny PDF and parses optional booleans', () => {
     expect(new TextDecoder().decode(buildSmokePdfBytes())).toContain('%PDF-1.4');
+    expect(normalizeSmokeRunId(' alpha / beta ', 'fallback')).toBe('alpha-beta');
+    expect(normalizeSmokeRunId('', 'fallback value')).toBe('fallback-value');
     expect(parseApiFlowBoolean(undefined)).toBe(false);
     expect(parseApiFlowBoolean('', true)).toBe(true);
     expect(parseApiFlowBoolean('yes')).toBe(true);
@@ -200,13 +246,14 @@ function createSmokeApiHandler(state, { skipVerificationLog = false } = {}) {
       const recordId = decodeURIComponent(attachmentMatch[1]);
       const body = await readBuffer(request);
       const contentType = request.headers['content-type'] || '';
-      state.attachments.push({ recordId, contentType, size: body.length });
+      const fileName = extractMultipartFileName(body) || 'attachment.pdf';
+      state.attachments.push({ recordId, contentType, fileName, size: body.length });
       writeJson(response, 201, {
         attachment: {
           id: 'attachment-1',
           bucket: 'medical-credit-verification-evidence',
-          path: `verification-evidence/${request.headers['x-client-instance-id']}/${recordId}/20260530/attachment-1-pr23-smoke-evidence.pdf`,
-          fileName: 'pr23-smoke-evidence.pdf',
+          path: `verification-evidence/${request.headers['x-client-instance-id']}/${recordId}/20260530/attachment-1-${fileName}`,
+          fileName,
           mimeType: 'application/pdf',
           size: body.length,
           signedUrl: `http://${request.headers.host}/signed/evidence.pdf`
@@ -227,6 +274,11 @@ function createSmokeApiHandler(state, { skipVerificationLog = false } = {}) {
 
 function readJson(request) {
   return readBuffer(request).then((buffer) => JSON.parse(buffer.toString('utf8') || '{}'));
+}
+
+function extractMultipartFileName(buffer) {
+  const match = buffer.toString('utf8').match(/filename="([^"]+)"/);
+  return match?.[1] || '';
 }
 
 function readBuffer(request) {

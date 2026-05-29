@@ -7,11 +7,13 @@ import {
 } from './aliyun-health.mjs';
 
 const DEFAULT_TIMEOUT_MS = 30000;
+export const API_FLOW_SMOKE_MARKER = 'PR23_API_FLOW_SMOKE';
 
 export async function runAliyunApiFlowSmoke({
   baseUrl = process.env.API_FLOW_BASE_URL || process.env.SMOKE_BASE_URL || 'http://101.132.137.25',
   timeoutMs = Number(process.env.API_FLOW_TIMEOUT_MS || process.env.SMOKE_TIMEOUT_MS || DEFAULT_TIMEOUT_MS),
   clientInstanceId = process.env.API_FLOW_CLIENT_INSTANCE_ID || `api-flow-${Date.now()}`,
+  smokeRunId = process.env.API_FLOW_RUN_ID || '',
   publishableKey = process.env.API_FLOW_API_KEY || process.env.SMOKE_API_KEY || '',
   uploadAttachment = parseApiFlowBoolean(process.env.API_FLOW_UPLOAD_ATTACHMENT, false),
   verifySignedUrl = parseApiFlowBoolean(process.env.API_FLOW_VERIFY_SIGNED_URL, false),
@@ -31,7 +33,7 @@ export async function runAliyunApiFlowSmoke({
     throw new Error(`/api/health readiness mismatch: ${formatHealthDiagnostics(validation, health.payload)}`);
   }
 
-  const payload = buildSmokeRecordPayload({ now });
+  const payload = buildSmokeRecordPayload({ now, smokeRunId });
   const savedRecordPayload = await requestJson({
     baseUrl: normalizedBaseUrl,
     path: '/api/records',
@@ -77,6 +79,7 @@ export async function runAliyunApiFlowSmoke({
     ? await uploadSmokeAttachment({
       baseUrl: normalizedBaseUrl,
       recordId: record.id,
+      smokeRunId: payload.smoke.runId,
       clientInstanceId,
       publishableKey,
       timeoutMs,
@@ -88,6 +91,7 @@ export async function runAliyunApiFlowSmoke({
   return {
     baseUrl: normalizedBaseUrl,
     clientInstanceId,
+    smoke: payload.smoke,
     health: validation.summary,
     record: {
       id: record.id,
@@ -109,10 +113,12 @@ export async function runAliyunApiFlowSmoke({
   };
 }
 
-export function buildSmokeRecordPayload({ now = () => new Date() } = {}) {
+export function buildSmokeRecordPayload({ now = () => new Date(), smokeRunId = '' } = {}) {
   const timestamp = now().toISOString();
   const compactTimestamp = timestamp.replace(/[-:.TZ]/g, '').slice(0, 14);
-  const institutionName = `PR23阿里云链路验收机构${compactTimestamp}`;
+  const runId = normalizeSmokeRunId(smokeRunId, compactTimestamp);
+  const recordId = `api-flow-${runId}`;
+  const institutionName = `PR23阿里云链路验收机构${runId}`;
   const form = {
     institutionName,
     unifiedSocialCreditCode: '91310000PR23TESTX1',
@@ -136,7 +142,7 @@ export function buildSmokeRecordPayload({ now = () => new Date() } = {}) {
     maxOverdueDays: 0,
     historicalOverdue: 'none',
     hasReconciliationDispute: false,
-    remarks: 'PR23 阿里云 API 链路 smoke 自动生成'
+    remarks: `${API_FLOW_SMOKE_MARKER} | runId=${runId} | PR23 阿里云 API 链路 smoke 自动生成`
   };
   const result = {
     finalGrade: 'C',
@@ -160,7 +166,7 @@ export function buildSmokeRecordPayload({ now = () => new Date() } = {}) {
     form,
     result,
     record: {
-      id: `api-flow-${compactTimestamp}`,
+      id: recordId,
       institutionName,
       finalGrade: result.finalGrade,
       finalDecision: result.finalDecision,
@@ -174,6 +180,18 @@ export function buildSmokeRecordPayload({ now = () => new Date() } = {}) {
       approvalReasons: result.approvalReasons,
       createdAt: timestamp,
       updatedAt: timestamp
+    },
+    smoke: {
+      marker: API_FLOW_SMOKE_MARKER,
+      runId,
+      recordId,
+      institutionName,
+      searchHints: {
+        institutionPrefix: 'PR23阿里云链路验收机构',
+        recordIdPrefix: 'api-flow-',
+        remarksContains: API_FLOW_SMOKE_MARKER,
+        attachmentFilePrefix: `pr23-api-flow-smoke-${runId}`
+      }
     }
   };
 }
@@ -216,17 +234,20 @@ async function requestJson({
 async function uploadSmokeAttachment({
   baseUrl,
   recordId,
+  smokeRunId,
   clientInstanceId,
   publishableKey,
   timeoutMs,
   fetchImpl,
   verifySignedUrl
 }) {
+  const safeRunId = normalizeSmokeRunId(smokeRunId, 'manual');
+  const fileName = `pr23-api-flow-smoke-${safeRunId}.pdf`;
   const formData = new FormData();
   formData.append(
     'file',
     new Blob([buildSmokePdfBytes()], { type: 'application/pdf' }),
-    'pr23-smoke-evidence.pdf'
+    fileName
   );
 
   const attachmentPayload = await requestMultipart({
@@ -263,6 +284,20 @@ async function uploadSmokeAttachment({
     hasSignedUrl: Boolean(attachment.signedUrl),
     signedUrlReachable
   };
+}
+
+export function normalizeSmokeRunId(value, fallback = 'manual') {
+  const normalizedFallback = String(fallback || 'manual')
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48) || 'manual';
+  const normalized = String(value || '')
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+  return normalized || normalizedFallback;
 }
 
 async function requestMultipart({

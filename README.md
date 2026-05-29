@@ -122,7 +122,10 @@ SMOKE_BASE_URL=https://credit.xxx.com SMOKE_FULL_FLOW=true npm run smoke:aliyun
 SMOKE_BASE_URL=https://credit.xxx.com SMOKE_EXPECT_API_READY=true SMOKE_EXPECT_BACKEND_MODE=aliyun npm run smoke:aliyun
 API_FLOW_BASE_URL=https://credit.xxx.com API_FLOW_EXPECT_API_READY=true API_FLOW_EXPECT_BACKEND_MODE=aliyun API_FLOW_EXPECT_BACKEND_DATABASE=postgres API_FLOW_EXPECT_STORAGE_CONFIGURED=true API_FLOW_EXPECT_VERIFICATION_CONFIGURED=true npm run smoke:aliyun:api-flow
 API_FLOW_BASE_URL=https://credit.xxx.com API_FLOW_EXPECT_API_READY=true API_FLOW_EXPECT_BACKEND_MODE=aliyun API_FLOW_EXPECT_BACKEND_DATABASE=postgres API_FLOW_EXPECT_STORAGE_CONFIGURED=true API_FLOW_EXPECT_VERIFICATION_CONFIGURED=true API_FLOW_UPLOAD_ATTACHMENT=true API_FLOW_VERIFY_SIGNED_URL=true npm run smoke:aliyun:api-flow
+API_FLOW_BASE_URL=https://credit.xxx.com API_FLOW_RUN_ID=it-acceptance-001 API_FLOW_EXPECT_API_READY=true API_FLOW_EXPECT_BACKEND_MODE=aliyun API_FLOW_EXPECT_BACKEND_DATABASE=postgres API_FLOW_EXPECT_STORAGE_CONFIGURED=true API_FLOW_EXPECT_VERIFICATION_CONFIGURED=true API_FLOW_UPLOAD_ATTACHMENT=true API_FLOW_VERIFY_SIGNED_URL=true npm run smoke:aliyun:api-flow
 ```
+
+`smoke:aliyun:api-flow` 会在输出里返回 `smoke.marker=PR23_API_FLOW_SMOKE` 和 `smoke.runId`。RDS 可按机构名前缀 `PR23阿里云链路验收机构`、记录 ID 前缀 `api-flow-` 或备注中的 `PR23_API_FLOW_SMOKE` 定位测试记录；OSS 可按文件名前缀 `pr23-api-flow-smoke-<runId>` 定位测试 PDF。
 
 PR23 数据库回填：
 
@@ -245,14 +248,16 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `docs/aliyun-pr22-it-handoff.md`：给 IT 的 PR22 独立部署交接单。
 - `docs/pr23-aliyun-rds-oss-migration-plan.md`：PR23 阿里云 RDS / OSS 迁移设计草案。
 - `docs/aliyun-pr23-it-handoff.md`：给 IT 的 PR23 RDS / OSS 迁移交接单。
+- `docs/aliyun-pr23-access-unlock-request.md`：给 IT 的 PR23 宝塔入口 / SSH 解锁短版请求。
 - `docs/aliyun-pr23-server-inventory-checklist.md`：已有阿里云服务器只读盘点记录表。
 - `docs/pr23-aliyun-public-reachability-log.md`：PR23 迁移前公网只读可达性记录。
+- `docs/pr23-readiness-audit.md`：PR23 当前代码、验证、阻塞和真实部署前置条件审计。
 - `docs/pr23-deployment-acceptance.md`：PR23 迁移部署验收记录模板。
 - `ops/aliyun/`：阿里云 Nginx、systemd、环境变量、只读服务器盘点和部署预检模板。
 - `scripts/verify-dist-no-secrets.mjs`：构建产物密钥与上游地址扫描脚本；PR23 起同时确认阿里云发布构建的前端 API base 为同源 `/api`，并阻断 Supabase / 智谱 / 阿里云密钥标记进入浏览器文件。
 - `scripts/build-aliyun-release.mjs`：生成阿里云部署发布包，PR23 起包含完整 Node API、RDS migration 和 OSS / 智谱依赖声明。
 - `scripts/check-aliyun-health.mjs`：部署后检查 `/api/health` readiness，可要求 RDS / OSS / 智谱均已配置。
-- `scripts/aliyun-api-flow-smoke.mjs`：PR23 部署后检查保存评估记录、立即可见核验日志、历史列表返回记录；可选上传测试 PDF 到 OSS 并校验签名链接。
+- `scripts/aliyun-api-flow-smoke.mjs`：PR23 部署后检查保存评估记录、立即可见核验日志、历史列表返回记录；可选上传带 `PR23_API_FLOW_SMOKE` / `runId` 标识的测试 PDF 到 OSS 并校验签名链接。
 - `scripts/format-aliyun-inventory-report.mjs`：把阿里云服务器只读盘点日志转换为脱敏 JSON / Markdown 报告。
 - `scripts/aliyun-inventory-gate.mjs`：根据脱敏盘点报告判断 PR23 是否可进入部署前配置预检。
 - `scripts/backup-supabase.mjs`：PR23 迁移前备份脚本，导出 Supabase 业务表和证据附件清单。

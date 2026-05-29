@@ -69,3 +69,27 @@ INVENTORY_INPUT_FILE=/tmp/medical-credit-inventory.txt npm run inventory:aliyun:
 ```text
 docs/aliyun-pr23-server-inventory-checklist.md
 ```
+
+## 追加检查：面板与 SSH 入口
+
+检查时间：
+
+- UTC：2026-05-29T19:26:24Z
+- CST：2026-05-30 03:26:24
+
+只读结论：
+
+| 项目 | 结论 |
+| --- | --- |
+| `80` / `443` / `29119` / `8888` | 外网端口可连通 |
+| 宝塔面板候选入口 | 返回“安全入口校验失败”，说明当前安全入口路径不匹配 |
+| SSH `22` | TCP 可连通，但连接被服务器关闭，未进入密码认证阶段 |
+| `http://101.132.137.25/` | 返回 `200 OK`，仍由 `nginx` 服务 |
+| `https://101.132.137.25/` | 返回自签证书页面，不可作为微信 HTTPS 正式入口 |
+
+处理建议：
+
+- 不关闭宝塔安全入口。
+- 不猜测或爆破面板路径。
+- 由 IT 在服务器执行 `/etc/init.d/bt default` 查看当前宝塔安全入口，或提供独立 SSH 账号。
+- PR23 部署前仍需完成只读服务器盘点，确认独立目录、独立 Nginx 配置、Node 服务、RDS/OSS/RAM 权限均不会影响现有项目。

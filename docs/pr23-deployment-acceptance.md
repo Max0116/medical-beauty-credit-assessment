@@ -246,7 +246,24 @@ API_FLOW_EXPECT_VERIFICATION_CONFIGURED=true \
 API_FLOW_UPLOAD_ATTACHMENT=true \
 API_FLOW_VERIFY_SIGNED_URL=true \
 npm run smoke:aliyun:api-flow
+
+API_FLOW_BASE_URL=https://credit.xxx.com \
+API_FLOW_RUN_ID=it-acceptance-001 \
+API_FLOW_EXPECT_API_READY=true \
+API_FLOW_EXPECT_BACKEND_MODE=aliyun \
+API_FLOW_EXPECT_BACKEND_DATABASE=postgres \
+API_FLOW_EXPECT_STORAGE_CONFIGURED=true \
+API_FLOW_EXPECT_VERIFICATION_CONFIGURED=true \
+API_FLOW_UPLOAD_ATTACHMENT=true \
+API_FLOW_VERIFY_SIGNED_URL=true \
+npm run smoke:aliyun:api-flow
 ```
+
+测试数据定位方式：
+
+- RDS 记录：`institution_name` 前缀 `PR23阿里云链路验收机构`，或 `id` 前缀 `api-flow-`。
+- 表单快照：`form_snapshot.remarks` 包含 `PR23_API_FLOW_SMOKE` 和 `runId=<本次 runId>`。
+- OSS 测试附件：文件名前缀 `pr23-api-flow-smoke-<runId>`，路径位于 `verification-evidence/<clientInstanceId>/<recordId>/...`。
 
 | 验收项 | 结果 | 备注 |
 | --- | --- | --- |
@@ -260,6 +277,7 @@ npm run smoke:aliyun:api-flow
 | 人工确认后 `verification_reviews` 写入 |  |  |
 | `API_FLOW_UPLOAD_ATTACHMENT=true` 已上传测试 PDF 到 OSS |  |  |
 | `API_FLOW_VERIFY_SIGNED_URL=true` 已确认签名链接可打开 |  |  |
+| RDS / OSS 可按 `PR23_API_FLOW_SMOKE` 和 `runId` 定位 smoke 测试数据 |  |  |
 | 历史记录可展示最终等级 |  |  |
 
 ## 八、回滚记录

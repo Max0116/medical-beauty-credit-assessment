@@ -2,6 +2,8 @@
 
 本文用于把 `medical-credit-assessment` 从 PR22 的 Supabase 中转模式推进到 PR23 的阿里云 RDS / OSS 模式。PR23 不改风控评分规则，不改前端 API 契约，不删除 Supabase 旧链路。
 
+如只需要先向 IT 要宝塔真实入口或独立 SSH 账号，可直接转发短版请求：[PR23 阿里云部署入口解锁请求](./aliyun-pr23-access-unlock-request.md)。
+
 ## 一、部署边界
 
 必须遵守：
@@ -38,7 +40,30 @@
 | Supabase 迁移 Key | 仅用于一次性备份/回填 shell，会后清理 |
 | 出网能力 | 服务器可访问 Supabase、OSS、智谱 API |
 
-## 三、部署包
+## 三、当前入口解锁请求
+
+如开发侧只能看到宝塔“安全入口校验失败”，或 SSH 连接在认证前被服务器关闭，请 IT 先完成以下最小动作之一：
+
+```bash
+# 在服务器上查看当前宝塔真实入口。不要关闭安全入口。
+/etc/init.d/bt default
+```
+
+或提供一个独立 SSH 登录方式：
+
+```text
+服务器 IP：
+SSH 端口：
+用户名：
+认证方式：密码 / 私钥
+sudo 权限：可执行只读盘点、创建 /var/www/medical-credit* 独立目录、创建 medical-credit-api 独立服务
+允许范围：仅 medical-credit-assessment 独立目录、独立 Nginx 配置、独立 systemd 服务
+禁止范围：不得修改、移动、删除现有业务项目目录或已有 Nginx server 配置
+```
+
+开发侧拿到入口后，第一步只执行只读盘点，不部署、不重启、不 reload、不写入现有项目。
+
+## 四、部署包
 
 开发侧生成：
 
@@ -63,7 +88,7 @@ PR23 发布包应包含：
 - `docs/aliyun-pr23-server-inventory-checklist.md`
 - `docs/pr23-deployment-acceptance.md`
 
-## 四、现有服务器只读盘点
+## 五、现有服务器只读盘点
 
 在已有业务项目的服务器上部署前，先做只读盘点。该脚本用于看清楚当前服务器的 Web 根目录、Nginx vhost、监听端口、Node/runtime、systemd/PM2 线索和目标目录是否已存在；它不会创建、删除、覆盖、重启或 reload，也不会打印 `.env` 明文、密码、AccessKey、API Key 或证书内容。
 
@@ -96,7 +121,7 @@ docs/aliyun-pr23-server-inventory-checklist.md
 - `manual_review`：先让 IT 确认提示项，再继续。
 - `blocked`：暂停部署，先处理阻断项；命令会返回非 0。
 
-## 五、上线前配置预检
+## 六、上线前配置预检
 
 部署前先运行只读 preflight。它只检查服务器能力、独立目录、端口、出网、Nginx、Node 版本和 `.env` 中 PR23 模式所需变量，不创建、不删除、不重启，也不会打印密钥明文。
 
@@ -113,7 +138,7 @@ bash ops/aliyun/preflight-release.sh.example
 
 如 `SUPABASE_SERVICE_ROLE_KEY` 出现在持久 `.env` 中，preflight 会给出 warning。该 key 只应在一次性备份 / 迁移 shell 中临时使用。
 
-## 六、服务器部署顺序
+## 七、服务器部署顺序
 
 ```bash
 RELEASE_ARCHIVE=/tmp/medical-credit-assessment-aliyun-xxx.tar.gz \
@@ -160,7 +185,7 @@ bash ops/aliyun/preflight-release.sh.example
 
 只有 preflight 没有 blocking failure 后，再启动服务和执行迁移。
 
-## 七、迁移顺序
+## 八、迁移顺序
 
 ```bash
 # 1. RDS 建表
@@ -203,7 +228,7 @@ npm run migration:verify:aliyun
 
 迁移完成后，从 shell 历史、临时文件、CI 日志中清理 `SUPABASE_SERVICE_ROLE_KEY`。
 
-## 八、服务重启与健康检查
+## 九、服务重启与健康检查
 
 ```bash
 sudo systemctl daemon-reload
@@ -217,6 +242,7 @@ HEALTH_EXPECT_BACKEND_MODE=dual_write \
 npm run health:aliyun
 
 API_FLOW_BASE_URL=https://credit.xxx.com \
+API_FLOW_RUN_ID=it-acceptance-001 \
 API_FLOW_EXPECT_API_READY=true \
 API_FLOW_EXPECT_BACKEND_MODE=dual_write \
 API_FLOW_EXPECT_BACKEND_DATABASE=postgres \
@@ -235,6 +261,8 @@ API_FLOW_VERIFY_SIGNED_URL=true \
 npm run smoke:aliyun:api-flow
 ```
 
+`API_FLOW_RUN_ID` 可按验收批次改名。脚本输出 `smoke.marker=PR23_API_FLOW_SMOKE`；RDS 可按 `institution_name` 前缀 `PR23阿里云链路验收机构`、记录 ID 前缀 `api-flow-`、`form_snapshot.remarks` 中的 marker 查找测试记录，OSS 可按 `pr23-api-flow-smoke-<runId>` 查找测试 PDF。
+
 `/api/health` 应显示：
 
 - `ready: true`
@@ -243,7 +271,7 @@ npm run smoke:aliyun:api-flow
 - `storage.configured: true`
 - `verification.configured: true`
 
-## 九、灰度与切换
+## 十、灰度与切换
 
 先保持：
 
@@ -263,10 +291,10 @@ MEDICAL_CREDIT_BACKEND_MODE=aliyun
 HEALTH_BASE_URL=https://credit.xxx.com HEALTH_EXPECT_READY=true HEALTH_EXPECT_BACKEND_MODE=aliyun npm run health:aliyun
 SMOKE_BASE_URL=https://credit.xxx.com SMOKE_EXPECT_API_READY=true SMOKE_EXPECT_BACKEND_MODE=aliyun npm run smoke:aliyun
 API_FLOW_BASE_URL=https://credit.xxx.com API_FLOW_EXPECT_API_READY=true API_FLOW_EXPECT_BACKEND_MODE=aliyun API_FLOW_EXPECT_BACKEND_DATABASE=postgres API_FLOW_EXPECT_STORAGE_CONFIGURED=true API_FLOW_EXPECT_VERIFICATION_CONFIGURED=true npm run smoke:aliyun:api-flow
-API_FLOW_BASE_URL=https://credit.xxx.com API_FLOW_EXPECT_API_READY=true API_FLOW_EXPECT_BACKEND_MODE=aliyun API_FLOW_EXPECT_BACKEND_DATABASE=postgres API_FLOW_EXPECT_STORAGE_CONFIGURED=true API_FLOW_EXPECT_VERIFICATION_CONFIGURED=true API_FLOW_UPLOAD_ATTACHMENT=true API_FLOW_VERIFY_SIGNED_URL=true npm run smoke:aliyun:api-flow
+API_FLOW_BASE_URL=https://credit.xxx.com API_FLOW_RUN_ID=it-acceptance-aliyun-001 API_FLOW_EXPECT_API_READY=true API_FLOW_EXPECT_BACKEND_MODE=aliyun API_FLOW_EXPECT_BACKEND_DATABASE=postgres API_FLOW_EXPECT_STORAGE_CONFIGURED=true API_FLOW_EXPECT_VERIFICATION_CONFIGURED=true API_FLOW_UPLOAD_ATTACHMENT=true API_FLOW_VERIFY_SIGNED_URL=true npm run smoke:aliyun:api-flow
 ```
 
-## 十、回滚
+## 十一、回滚
 
 优先回滚模式，不删除 RDS / OSS / 备份：
 

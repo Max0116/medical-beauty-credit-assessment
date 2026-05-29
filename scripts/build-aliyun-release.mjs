@@ -2,6 +2,10 @@ import { cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
+import {
+  ALIYUN_RELEASE_DOC_FILES,
+  buildAliyunReleaseDocIncludes
+} from './aliyun-release-manifest.mjs';
 
 const root = process.cwd();
 const releaseRoot = join(root, 'release');
@@ -40,14 +44,9 @@ await cp(join(root, 'scripts', 'migrate-supabase-to-aliyun-rds.mjs'), join(packa
 await cp(join(root, 'scripts', 'supabase-oss-migration.mjs'), join(packageDir, 'api', 'scripts', 'supabase-oss-migration.mjs'));
 await cp(join(root, 'scripts', 'migrate-supabase-evidence-to-aliyun-oss.mjs'), join(packageDir, 'api', 'scripts', 'migrate-supabase-evidence-to-aliyun-oss.mjs'));
 await cp(join(root, 'ops', 'aliyun'), join(packageDir, 'ops', 'aliyun'), { recursive: true });
-await cp(join(root, 'docs', 'aliyun-pr22-api-proxy.md'), join(packageDir, 'docs', 'aliyun-pr22-api-proxy.md'));
-await cp(join(root, 'docs', 'aliyun-pr22-it-handoff.md'), join(packageDir, 'docs', 'aliyun-pr22-it-handoff.md'));
-await cp(join(root, 'docs', 'pr22-deployment-acceptance.md'), join(packageDir, 'docs', 'pr22-deployment-acceptance.md'));
-await cp(join(root, 'docs', 'pr23-aliyun-rds-oss-migration-plan.md'), join(packageDir, 'docs', 'pr23-aliyun-rds-oss-migration-plan.md'));
-await cp(join(root, 'docs', 'aliyun-pr23-it-handoff.md'), join(packageDir, 'docs', 'aliyun-pr23-it-handoff.md'));
-await cp(join(root, 'docs', 'aliyun-pr23-server-inventory-checklist.md'), join(packageDir, 'docs', 'aliyun-pr23-server-inventory-checklist.md'));
-await cp(join(root, 'docs', 'pr23-aliyun-public-reachability-log.md'), join(packageDir, 'docs', 'pr23-aliyun-public-reachability-log.md'));
-await cp(join(root, 'docs', 'pr23-deployment-acceptance.md'), join(packageDir, 'docs', 'pr23-deployment-acceptance.md'));
+for (const docFile of ALIYUN_RELEASE_DOC_FILES) {
+  await cp(join(root, 'docs', docFile), join(packageDir, 'docs', docFile));
+}
 await writeFile(join(packageDir, 'api', 'package.json'), `${JSON.stringify({
   name: 'medical-credit-assessment-api',
   version: '0.1.0',
@@ -107,14 +106,7 @@ const manifest = {
     'ops/aliyun/preflight-release.sh.example',
     'ops/aliyun/rollback-release.sh.example',
     'ops/aliyun/nginx-medical-credit-https.conf.example',
-    'docs/aliyun-pr22-api-proxy.md',
-    'docs/aliyun-pr22-it-handoff.md',
-    'docs/pr22-deployment-acceptance.md',
-    'docs/pr23-aliyun-rds-oss-migration-plan.md',
-    'docs/aliyun-pr23-it-handoff.md',
-    'docs/aliyun-pr23-server-inventory-checklist.md',
-    'docs/pr23-aliyun-public-reachability-log.md',
-    'docs/pr23-deployment-acceptance.md'
+    ...buildAliyunReleaseDocIncludes()
   ],
   deploymentNotes: [
     'Copy h5/* into the independent static root, for example /var/www/medical-credit.',
