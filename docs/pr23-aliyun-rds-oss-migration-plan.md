@@ -67,9 +67,18 @@ Node API 建议支持三种模式，方便灰度和回滚：
 
 ```bash
 npm run db:migrate:aliyun
+npm run health:aliyun
 ```
 
 该命令读取 `aliyun-api/migrations/001_init_postgres.sql` 并对 `ALIYUN_RDS_*` 指向的 PostgreSQL 数据库建表。执行前必须由 IT 提供独立 RDS 库和最小权限账号。
+
+`npm run release:aliyun` 生成的发布包在 PR23 起会包含完整 `api/aliyun-api/`、Postgres migration、健康检查脚本和 API 端依赖声明。部署到服务器后，需要在 API current 目录执行：
+
+```bash
+npm install --omit=dev --package-lock=false
+npm run db:migrate:aliyun
+HEALTH_BASE_URL=https://credit.xxx.com HEALTH_EXPECT_READY=true HEALTH_EXPECT_BACKEND_MODE=dual_write npm run health:aliyun
+```
 
 智谱核验已迁入 Node API：
 
@@ -349,6 +358,8 @@ npm run release:aliyun
 
 ```bash
 curl -i https://credit.xxx.com/api/health
+HEALTH_BASE_URL=https://credit.xxx.com HEALTH_EXPECT_READY=true HEALTH_EXPECT_BACKEND_MODE=dual_write npm run health:aliyun
+SMOKE_BASE_URL=https://credit.xxx.com SMOKE_EXPECT_API_READY=true SMOKE_EXPECT_BACKEND_MODE=dual_write npm run smoke:aliyun
 ```
 
 `/api/health` 应返回可读的 readiness 分段，便于上线前判断是哪一段未配置或不可达：
