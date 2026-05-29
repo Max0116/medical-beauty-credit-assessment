@@ -53,6 +53,8 @@ const manifest = {
     'api/aliyun-api/',
     'api/package.json',
     'ops/aliyun/',
+    'ops/aliyun/deploy-release.sh.example',
+    'ops/aliyun/rollback-release.sh.example',
     'docs/aliyun-pr22-api-proxy.md'
   ],
   deploymentNotes: [

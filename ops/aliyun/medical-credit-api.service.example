@@ -3,7 +3,7 @@ Description=medical-credit-assessment Aliyun API proxy
 After=network.target
 
 [Service]
-WorkingDirectory=/var/www/medical-credit-api
+WorkingDirectory=/var/www/medical-credit-api/current
 ExecStart=/usr/bin/node aliyun-api/server.js
 Restart=always
 RestartSec=3

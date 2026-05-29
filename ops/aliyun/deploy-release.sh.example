@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Usage:
+#   RELEASE_ARCHIVE=/tmp/medical-credit-assessment-pr22-xxx.tar.gz \
+#   RELEASE_SHA256=/tmp/medical-credit-assessment-pr22-xxx.tar.gz.sha256 \
+#   sudo -E bash ops/aliyun/deploy-release.sh.example
+#
+# Safety:
+# - Creates only independent medical-credit directories by default.
+# - Does not delete existing business projects.
+# - Deploys into versioned directories and switches current symlinks.
+# - Rollback is done by repointing the current symlink to a previous release.
+
+RELEASE_ARCHIVE="${RELEASE_ARCHIVE:-}"
+RELEASE_SHA256="${RELEASE_SHA256:-}"
+H5_ROOT="${H5_ROOT:-/var/www/medical-credit}"
+API_ROOT="${API_ROOT:-/var/www/medical-credit-api}"
+WORK_ROOT="${WORK_ROOT:-/var/www/medical-credit-deploy-work}"
+
+if [[ -z "$RELEASE_ARCHIVE" || ! -f "$RELEASE_ARCHIVE" ]]; then
+  echo "RELEASE_ARCHIVE is required and must point to an existing .tar.gz file." >&2
+  exit 1
+fi
+
+if [[ -n "$RELEASE_SHA256" ]]; then
+  if [[ ! -f "$RELEASE_SHA256" ]]; then
+    echo "RELEASE_SHA256 was provided but file does not exist." >&2
+    exit 1
+  fi
+  (cd "$(dirname "$RELEASE_ARCHIVE")" && sha256sum -c "$RELEASE_SHA256")
+fi
+
+case "$H5_ROOT" in
+  /var/www/medical-credit|/www/wwwroot/medical-credit-assessment) ;;
+  *)
+    echo "Refusing unexpected H5_ROOT: $H5_ROOT" >&2
+    echo "Set H5_ROOT only to an agreed independent medical-credit directory." >&2
+    exit 1
+    ;;
+esac
+
+case "$API_ROOT" in
+  /var/www/medical-credit-api|/www/wwwroot/medical-credit-api) ;;
+  *)
+    echo "Refusing unexpected API_ROOT: $API_ROOT" >&2
+    echo "Set API_ROOT only to an agreed independent medical-credit-api directory." >&2
+    exit 1
+    ;;
+esac
+
+mkdir -p "$WORK_ROOT" "$H5_ROOT/releases" "$API_ROOT/releases"
+
+release_name="$(basename "$RELEASE_ARCHIVE" .tar.gz)"
+extract_dir="$WORK_ROOT/$release_name"
+mkdir -p "$extract_dir"
+tar -xzf "$RELEASE_ARCHIVE" -C "$extract_dir" --strip-components=1
+
+h5_release="$H5_ROOT/releases/$release_name"
+api_release="$API_ROOT/releases/$release_name"
+
+if [[ -e "$h5_release" || -e "$api_release" ]]; then
+  echo "Release already exists. Refusing to overwrite: $release_name" >&2
+  exit 1
+fi
+
+mkdir -p "$h5_release" "$api_release"
+cp -R "$extract_dir/h5/." "$h5_release/"
+cp -R "$extract_dir/api/." "$api_release/"
+cp -R "$extract_dir/ops" "$API_ROOT/"
+cp -R "$extract_dir/docs" "$API_ROOT/"
+cp "$extract_dir/MANIFEST.json" "$API_ROOT/MANIFEST-$release_name.json"
+
+ln -sfn "$h5_release" "$H5_ROOT/current"
+ln -sfn "$api_release" "$API_ROOT/current"
+
+cat <<EOF
+DEPLOYED $release_name
+
+H5 current:
+  $H5_ROOT/current -> $h5_release
+
+API current:
+  $API_ROOT/current -> $api_release
+
+Next manual server steps:
+  1. Create or update $API_ROOT/.env from $API_ROOT/ops/aliyun/medical-credit-api.env.example
+  2. Point systemd WorkingDirectory to $API_ROOT/current
+  3. Point Nginx root to $H5_ROOT/current
+  4. Point Nginx /api/ to http://127.0.0.1:8787/api/
+  5. Reload systemd service and Nginx, then verify /api/health
+EOF

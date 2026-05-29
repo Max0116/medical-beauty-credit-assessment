@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Usage:
+#   RELEASE_NAME=medical-credit-assessment-pr22-xxx \
+#   sudo -E bash ops/aliyun/rollback-release.sh.example
+#
+# This script only repoints current symlinks. It does not delete release files.
+
+RELEASE_NAME="${RELEASE_NAME:-}"
+H5_ROOT="${H5_ROOT:-/var/www/medical-credit}"
+API_ROOT="${API_ROOT:-/var/www/medical-credit-api}"
+
+if [[ -z "$RELEASE_NAME" ]]; then
+  echo "RELEASE_NAME is required." >&2
+  exit 1
+fi
+
+case "$H5_ROOT" in
+  /var/www/medical-credit|/www/wwwroot/medical-credit-assessment) ;;
+  *)
+    echo "Refusing unexpected H5_ROOT: $H5_ROOT" >&2
+    exit 1
+    ;;
+esac
+
+case "$API_ROOT" in
+  /var/www/medical-credit-api|/www/wwwroot/medical-credit-api) ;;
+  *)
+    echo "Refusing unexpected API_ROOT: $API_ROOT" >&2
+    exit 1
+    ;;
+esac
+
+h5_release="$H5_ROOT/releases/$RELEASE_NAME"
+api_release="$API_ROOT/releases/$RELEASE_NAME"
+
+if [[ ! -d "$h5_release" ]]; then
+  echo "H5 release does not exist: $h5_release" >&2
+  exit 1
+fi
+if [[ ! -d "$api_release" ]]; then
+  echo "API release does not exist: $api_release" >&2
+  exit 1
+fi
+
+ln -sfn "$h5_release" "$H5_ROOT/current"
+ln -sfn "$api_release" "$API_ROOT/current"
+
+cat <<EOF
+ROLLED BACK TO $RELEASE_NAME
+
+H5 current:
+  $H5_ROOT/current -> $h5_release
+
+API current:
+  $API_ROOT/current -> $api_release
+
+Reload medical-credit-api service and Nginx, then verify /api/health.
+EOF

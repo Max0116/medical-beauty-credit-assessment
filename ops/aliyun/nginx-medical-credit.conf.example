@@ -2,7 +2,7 @@ server {
   listen 80;
   server_name credit.xxx.com;
 
-  root /var/www/medical-credit;
+  root /var/www/medical-credit/current;
   index index.html;
 
   client_max_body_size 12m;

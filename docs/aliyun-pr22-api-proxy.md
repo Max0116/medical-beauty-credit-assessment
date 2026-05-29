@@ -101,6 +101,17 @@ ASSESSMENT_UPSTREAM_API_KEY=sb_publishable_xxx
 ops/aliyun/nginx-medical-credit.conf.example
 ops/aliyun/medical-credit-api.service.example
 ops/aliyun/medical-credit-api.env.example
+ops/aliyun/deploy-release.sh.example
+ops/aliyun/rollback-release.sh.example
+```
+
+推荐使用版本化目录，便于回滚：
+
+```text
+/var/www/medical-credit/releases/<release-name>
+/var/www/medical-credit/current -> releases/<release-name>
+/var/www/medical-credit-api/releases/<release-name>
+/var/www/medical-credit-api/current -> releases/<release-name>
 ```
 
 Nginx 关键配置：
@@ -109,7 +120,7 @@ Nginx 关键配置：
 server {
   server_name credit.xxx.com;
 
-  root /var/www/medical-credit;
+  root /var/www/medical-credit/current;
   index index.html;
 
   location /api/ {
@@ -135,7 +146,7 @@ Description=medical-credit-assessment Aliyun API proxy
 After=network.target
 
 [Service]
-WorkingDirectory=/var/www/medical-credit-api
+WorkingDirectory=/var/www/medical-credit-api/current
 ExecStart=/usr/bin/node aliyun-api/server.js
 Restart=always
 RestartSec=3
@@ -172,7 +183,7 @@ VITE_ASSESSMENT_API_URL=https://<project-ref>.supabase.co/functions/v1/assessmen
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
 ```
 
-2. 重新 `npm run build` 并部署静态文件，或切回上一份 `release/*.tar.gz` 发布包。
+2. 重新 `npm run build` 并部署静态文件，或使用 `ops/aliyun/rollback-release.sh.example` 切回上一份已部署发布包。
 3. 停止 `medical-credit-api` Node 服务，不影响旧 Supabase Function。
 
 ## 下一阶段
