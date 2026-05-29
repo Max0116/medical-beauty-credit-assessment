@@ -73,7 +73,7 @@ npm run health:aliyun
 
 该命令读取 `aliyun-api/migrations/001_init_postgres.sql` 并对 `ALIYUN_RDS_*` 指向的 PostgreSQL 数据库建表。执行前必须由 IT 提供独立 RDS 库和最小权限账号。
 
-`npm run release:aliyun` 生成的发布包在 PR23 起会包含完整 `api/aliyun-api/`、Postgres migration、健康检查脚本和 API 端依赖声明。部署到服务器后，需要在 API current 目录执行：
+`npm run release:aliyun` 生成的发布包在 PR23 起会包含完整 `api/aliyun-api/`、Postgres migration、健康检查脚本和 API 端依赖声明。PR CI 会自动执行该命令，避免代码合并时只验证 H5、却遗漏阿里云发布包。部署到服务器后，需要在 API current 目录执行：
 
 ```bash
 npm install --omit=dev --package-lock=false

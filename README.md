@@ -85,6 +85,7 @@ npm run release:aliyun
 ```
 
 该命令会生成 `release/medical-credit-assessment-aliyun-*.tar.gz` 和对应 `.sha256`，包内包含 `h5/`、完整 `api/aliyun-api/`、RDS migration、`ops/aliyun/` 和发布清单。
+PR CI 也会执行 `npm run release:aliyun`，确保每个合并前版本都能生成可交给 IT 的阿里云发布包。
 
 已有业务服务器部署前，先让 IT 执行只读盘点，确认不会覆盖现有站点、目录或端口：
 
@@ -262,7 +263,7 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `docs/pr22-deployment-acceptance.md`：PR22 部署验收记录模板。
 - `docs/ai-verification-plan.md`：智谱联网核验与多 AI Provider 规划。
 - `.env.example`：远端持久化环境变量示例。
-- `.github/workflows/ci.yml`：PR 自动测试与构建。
+- `.github/workflows/ci.yml`：PR 自动测试、普通 H5 构建、浏览器产物密钥扫描和阿里云 release 包构建。
 - `.github/workflows/deploy-pages.yml`：GitHub Pages 自动部署。
 - `supabase/migrations/`：Supabase 数据表迁移。
 - `supabase/functions/assessments/`：评估记录持久化与后台核验 Edge Function。

@@ -73,6 +73,7 @@ bash ops/aliyun/preflight-release.sh.example
 | API 目录已执行生产依赖安装 |  |  |
 | `npm run verify:dist:aliyun` 已确认 H5 只请求同源 `/api` |  |  |
 | `npm run verify:dist:aliyun` 未发现 Supabase / 智谱 / 阿里云密钥标记进入 H5 |  |  |
+| PR CI 已执行 `npm run release:aliyun` |  |  |
 
 ## 四、现有服务器只读盘点
 

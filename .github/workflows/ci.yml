@@ -37,3 +37,6 @@ jobs:
 
       - name: Scan dist for backend secrets
         run: npm run verify:dist
+
+      - name: Build Aliyun release package
+        run: npm run release:aliyun
