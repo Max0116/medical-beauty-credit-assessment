@@ -115,6 +115,7 @@ credit.xxx.com
 ```bash
 bash ops/aliyun/server-inventory-readonly.sh.example > /tmp/medical-credit-inventory.txt
 INVENTORY_INPUT_FILE=/tmp/medical-credit-inventory.txt npm run inventory:aliyun:format
+INVENTORY_REPORT_FILE=release/inventory/<report>.json npm run inventory:aliyun:gate
 ```
 
 脱敏报告路径：
@@ -123,6 +124,14 @@ INVENTORY_INPUT_FILE=/tmp/medical-credit-inventory.txt npm run inventory:aliyun:
 | --- | --- |
 | JSON |  |
 | Markdown |  |
+
+闸门判断：
+
+| 项目 | 记录 |
+| --- | --- |
+| 结果 | go / manual_review / blocked |
+| 阻断项 |  |
+| 需复核项 |  |
 
 粘贴摘要，注意不要贴密钥：
 

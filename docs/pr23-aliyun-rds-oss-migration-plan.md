@@ -85,11 +85,13 @@ HEALTH_BASE_URL=https://credit.xxx.com HEALTH_EXPECT_READY=true HEALTH_EXPECT_BA
 ```bash
 bash ops/aliyun/server-inventory-readonly.sh.example > /tmp/medical-credit-inventory.txt
 INVENTORY_INPUT_FILE=/tmp/medical-credit-inventory.txt npm run inventory:aliyun:format
+INVENTORY_REPORT_FILE=release/inventory/<report>.json npm run inventory:aliyun:gate
 ```
 
 该脚本只输出主机、常见 Web 根目录、Nginx vhost 摘要、端口、systemd/PM2 线索、目标目录存在性和出网情况；不会创建、删除、覆盖、重启任何资源，也不会打印 `.env` 明文。
 
 报告生成器会把只读输出整理为脱敏 JSON / Markdown，默认写入 `release/inventory/`，用于部署验收和 IT 复核。
+闸门校验器会根据脱敏 JSON 输出 `go` / `manual_review` / `blocked`，`blocked` 时必须暂停部署。
 
 盘点结果记录到：
 
