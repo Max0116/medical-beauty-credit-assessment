@@ -241,6 +241,7 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `docs/pr23-aliyun-rds-oss-migration-plan.md`：PR23 阿里云 RDS / OSS 迁移设计草案。
 - `docs/aliyun-pr23-it-handoff.md`：给 IT 的 PR23 RDS / OSS 迁移交接单。
 - `docs/aliyun-pr23-server-inventory-checklist.md`：已有阿里云服务器只读盘点记录表。
+- `docs/pr23-aliyun-public-reachability-log.md`：PR23 迁移前公网只读可达性记录。
 - `docs/pr23-deployment-acceptance.md`：PR23 迁移部署验收记录模板。
 - `ops/aliyun/`：阿里云 Nginx、systemd、环境变量、只读服务器盘点和部署预检模板。
 - `scripts/verify-dist-no-secrets.mjs`：构建产物密钥与上游地址扫描脚本。

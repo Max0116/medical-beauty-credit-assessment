@@ -44,6 +44,7 @@ await cp(join(root, 'docs', 'pr22-deployment-acceptance.md'), join(packageDir, '
 await cp(join(root, 'docs', 'pr23-aliyun-rds-oss-migration-plan.md'), join(packageDir, 'docs', 'pr23-aliyun-rds-oss-migration-plan.md'));
 await cp(join(root, 'docs', 'aliyun-pr23-it-handoff.md'), join(packageDir, 'docs', 'aliyun-pr23-it-handoff.md'));
 await cp(join(root, 'docs', 'aliyun-pr23-server-inventory-checklist.md'), join(packageDir, 'docs', 'aliyun-pr23-server-inventory-checklist.md'));
+await cp(join(root, 'docs', 'pr23-aliyun-public-reachability-log.md'), join(packageDir, 'docs', 'pr23-aliyun-public-reachability-log.md'));
 await cp(join(root, 'docs', 'pr23-deployment-acceptance.md'), join(packageDir, 'docs', 'pr23-deployment-acceptance.md'));
 await writeFile(join(packageDir, 'api', 'package.json'), `${JSON.stringify({
   name: 'medical-credit-assessment-api',
@@ -106,6 +107,7 @@ const manifest = {
     'docs/pr23-aliyun-rds-oss-migration-plan.md',
     'docs/aliyun-pr23-it-handoff.md',
     'docs/aliyun-pr23-server-inventory-checklist.md',
+    'docs/pr23-aliyun-public-reachability-log.md',
     'docs/pr23-deployment-acceptance.md'
   ],
   deploymentNotes: [
