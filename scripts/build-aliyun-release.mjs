@@ -30,6 +30,8 @@ await cp(join(root, 'scripts', 'check-aliyun-health.mjs'), join(packageDir, 'api
 await cp(join(root, 'scripts', 'apply-aliyun-postgres-migration.mjs'), join(packageDir, 'api', 'scripts', 'apply-aliyun-postgres-migration.mjs'));
 await cp(join(root, 'scripts', 'supabase-backup.mjs'), join(packageDir, 'api', 'scripts', 'supabase-backup.mjs'));
 await cp(join(root, 'scripts', 'backup-supabase.mjs'), join(packageDir, 'api', 'scripts', 'backup-supabase.mjs'));
+await cp(join(root, 'scripts', 'aliyun-migration-verifier.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-migration-verifier.mjs'));
+await cp(join(root, 'scripts', 'verify-aliyun-migration.mjs'), join(packageDir, 'api', 'scripts', 'verify-aliyun-migration.mjs'));
 await cp(join(root, 'scripts', 'supabase-rds-migration.mjs'), join(packageDir, 'api', 'scripts', 'supabase-rds-migration.mjs'));
 await cp(join(root, 'scripts', 'migrate-supabase-to-aliyun-rds.mjs'), join(packageDir, 'api', 'scripts', 'migrate-supabase-to-aliyun-rds.mjs'));
 await cp(join(root, 'scripts', 'supabase-oss-migration.mjs'), join(packageDir, 'api', 'scripts', 'supabase-oss-migration.mjs'));
@@ -50,7 +52,8 @@ await writeFile(join(packageDir, 'api', 'package.json'), `${JSON.stringify({
     'backup:supabase': 'node scripts/backup-supabase.mjs',
     'db:migrate:aliyun': 'node scripts/apply-aliyun-postgres-migration.mjs',
     'db:migrate:supabase-to-aliyun': 'node scripts/migrate-supabase-to-aliyun-rds.mjs',
-    'storage:migrate:supabase-to-oss': 'node scripts/migrate-supabase-evidence-to-aliyun-oss.mjs'
+    'storage:migrate:supabase-to-oss': 'node scripts/migrate-supabase-evidence-to-aliyun-oss.mjs',
+    'migration:verify:aliyun': 'node scripts/verify-aliyun-migration.mjs'
   },
   dependencies: pickDependencies(rootPackage.dependencies, ['ali-oss', 'busboy', 'pg']),
   engines: {
@@ -78,6 +81,8 @@ const manifest = {
     'api/scripts/apply-aliyun-postgres-migration.mjs',
     'api/scripts/supabase-backup.mjs',
     'api/scripts/backup-supabase.mjs',
+    'api/scripts/aliyun-migration-verifier.mjs',
+    'api/scripts/verify-aliyun-migration.mjs',
     'api/scripts/supabase-rds-migration.mjs',
     'api/scripts/migrate-supabase-to-aliyun-rds.mjs',
     'api/scripts/supabase-oss-migration.mjs',
@@ -102,7 +107,8 @@ const manifest = {
     'Configure Nginx /api/ to proxy to http://127.0.0.1:8787/api/.',
     'Run npm run db:migrate:aliyun in the API current directory after IT provides the RDS credentials.',
     'Run npm run backup:supabase before any one-off Supabase backfill; keep the generated backup directory outside the browser-visible H5 root.',
-    'Optionally run npm run storage:migrate:supabase-to-oss and npm run db:migrate:supabase-to-aliyun for one-off Supabase backfills with SUPABASE_SERVICE_ROLE_KEY set only in the shell session.'
+    'Optionally run npm run storage:migrate:supabase-to-oss and npm run db:migrate:supabase-to-aliyun for one-off Supabase backfills with SUPABASE_SERVICE_ROLE_KEY set only in the shell session.',
+    'Run BACKUP_DIR=/path/to/backup VERIFY_OSS=true npm run migration:verify:aliyun after backfill to compare backup counts and OSS objects.'
   ]
 };
 

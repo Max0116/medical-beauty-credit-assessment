@@ -116,6 +116,11 @@ SUPABASE_URL=https://<project-ref>.supabase.co \
 SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
 MIGRATE_DRY_RUN=true \
 npm run storage:migrate:supabase-to-oss
+
+# 回填后用备份目录校验 RDS 行数和 OSS 对象。
+BACKUP_DIR=/path/to/backups/supabase-pre-aliyun-xxx \
+VERIFY_OSS=true \
+npm run migration:verify:aliyun
 ```
 
 生成二维码：
@@ -216,6 +221,7 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `scripts/backup-supabase.mjs`：PR23 迁移前备份脚本，导出 Supabase 业务表和证据附件清单。
 - `scripts/migrate-supabase-to-aliyun-rds.mjs`：PR23 一次性数据回填脚本，将 Supabase 表数据 upsert 到阿里云 RDS。
 - `scripts/migrate-supabase-evidence-to-aliyun-oss.mjs`：PR23 一次性附件回填脚本，将 Supabase Storage 证据文件上传到阿里云 OSS。
+- `scripts/verify-aliyun-migration.mjs`：PR23 迁移后验收脚本，按备份 manifest 校验 RDS 行数和 OSS 对象。
 - `scripts/smoke-aliyun-pr22.mjs`：阿里云部署后 H5 与 `/api` 自动 smoke。
 - `scripts/generate-aliyun-qr.mjs`：根据 PR22 线上地址生成二维码。
 - `docs/pr22-deployment-acceptance.md`：PR22 部署验收记录模板。
