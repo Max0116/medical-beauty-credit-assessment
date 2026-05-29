@@ -80,6 +80,14 @@ npm run db:migrate:aliyun
 HEALTH_BASE_URL=https://credit.xxx.com HEALTH_EXPECT_READY=true HEALTH_EXPECT_BACKEND_MODE=dual_write npm run health:aliyun
 ```
 
+启动服务前建议先执行只读 preflight：
+
+```bash
+bash ops/aliyun/preflight-release.sh.example
+```
+
+该脚本会按 `MEDICAL_CREDIT_BACKEND_MODE=proxy|dual_write|aliyun` 检查所需的 Supabase、RDS、OSS、智谱配置是否缺失或仍为占位符；它不会打印密钥明文，也不会创建、删除、覆盖或重启任何服务器资源。
+
 如需要把 Supabase 旧记录一次性回填到阿里云 RDS，在确认 RDS migration 已执行后运行：
 
 ```bash

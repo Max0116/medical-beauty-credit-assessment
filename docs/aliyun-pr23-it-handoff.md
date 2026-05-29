@@ -58,7 +58,24 @@ PR23 发布包应包含：
 - `ops/aliyun/`
 - `docs/pr23-deployment-acceptance.md`
 
-## 四、服务器部署顺序
+## 四、上线前只读检查
+
+部署前先运行只读 preflight。它只检查服务器能力、独立目录、端口、出网、Nginx、Node 版本和 `.env` 中 PR23 模式所需变量，不创建、不删除、不重启，也不会打印密钥明文。
+
+```bash
+cd /var/www/medical-credit-api/current
+bash ops/aliyun/preflight-release.sh.example
+```
+
+检查逻辑会根据 `MEDICAL_CREDIT_BACKEND_MODE` 分流：
+
+- `proxy`：必须有 Supabase 上游 URL / Key，作为 PR22 回滚链路。
+- `dual_write`：必须同时具备 RDS、OSS、智谱和 Supabase 旁路写入配置。
+- `aliyun`：必须具备 RDS、OSS、智谱配置；Supabase 仅作为可选回滚配置。
+
+如 `SUPABASE_SERVICE_ROLE_KEY` 出现在持久 `.env` 中，preflight 会给出 warning。该 key 只应在一次性备份 / 迁移 shell 中临时使用。
+
+## 五、服务器部署顺序
 
 ```bash
 RELEASE_ARCHIVE=/tmp/medical-credit-assessment-aliyun-xxx.tar.gz \
@@ -97,7 +114,15 @@ ASSESSMENT_UPSTREAM_URL=https://<project-ref>.supabase.co/functions/v1/assessmen
 ASSESSMENT_UPSTREAM_API_KEY=<server-side-key>
 ```
 
-## 五、迁移顺序
+配置完成后再次执行：
+
+```bash
+bash ops/aliyun/preflight-release.sh.example
+```
+
+只有 preflight 没有 blocking failure 后，再启动服务和执行迁移。
+
+## 六、迁移顺序
 
 ```bash
 # 1. RDS 建表
@@ -140,7 +165,7 @@ npm run migration:verify:aliyun
 
 迁移完成后，从 shell 历史、临时文件、CI 日志中清理 `SUPABASE_SERVICE_ROLE_KEY`。
 
-## 六、服务重启与健康检查
+## 七、服务重启与健康检查
 
 ```bash
 sudo systemctl daemon-reload
@@ -162,7 +187,7 @@ npm run health:aliyun
 - `storage.configured: true`
 - `verification.configured: true`
 
-## 七、灰度与切换
+## 八、灰度与切换
 
 先保持：
 
@@ -183,7 +208,7 @@ HEALTH_BASE_URL=https://credit.xxx.com HEALTH_EXPECT_READY=true HEALTH_EXPECT_BA
 SMOKE_BASE_URL=https://credit.xxx.com SMOKE_EXPECT_API_READY=true SMOKE_EXPECT_BACKEND_MODE=aliyun npm run smoke:aliyun
 ```
 
-## 八、回滚
+## 九、回滚
 
 优先回滚模式，不删除 RDS / OSS / 备份：
 

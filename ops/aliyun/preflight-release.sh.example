@@ -5,8 +5,9 @@ set -euo pipefail
 #   bash ops/aliyun/preflight-release.sh.example
 #
 # Purpose:
-# - Read-only deployment preflight for PR22.
-# - Checks whether the server can host the independent H5 + API proxy.
+# - Read-only deployment preflight for PR22 / PR23.
+# - Checks whether the server can host the independent H5 + API.
+# - Checks mode-specific environment readiness for proxy, dual_write, and aliyun.
 # - Does not create, delete, overwrite, or restart anything.
 
 H5_ROOT="${H5_ROOT:-/var/www/medical-credit}"
@@ -53,6 +54,48 @@ fail() {
 
 command_exists() {
   command -v "$1" >/dev/null 2>&1
+}
+
+env_value() {
+  local key="$1"
+  local direct_value="${!key:-}"
+  if [[ -n "$direct_value" ]]; then
+    printf '%s' "$direct_value"
+    return
+  fi
+
+  if [[ -f "$API_ROOT/.env" ]]; then
+    awk -F= -v key="$key" '$1 == key { value = substr($0, length(key) + 2) } END { print value }' "$API_ROOT/.env" \
+      | sed -e 's/\r$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
+  fi
+}
+
+is_placeholder_value() {
+  local value="$1"
+  [[ -z "$value" || "$value" == *"<"* || "$value" == *">"* || "$value" == *"xxx"* || "$value" == *"XXX"* || "$value" == "***" || "$value" == "changeme" || "$value" == "replace-me" ]]
+}
+
+require_env_value() {
+  local key="$1"
+  local description="$2"
+  local value
+  value="$(env_value "$key")"
+
+  if is_placeholder_value "$value"; then
+    fail "$key missing or placeholder for $description"
+  else
+    ok "$key configured for $description"
+  fi
+}
+
+warn_if_env_present() {
+  local key="$1"
+  local description="$2"
+  local value
+  value="$(env_value "$key")"
+  if [[ -n "$value" ]]; then
+    warn "$key is present; $description"
+  fi
 }
 
 section "System"
@@ -141,24 +184,52 @@ else
   warn "Zhipu endpoint check failed or timed out"
 fi
 
-section "Environment placeholders"
+section "Environment readiness"
 if [[ -f "$API_ROOT/.env" ]]; then
   ok "$API_ROOT/.env exists"
-  if grep -q '^MEDICAL_CREDIT_ALLOWED_ORIGINS=' "$API_ROOT/.env"; then
-    ok "MEDICAL_CREDIT_ALLOWED_ORIGINS configured"
-  else
-    warn "MEDICAL_CREDIT_ALLOWED_ORIGINS missing in $API_ROOT/.env"
-  fi
-  if grep -q '^ASSESSMENT_UPSTREAM_URL=' "$API_ROOT/.env"; then
-    ok "ASSESSMENT_UPSTREAM_URL configured"
-  else
-    warn "ASSESSMENT_UPSTREAM_URL missing in $API_ROOT/.env"
-  fi
-  if grep -q '^ASSESSMENT_UPSTREAM_API_KEY=' "$API_ROOT/.env"; then
-    ok "ASSESSMENT_UPSTREAM_API_KEY configured"
-  else
-    warn "ASSESSMENT_UPSTREAM_API_KEY missing in $API_ROOT/.env"
-  fi
+  backend_mode="$(env_value MEDICAL_CREDIT_BACKEND_MODE)"
+  backend_mode="${backend_mode:-proxy}"
+  ok "MEDICAL_CREDIT_BACKEND_MODE=$backend_mode"
+
+  require_env_value MEDICAL_CREDIT_ALLOWED_ORIGINS "browser CORS allowlist"
+
+  case "$backend_mode" in
+    proxy)
+      require_env_value ASSESSMENT_UPSTREAM_URL "Supabase proxy upstream"
+      require_env_value ASSESSMENT_UPSTREAM_API_KEY "Supabase proxy upstream key"
+      ;;
+    dual_write)
+      require_env_value ALIYUN_RDS_HOST "Aliyun RDS"
+      require_env_value ALIYUN_RDS_PORT "Aliyun RDS"
+      require_env_value ALIYUN_RDS_DATABASE "Aliyun RDS"
+      require_env_value ALIYUN_RDS_USER "Aliyun RDS"
+      require_env_value ALIYUN_RDS_PASSWORD "Aliyun RDS"
+      require_env_value ALIYUN_OSS_REGION "Aliyun OSS"
+      require_env_value ALIYUN_OSS_BUCKET "Aliyun OSS"
+      require_env_value ALIYUN_OSS_ACCESS_KEY_ID "Aliyun OSS"
+      require_env_value ALIYUN_OSS_ACCESS_KEY_SECRET "Aliyun OSS"
+      require_env_value ZHIPUAI_API_KEY "Zhipu verification"
+      require_env_value ASSESSMENT_UPSTREAM_URL "dual_write Supabase secondary"
+      require_env_value ASSESSMENT_UPSTREAM_API_KEY "dual_write Supabase secondary key"
+      ;;
+    aliyun)
+      require_env_value ALIYUN_RDS_HOST "Aliyun RDS"
+      require_env_value ALIYUN_RDS_PORT "Aliyun RDS"
+      require_env_value ALIYUN_RDS_DATABASE "Aliyun RDS"
+      require_env_value ALIYUN_RDS_USER "Aliyun RDS"
+      require_env_value ALIYUN_RDS_PASSWORD "Aliyun RDS"
+      require_env_value ALIYUN_OSS_REGION "Aliyun OSS"
+      require_env_value ALIYUN_OSS_BUCKET "Aliyun OSS"
+      require_env_value ALIYUN_OSS_ACCESS_KEY_ID "Aliyun OSS"
+      require_env_value ALIYUN_OSS_ACCESS_KEY_SECRET "Aliyun OSS"
+      require_env_value ZHIPUAI_API_KEY "Zhipu verification"
+      ;;
+    *)
+      fail "unsupported MEDICAL_CREDIT_BACKEND_MODE: $backend_mode"
+      ;;
+  esac
+
+  warn_if_env_present SUPABASE_SERVICE_ROLE_KEY "use this only in one-off backup/migration shell sessions, not persistent service .env"
 else
   warn "$API_ROOT/.env does not exist yet; create it from medical-credit-api.env.example before starting service"
 fi
@@ -171,4 +242,3 @@ else
 fi
 
 exit "$status"
-

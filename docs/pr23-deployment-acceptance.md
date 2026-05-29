@@ -39,6 +39,22 @@
 | `ASSESSMENT_UPSTREAM_URL` |  | `dual_write` / `proxy` 回滚需要 |
 | `ASSESSMENT_UPSTREAM_API_KEY` |  | 服务端保存 |
 
+完成 `.env` 后执行只读 preflight：
+
+```bash
+cd /var/www/medical-credit-api/current
+bash ops/aliyun/preflight-release.sh.example
+```
+
+| 验收项 | 结果 | 证据 |
+| --- | --- | --- |
+| preflight 未打印任何密钥明文 |  |  |
+| `MEDICAL_CREDIT_BACKEND_MODE` 与预期一致 |  |  |
+| `proxy` 模式已检查 Supabase 上游配置 |  |  |
+| `dual_write` 模式已检查 RDS / OSS / 智谱 / Supabase 旁路配置 |  |  |
+| `aliyun` 模式已检查 RDS / OSS / 智谱配置 |  |  |
+| 没有 blocking failure |  |  |
+
 ## 三、发布包检查
 
 | 验收项 | 结果 | 证据 |
