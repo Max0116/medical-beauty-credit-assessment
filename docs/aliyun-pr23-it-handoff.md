@@ -58,6 +58,7 @@ PR23 发布包应包含：
 - `ops/aliyun/`
 - `ops/aliyun/server-inventory-readonly.sh.example`
 - `ops/aliyun/preflight-release.sh.example`
+- `docs/aliyun-pr23-server-inventory-checklist.md`
 - `docs/pr23-deployment-acceptance.md`
 
 ## 四、现有服务器只读盘点
@@ -76,6 +77,12 @@ bash ops/aliyun/server-inventory-readonly.sh.example
 - `127.0.0.1:8787` 是否可作为本项目独立 API 端口。
 - 新增 Nginx server 或 location 是否会覆盖已有站点。
 - 是否已有 `medical-credit-api.service` 或 PM2 同名服务需要避让。
+
+盘点结果记录到：
+
+```text
+docs/aliyun-pr23-server-inventory-checklist.md
+```
 
 ## 五、上线前配置预检
 

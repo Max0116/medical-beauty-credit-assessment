@@ -63,6 +63,7 @@ bash ops/aliyun/preflight-release.sh.example
 | 发布包包含完整 `api/aliyun-api/` |  |  |
 | 发布包包含 RDS migration |  |  |
 | 发布包包含只读服务器盘点脚本 |  | `ops/aliyun/server-inventory-readonly.sh.example` |
+| 发布包包含只读盘点记录表 |  | `docs/aliyun-pr23-server-inventory-checklist.md` |
 | 发布包包含 `backup:supabase` |  |  |
 | 发布包包含 `db:migrate:supabase-to-aliyun` |  |  |
 | 发布包包含 `storage:migrate:supabase-to-oss` |  |  |
@@ -86,6 +87,7 @@ bash ops/aliyun/server-inventory-readonly.sh.example
 | 已确认 `127.0.0.1:8787` 可用或已选择替代端口 |  |  |
 | 已确认独立 H5 / API 目录不会覆盖现有项目 |  |  |
 | 未打印 `.env` 明文或密钥 |  |  |
+| `docs/aliyun-pr23-server-inventory-checklist.md` 已填写 |  |  |
 
 ## 五、迁移命令记录
 

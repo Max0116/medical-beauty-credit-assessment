@@ -88,6 +88,12 @@ bash ops/aliyun/server-inventory-readonly.sh.example
 
 该脚本只输出主机、常见 Web 根目录、Nginx vhost 摘要、端口、systemd/PM2 线索、目标目录存在性和出网情况；不会创建、删除、覆盖、重启任何资源，也不会打印 `.env` 明文。
 
+盘点结果记录到：
+
+```text
+docs/aliyun-pr23-server-inventory-checklist.md
+```
+
 启动服务前建议先执行只读 preflight：
 
 ```bash
