@@ -248,6 +248,7 @@ export function sanitizeStorageSegment(value = '') {
 export function normalizeEvidenceAttachments(value, clientInstanceId, recordId, { bucket = '' } = {}) {
   if (!Array.isArray(value)) return [];
   const prefix = `${sanitizeStorageSegment(clientInstanceId)}/${sanitizeStorageSegment(recordId)}/`;
+  const scopedPrefixes = [prefix, `verification-evidence/${prefix}`];
 
   return value
     .filter((item) => item && typeof item === 'object' && !Array.isArray(item))
@@ -260,7 +261,7 @@ export function normalizeEvidenceAttachments(value, clientInstanceId, recordId, 
       size: Number(item.size || 0),
       uploadedAt: String(item.uploadedAt || '').trim()
     }))
-    .filter((item) => (!bucket || item.bucket === bucket) && item.path.startsWith(prefix) && item.fileName)
+    .filter((item) => (!bucket || item.bucket === bucket) && scopedPrefixes.some((scopedPrefix) => item.path.startsWith(scopedPrefix)) && item.fileName)
     .slice(0, 6);
 }
 

@@ -88,6 +88,15 @@ describe('assessment API contract helpers', () => {
           uploadedAt: '2026-05-30T00:00:00.000Z'
         },
         {
+          id: 'attachment-2',
+          bucket: 'medical-credit-verification-evidence',
+          path: 'verification-evidence/client-1/record-1/20260530/attachment-2.png',
+          fileName: '阿里云截图.png',
+          mimeType: 'image/png',
+          size: 2048,
+          uploadedAt: '2026-05-30T00:00:00.000Z'
+        },
+        {
           id: 'bad',
           bucket: 'medical-credit-verification-evidence',
           path: 'other-client/record-1/bad.png',
@@ -97,8 +106,9 @@ describe('assessment API contract helpers', () => {
       appliedFields: { publicCreditStatus: 'serious' }
     }, 'record-1', 'client-1');
 
-    expect(review.evidenceAttachments).toHaveLength(1);
+    expect(review.evidenceAttachments).toHaveLength(2);
     expect(review.evidenceAttachments[0].fileName).toBe('截图.png');
+    expect(review.evidenceAttachments[1].fileName).toBe('阿里云截图.png');
     expect(toVerificationReviewRow(review, 'client-1')).toMatchObject({
       assessment_record_id: 'record-1',
       verification_log_id: '11111111-1111-4111-8111-111111111111',
