@@ -85,6 +85,18 @@ npm run release:aliyun
 
 该命令会生成 `release/medical-credit-assessment-aliyun-*.tar.gz` 和对应 `.sha256`，包内包含 `h5/`、完整 `api/aliyun-api/`、RDS migration、`ops/aliyun/` 和发布清单。
 
+已有业务服务器部署前，先让 IT 执行只读盘点，确认不会覆盖现有站点、目录或端口：
+
+```bash
+bash ops/aliyun/server-inventory-readonly.sh.example
+```
+
+配置 `.env` 后，再执行 PR23 配置预检：
+
+```bash
+bash ops/aliyun/preflight-release.sh.example
+```
+
 部署后 smoke：
 
 ```bash
@@ -216,7 +228,7 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `docs/pr23-aliyun-rds-oss-migration-plan.md`：PR23 阿里云 RDS / OSS 迁移设计草案。
 - `docs/aliyun-pr23-it-handoff.md`：给 IT 的 PR23 RDS / OSS 迁移交接单。
 - `docs/pr23-deployment-acceptance.md`：PR23 迁移部署验收记录模板。
-- `ops/aliyun/`：阿里云 Nginx、systemd、环境变量、部署预检模板。
+- `ops/aliyun/`：阿里云 Nginx、systemd、环境变量、只读服务器盘点和部署预检模板。
 - `scripts/verify-dist-no-secrets.mjs`：构建产物密钥与上游地址扫描脚本。
 - `scripts/build-aliyun-release.mjs`：生成阿里云部署发布包，PR23 起包含完整 Node API、RDS migration 和 OSS / 智谱依赖声明。
 - `scripts/check-aliyun-health.mjs`：部署后检查 `/api/health` readiness，可要求 RDS / OSS / 智谱均已配置。

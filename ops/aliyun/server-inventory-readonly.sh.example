@@ -1,0 +1,225 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Usage:
+#   bash ops/aliyun/server-inventory-readonly.sh.example
+#
+# Purpose:
+# - Read-only inventory before deploying medical-credit-assessment on Aliyun.
+# - Helps IT confirm existing projects, Nginx layout, ports, Node runtime, and safe target directories.
+# - Does not create, delete, overwrite, restart, reload, or modify anything.
+# - Does not print .env files, passwords, AccessKeys, API keys, or certificate contents.
+
+H5_ROOT="${H5_ROOT:-/var/www/medical-credit}"
+API_ROOT="${API_ROOT:-/var/www/medical-credit-api}"
+BT_H5_ROOT="${BT_H5_ROOT:-/www/wwwroot/medical-credit-assessment}"
+BT_API_ROOT="${BT_API_ROOT:-/www/wwwroot/medical-credit-api}"
+PROXY_HOST="${MEDICAL_CREDIT_PROXY_HOST:-127.0.0.1}"
+PROXY_PORT="${MEDICAL_CREDIT_PROXY_PORT:-8787}"
+
+section() {
+  printf '\n== %s ==\n' "$1"
+}
+
+line() {
+  printf '%s\n' "$1"
+}
+
+ok() {
+  printf 'OK   %s\n' "$1"
+}
+
+warn() {
+  printf 'WARN %s\n' "$1"
+}
+
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+list_if_dir() {
+  local dir="$1"
+  local label="$2"
+  if [[ -d "$dir" ]]; then
+    ok "$label exists: $dir"
+    find "$dir" -maxdepth 1 -mindepth 1 -print 2>/dev/null | sed 's/^/  - /' | head -n 40
+  else
+    warn "$label missing or not readable: $dir"
+  fi
+}
+
+summarize_path() {
+  local path="$1"
+  if [[ -e "$path" ]]; then
+    if [[ -d "$path" ]]; then
+      ok "$path exists as directory"
+      if command_exists stat; then
+        stat "$path" 2>/dev/null | head -n 4 | sed 's/^/  /'
+      fi
+    else
+      warn "$path exists but is not a directory"
+    fi
+  else
+    ok "$path is not present yet"
+  fi
+}
+
+extract_nginx_summary() {
+  local file="$1"
+  printf '  - %s\n' "$file"
+  awk '
+    /^[[:space:]]*(listen|server_name|root|proxy_pass)[[:space:]]+/ {
+      gsub(/^[[:space:]]+/, "", $0);
+      print "      " $0;
+    }
+  ' "$file" 2>/dev/null | head -n 12
+}
+
+section "Host"
+ok "hostname: $(hostname 2>/dev/null || echo unknown)"
+ok "kernel: $(uname -a)"
+ok "current user: $(id -un) uid=$(id -u)"
+if command_exists whoami; then
+  ok "whoami: $(whoami)"
+fi
+
+section "Runtime commands"
+for cmd in node npm nginx curl tar sha256sum systemctl ss lsof find awk sed; do
+  if command_exists "$cmd"; then
+    ok "$cmd: $(command -v "$cmd")"
+  else
+    warn "$cmd is missing"
+  fi
+done
+
+section "Node.js"
+if command_exists node; then
+  ok "node version: $(node -v)"
+else
+  warn "node is not installed"
+fi
+if command_exists npm; then
+  ok "npm version: $(npm -v)"
+else
+  warn "npm is not installed"
+fi
+
+section "Candidate isolated target paths"
+summarize_path "$H5_ROOT"
+summarize_path "$API_ROOT"
+summarize_path "$BT_H5_ROOT"
+summarize_path "$BT_API_ROOT"
+
+section "Common web roots"
+list_if_dir /var/www "/var/www"
+list_if_dir /www/wwwroot "/www/wwwroot"
+list_if_dir /www/server/panel/vhost/nginx "BT/aaPanel Nginx vhost directory"
+list_if_dir /etc/nginx/conf.d "Nginx conf.d"
+list_if_dir /etc/nginx/sites-enabled "Nginx sites-enabled"
+
+section "Nginx"
+if command_exists nginx; then
+  ok "nginx version: $(nginx -v 2>&1)"
+  if nginx -t >/tmp/medical-credit-inventory-nginx.log 2>&1; then
+    ok "nginx -t passed"
+  else
+    warn "nginx -t failed; ask IT to review existing Nginx before deployment"
+    sed -n '1,30p' /tmp/medical-credit-inventory-nginx.log
+  fi
+else
+  warn "nginx command missing"
+fi
+
+section "Nginx virtual host summary"
+for dir in /etc/nginx/conf.d /etc/nginx/sites-enabled /www/server/panel/vhost/nginx; do
+  if [[ -d "$dir" ]]; then
+    while IFS= read -r conf_file; do
+      extract_nginx_summary "$conf_file"
+    done < <(find "$dir" -maxdepth 1 -type f -name '*.conf' 2>/dev/null | sort | head -n 40)
+  fi
+done
+
+section "Ports"
+if command_exists lsof; then
+  if lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | awk 'NR == 1 || /:(80|443|8787|29119)[[:space:]]/ { print }' | sed 's/^/  /'; then
+    ok "listed selected listening ports with lsof"
+  fi
+elif command_exists ss; then
+  ss -ltnp 2>/dev/null | awk 'NR == 1 || /:(80|443|8787|29119)[[:space:]]/ { print }' | sed 's/^/  /'
+  ok "listed selected listening ports with ss"
+else
+  warn "lsof/ss missing; cannot inspect listening ports"
+fi
+
+section "medical-credit target port"
+if command_exists lsof; then
+  if lsof -nP -iTCP:"$PROXY_PORT" -sTCP:LISTEN >/tmp/medical-credit-inventory-port.log 2>&1; then
+    warn "$PROXY_HOST:$PROXY_PORT is already listening; inspect before choosing this port"
+    sed -n '1,10p' /tmp/medical-credit-inventory-port.log
+  else
+    ok "$PROXY_HOST:$PROXY_PORT appears free according to lsof"
+  fi
+elif command_exists ss; then
+  if ss -ltn | grep -q ":$PROXY_PORT "; then
+    warn "$PROXY_HOST:$PROXY_PORT appears to be listening according to ss"
+  else
+    ok "$PROXY_HOST:$PROXY_PORT appears free according to ss"
+  fi
+fi
+
+section "System services"
+if command_exists systemctl; then
+  systemctl list-unit-files --type=service 2>/dev/null \
+    | awk 'NR == 1 || /nginx|httpd|apache|bt|aaPanel|pm2|node|medical-credit/ { print }' \
+    | sed 's/^/  /' \
+    | head -n 80
+  if systemctl list-unit-files --type=service 2>/dev/null | grep -q '^medical-credit-api.service'; then
+    ok "medical-credit-api.service already exists"
+  else
+    ok "medical-credit-api.service is not registered yet"
+  fi
+else
+  warn "systemctl missing; service manager unknown"
+fi
+
+section "PM2"
+if command_exists pm2; then
+  pm2 jlist 2>/dev/null \
+    | node -e 'let input="";process.stdin.on("data",d=>input+=d);process.stdin.on("end",()=>{try{const apps=JSON.parse(input);for (const app of apps) console.log(`  - ${app.name || "unnamed"} pid=${app.pid || ""} status=${app.pm2_env?.status || ""}`)}catch{process.exit(0)}})'
+else
+  warn "pm2 missing or not in PATH"
+fi
+
+section "Outbound network"
+if command_exists curl; then
+  if curl -I --max-time 8 https://www.baidu.com >/dev/null 2>&1; then
+    ok "domestic HTTPS outbound works"
+  else
+    warn "domestic HTTPS outbound failed or timed out"
+  fi
+
+  if curl -I --max-time 8 https://open.bigmodel.cn >/dev/null 2>&1; then
+    ok "Zhipu endpoint appears reachable"
+  else
+    warn "Zhipu endpoint check failed or timed out"
+  fi
+else
+  warn "curl missing; cannot test outbound network"
+fi
+
+section "Environment file presence only"
+for env_file in "$API_ROOT/.env" "$BT_API_ROOT/.env"; do
+  if [[ -f "$env_file" ]]; then
+    ok "$env_file exists; contents intentionally not printed"
+    awk -F= '
+      /^[A-Z0-9_]+=/{ print "  - " $1 "=<redacted>" }
+    ' "$env_file" 2>/dev/null | head -n 40
+  else
+    ok "$env_file not present"
+  fi
+done
+
+section "Recommended next step"
+line "1. Confirm the isolated target path with IT before deployment."
+line "2. Run preflight after .env is created: bash ops/aliyun/preflight-release.sh.example"
+line "3. Keep PR23 in dual_write first; switch to aliyun only after health and business smoke pass."

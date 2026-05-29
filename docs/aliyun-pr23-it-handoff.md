@@ -56,9 +56,28 @@ PR23 发布包应包含：
 - `api/scripts/migrate-supabase-evidence-to-aliyun-oss.mjs`
 - `api/scripts/verify-aliyun-migration.mjs`
 - `ops/aliyun/`
+- `ops/aliyun/server-inventory-readonly.sh.example`
+- `ops/aliyun/preflight-release.sh.example`
 - `docs/pr23-deployment-acceptance.md`
 
-## 四、上线前只读检查
+## 四、现有服务器只读盘点
+
+在已有业务项目的服务器上部署前，先做只读盘点。该脚本用于看清楚当前服务器的 Web 根目录、Nginx vhost、监听端口、Node/runtime、systemd/PM2 线索和目标目录是否已存在；它不会创建、删除、覆盖、重启或 reload，也不会打印 `.env` 明文、密码、AccessKey、API Key 或证书内容。
+
+```bash
+cd /var/www/medical-credit-api/current
+bash ops/aliyun/server-inventory-readonly.sh.example
+```
+
+如果还没有部署包目录，也可以从发布包解压目录直接执行同一个脚本。盘点输出建议交给 IT 确认以下事项：
+
+- `medical-credit-assessment` 是否可以使用独立 H5 目录。
+- `medical-credit-api` 是否可以使用独立 Node API 目录。
+- `127.0.0.1:8787` 是否可作为本项目独立 API 端口。
+- 新增 Nginx server 或 location 是否会覆盖已有站点。
+- 是否已有 `medical-credit-api.service` 或 PM2 同名服务需要避让。
+
+## 五、上线前配置预检
 
 部署前先运行只读 preflight。它只检查服务器能力、独立目录、端口、出网、Nginx、Node 版本和 `.env` 中 PR23 模式所需变量，不创建、不删除、不重启，也不会打印密钥明文。
 
@@ -75,7 +94,7 @@ bash ops/aliyun/preflight-release.sh.example
 
 如 `SUPABASE_SERVICE_ROLE_KEY` 出现在持久 `.env` 中，preflight 会给出 warning。该 key 只应在一次性备份 / 迁移 shell 中临时使用。
 
-## 五、服务器部署顺序
+## 六、服务器部署顺序
 
 ```bash
 RELEASE_ARCHIVE=/tmp/medical-credit-assessment-aliyun-xxx.tar.gz \
@@ -122,7 +141,7 @@ bash ops/aliyun/preflight-release.sh.example
 
 只有 preflight 没有 blocking failure 后，再启动服务和执行迁移。
 
-## 六、迁移顺序
+## 七、迁移顺序
 
 ```bash
 # 1. RDS 建表
@@ -165,7 +184,7 @@ npm run migration:verify:aliyun
 
 迁移完成后，从 shell 历史、临时文件、CI 日志中清理 `SUPABASE_SERVICE_ROLE_KEY`。
 
-## 七、服务重启与健康检查
+## 八、服务重启与健康检查
 
 ```bash
 sudo systemctl daemon-reload
@@ -187,7 +206,7 @@ npm run health:aliyun
 - `storage.configured: true`
 - `verification.configured: true`
 
-## 八、灰度与切换
+## 九、灰度与切换
 
 先保持：
 
@@ -208,7 +227,7 @@ HEALTH_BASE_URL=https://credit.xxx.com HEALTH_EXPECT_READY=true HEALTH_EXPECT_BA
 SMOKE_BASE_URL=https://credit.xxx.com SMOKE_EXPECT_API_READY=true SMOKE_EXPECT_BACKEND_MODE=aliyun npm run smoke:aliyun
 ```
 
-## 九、回滚
+## 十、回滚
 
 优先回滚模式，不删除 RDS / OSS / 备份：
 

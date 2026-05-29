@@ -62,13 +62,32 @@ bash ops/aliyun/preflight-release.sh.example
 | SHA256 校验通过 |  |  |
 | 发布包包含完整 `api/aliyun-api/` |  |  |
 | 发布包包含 RDS migration |  |  |
+| 发布包包含只读服务器盘点脚本 |  | `ops/aliyun/server-inventory-readonly.sh.example` |
 | 发布包包含 `backup:supabase` |  |  |
 | 发布包包含 `db:migrate:supabase-to-aliyun` |  |  |
 | 发布包包含 `storage:migrate:supabase-to-oss` |  |  |
 | 发布包包含 `migration:verify:aliyun` |  |  |
 | API 目录已执行生产依赖安装 |  |  |
 
-## 四、迁移命令记录
+## 四、现有服务器只读盘点
+
+部署前先执行：
+
+```bash
+cd /var/www/medical-credit-api/current
+bash ops/aliyun/server-inventory-readonly.sh.example
+```
+
+| 验收项 | 结果 | 证据 |
+| --- | --- | --- |
+| 盘点脚本未创建、删除、覆盖、重启任何资源 |  |  |
+| 已记录现有 Web 根目录 |  |  |
+| 已记录现有 Nginx vhost 摘要 |  |  |
+| 已确认 `127.0.0.1:8787` 可用或已选择替代端口 |  |  |
+| 已确认独立 H5 / API 目录不会覆盖现有项目 |  |  |
+| 未打印 `.env` 明文或密钥 |  |  |
+
+## 五、迁移命令记录
 
 ### 1. RDS 建表
 
@@ -156,7 +175,7 @@ npm run migration:verify:aliyun
 | RDS 行数至少覆盖备份 manifest |  |  |
 | OSS 对象全部存在 |  |  |
 
-## 五、运行模式验收
+## 六、运行模式验收
 
 ### dual_write 灰度
 
@@ -191,7 +210,7 @@ npm run health:aliyun
 | `ready=true` |  |  |
 | `mode=aliyun` |  |  |
 
-## 六、业务链路 Smoke
+## 七、业务链路 Smoke
 
 ```bash
 SMOKE_BASE_URL=https://credit.xxx.com \
@@ -213,7 +232,7 @@ npm run smoke:aliyun
 | 签名链接可打开 |  |  |
 | 历史记录可展示最终等级 |  |  |
 
-## 七、回滚记录
+## 八、回滚记录
 
 如果 PR23 异常，优先切回 `proxy` 模式，不删除 RDS / OSS / 备份。
 

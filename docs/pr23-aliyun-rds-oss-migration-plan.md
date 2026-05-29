@@ -80,6 +80,14 @@ npm run db:migrate:aliyun
 HEALTH_BASE_URL=https://credit.xxx.com HEALTH_EXPECT_READY=true HEALTH_EXPECT_BACKEND_MODE=dual_write npm run health:aliyun
 ```
 
+已有业务服务器上部署前，先执行只读盘点：
+
+```bash
+bash ops/aliyun/server-inventory-readonly.sh.example
+```
+
+该脚本只输出主机、常见 Web 根目录、Nginx vhost 摘要、端口、systemd/PM2 线索、目标目录存在性和出网情况；不会创建、删除、覆盖、重启任何资源，也不会打印 `.env` 明文。
+
 启动服务前建议先执行只读 preflight：
 
 ```bash
