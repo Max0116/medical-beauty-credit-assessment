@@ -56,6 +56,7 @@ const manifest = {
     'api/package.json',
     'ops/aliyun/',
     'ops/aliyun/deploy-release.sh.example',
+    'ops/aliyun/preflight-release.sh.example',
     'ops/aliyun/rollback-release.sh.example',
     'ops/aliyun/nginx-medical-credit-https.conf.example',
     'docs/aliyun-pr22-api-proxy.md',

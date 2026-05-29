@@ -103,6 +103,12 @@ systemd 模板：
 ops/aliyun/medical-credit-api.service.example
 ```
 
+部署前建议先运行只读预检：
+
+```bash
+bash ops/aliyun/preflight-release.sh.example
+```
+
 部署后执行：
 
 ```bash
@@ -156,4 +162,3 @@ sudo systemctl reload nginx
 ```bash
 curl -i https://credit.xxx.com/api/health
 ```
-

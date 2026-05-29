@@ -102,6 +102,7 @@ ops/aliyun/nginx-medical-credit.conf.example
 ops/aliyun/nginx-medical-credit-https.conf.example
 ops/aliyun/medical-credit-api.service.example
 ops/aliyun/medical-credit-api.env.example
+ops/aliyun/preflight-release.sh.example
 ops/aliyun/deploy-release.sh.example
 ops/aliyun/rollback-release.sh.example
 ```

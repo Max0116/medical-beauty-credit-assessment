@@ -31,6 +31,7 @@
 ## 命令验收
 
 ```bash
+bash ops/aliyun/preflight-release.sh.example
 curl -i https://credit.xxx.com/api/health
 SMOKE_BASE_URL=https://credit.xxx.com npm run smoke:aliyun
 SMOKE_BASE_URL=https://credit.xxx.com SMOKE_FULL_FLOW=true npm run smoke:aliyun
@@ -39,6 +40,7 @@ QR_URL=https://credit.xxx.com/?v=pr22 npm run qr:aliyun
 
 | 验收项 | 结果 | 备注 |
 | --- | --- | --- |
+| 服务器预检通过 |  |  |
 | `/api/health` 返回 200 |  |  |
 | H5 可打开 |  |  |
 | 手机 390px 视口无横向滚动 |  |  |

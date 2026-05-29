@@ -182,7 +182,7 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `docs/remote-persistence-contract.md`：远端持久化 API 契约。
 - `docs/aliyun-pr22-api-proxy.md`：阿里云 API 中转部署、验收和回滚说明。
 - `docs/aliyun-pr22-it-handoff.md`：给 IT 的 PR22 独立部署交接单。
-- `ops/aliyun/`：阿里云 Nginx、systemd、环境变量模板。
+- `ops/aliyun/`：阿里云 Nginx、systemd、环境变量、部署预检模板。
 - `scripts/verify-dist-no-secrets.mjs`：构建产物密钥与上游地址扫描脚本。
 - `scripts/build-aliyun-release.mjs`：生成阿里云部署发布包。
 - `scripts/smoke-aliyun-pr22.mjs`：阿里云部署后 H5 与 `/api` 自动 smoke。
