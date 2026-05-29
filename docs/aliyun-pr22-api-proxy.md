@@ -164,6 +164,66 @@ EnvironmentFile=/var/www/medical-credit-api/.env
 WantedBy=multi-user.target
 ```
 
+## 宝塔轻量过渡部署
+
+如果服务器暂时不方便新增 Node 进程，也可以先在独立站点的 Nginx 配置中做同源中转。该方式仍然满足“前端只访问国内同源 `/api`、Supabase key 不进入前端构建产物”的阶段一目标。
+
+适用场景：
+
+- 服务器已有宝塔 / Nginx 站点，H5 已部署在独立目录。
+- 需要尽快验证中国大陆微信扫码访问。
+- 后续仍计划在 PR23 / PR24 迁移到阿里云 RDS / OSS / API 服务。
+
+注意事项：
+
+- `apikey` 和 `Authorization` 只能写在服务器 Nginx 配置或后端环境变量中，不能写入 H5。
+- 只修改当前工具自己的站点配置，不修改其他业务站点。
+- 修改前必须保存当前 Nginx 配置备份。
+
+示例配置：
+
+```nginx
+location = /api/health {
+  default_type application/json;
+  add_header Cache-Control "no-store" always;
+  return 200 '{"ok":true,"service":"medical-credit-assessment","proxy":"aliyun-nginx","upstream":"supabase"}';
+}
+
+location = /api {
+  proxy_pass https://<project-ref>.supabase.co/functions/v1/assessments;
+  proxy_ssl_server_name on;
+  proxy_set_header Origin "";
+  proxy_set_header Host <project-ref>.supabase.co;
+  proxy_set_header apikey "<server-side-supabase-publishable-key>";
+  proxy_set_header Authorization "Bearer <server-side-supabase-publishable-key>";
+  proxy_set_header X-Client-Instance-Id $http_x_client_instance_id;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_connect_timeout 10s;
+  proxy_send_timeout 90s;
+  proxy_read_timeout 90s;
+}
+
+location ^~ /api/ {
+  proxy_pass https://<project-ref>.supabase.co/functions/v1/assessments/;
+  proxy_ssl_server_name on;
+  proxy_set_header Origin "";
+  proxy_set_header Host <project-ref>.supabase.co;
+  proxy_set_header apikey "<server-side-supabase-publishable-key>";
+  proxy_set_header Authorization "Bearer <server-side-supabase-publishable-key>";
+  proxy_set_header X-Client-Instance-Id $http_x_client_instance_id;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_connect_timeout 10s;
+  proxy_send_timeout 90s;
+  proxy_read_timeout 90s;
+}
+```
+
+这只是阶段一的低风险中转形态。正式生产仍建议在后续阶段切换到阿里云函数计算或 ECS Node API，并迁移数据库与附件存储。
+
 ## 验收
 
 PR22 必须验证：
