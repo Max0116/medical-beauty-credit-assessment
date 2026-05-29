@@ -92,6 +92,12 @@ SMOKE_BASE_URL=https://credit.xxx.com npm run smoke:aliyun
 SMOKE_BASE_URL=https://credit.xxx.com SMOKE_FULL_FLOW=true npm run smoke:aliyun
 ```
 
+生成二维码：
+
+```bash
+QR_URL=https://credit.xxx.com/?v=pr22 npm run qr:aliyun
+```
+
 PR 检查由 `.github/workflows/ci.yml` 自动执行：
 
 - `npm ci`
@@ -179,6 +185,8 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `scripts/verify-dist-no-secrets.mjs`：构建产物密钥与上游地址扫描脚本。
 - `scripts/build-aliyun-release.mjs`：生成阿里云部署发布包。
 - `scripts/smoke-aliyun-pr22.mjs`：阿里云部署后 H5 与 `/api` 自动 smoke。
+- `scripts/generate-aliyun-qr.mjs`：根据 PR22 线上地址生成二维码。
+- `docs/pr22-deployment-acceptance.md`：PR22 部署验收记录模板。
 - `docs/ai-verification-plan.md`：智谱联网核验与多 AI Provider 规划。
 - `.env.example`：远端持久化环境变量示例。
 - `.github/workflows/ci.yml`：PR 自动测试与构建。
