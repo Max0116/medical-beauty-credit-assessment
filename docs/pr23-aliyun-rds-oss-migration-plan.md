@@ -85,6 +85,10 @@ HEALTH_BASE_URL=https://credit.xxx.com HEALTH_EXPECT_READY=true HEALTH_EXPECT_BA
 ```bash
 SUPABASE_URL=https://<project-ref>.supabase.co \
 SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
+npm run backup:supabase
+
+SUPABASE_URL=https://<project-ref>.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
 MIGRATE_DRY_RUN=true \
 npm run storage:migrate:supabase-to-oss
 
@@ -104,7 +108,7 @@ MIGRATE_DRY_RUN=false \
 npm run db:migrate:supabase-to-aliyun
 ```
 
-数据库脚本通过 Supabase REST 读取 `assessment_records`、`assessment_drafts`、`verification_logs`、`verification_reviews`，再按主键 upsert 到 RDS。附件脚本读取 `verification_reviews.evidence_attachments` 中引用的 Supabase Storage 私有对象，下载后按原路径上传到阿里云 OSS。`SUPABASE_SERVICE_ROLE_KEY` 只允许放在服务器一次性 shell 环境或受控 secret 中，不写入前端、发布包静态目录或 Git。
+备份脚本会导出 `assessment_records`、`assessment_drafts`、`verification_logs`、`verification_reviews` 的 JSON 快照和 `evidence-attachments.json` 清单。数据库脚本通过 Supabase REST 读取四张业务表，再按主键 upsert 到 RDS。附件脚本读取 `verification_reviews.evidence_attachments` 中引用的 Supabase Storage 私有对象，下载后按原路径上传到阿里云 OSS。`SUPABASE_SERVICE_ROLE_KEY` 只允许放在服务器一次性 shell 环境或受控 secret 中，不写入前端、发布包静态目录或 Git。
 
 智谱核验已迁入 Node API：
 
@@ -385,6 +389,7 @@ npm run release:aliyun
 ```bash
 curl -i https://credit.xxx.com/api/health
 HEALTH_BASE_URL=https://credit.xxx.com HEALTH_EXPECT_READY=true HEALTH_EXPECT_BACKEND_MODE=dual_write npm run health:aliyun
+SUPABASE_URL=https://<project-ref>.supabase.co SUPABASE_SERVICE_ROLE_KEY=<service-role-key> npm run backup:supabase
 SUPABASE_URL=https://<project-ref>.supabase.co SUPABASE_SERVICE_ROLE_KEY=<service-role-key> MIGRATE_DRY_RUN=true npm run storage:migrate:supabase-to-oss
 SUPABASE_URL=https://<project-ref>.supabase.co SUPABASE_SERVICE_ROLE_KEY=<service-role-key> MIGRATE_DRY_RUN=true npm run db:migrate:supabase-to-aliyun
 SMOKE_BASE_URL=https://credit.xxx.com SMOKE_EXPECT_API_READY=true SMOKE_EXPECT_BACKEND_MODE=dual_write npm run smoke:aliyun
@@ -412,6 +417,7 @@ SMOKE_BASE_URL=https://credit.xxx.com SMOKE_EXPECT_API_READY=true SMOKE_EXPECT_B
 - 核验完成后 UI 展示线索、摘要、原文链接。
 - 人工采用建议后，`verification_reviews` 写入，记录快照更新。
 - 上传截图 / PDF 到 OSS，签名链接可打开。
+- Supabase 迁移前备份目录包含 `manifest.json`、四张业务表 JSON 文件和 `evidence-attachments.json`。
 - Supabase Storage 旧附件 dry-run 能输出 `discovered` 计数；正式回填后 OSS 中存在同路径对象。
 - Supabase 旧数据 dry-run 回填能输出各表 `fetched` 计数；正式回填后 RDS 各表主键 upsert 成功。
 - 关闭 Supabase Function 后，`MEDICAL_CREDIT_BACKEND_MODE=aliyun` 仍可完成核心链路。

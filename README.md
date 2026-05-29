@@ -97,6 +97,11 @@ SMOKE_BASE_URL=https://credit.xxx.com SMOKE_EXPECT_API_READY=true SMOKE_EXPECT_B
 PR23 数据库回填：
 
 ```bash
+# 先备份 Supabase 当前业务表和证据附件清单。输出目录默认在 backups/，不要放到 H5 静态目录。
+SUPABASE_URL=https://<project-ref>.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
+npm run backup:supabase
+
 # 先建表
 npm run db:migrate:aliyun
 
@@ -208,6 +213,7 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `scripts/verify-dist-no-secrets.mjs`：构建产物密钥与上游地址扫描脚本。
 - `scripts/build-aliyun-release.mjs`：生成阿里云部署发布包，PR23 起包含完整 Node API、RDS migration 和 OSS / 智谱依赖声明。
 - `scripts/check-aliyun-health.mjs`：部署后检查 `/api/health` readiness，可要求 RDS / OSS / 智谱均已配置。
+- `scripts/backup-supabase.mjs`：PR23 迁移前备份脚本，导出 Supabase 业务表和证据附件清单。
 - `scripts/migrate-supabase-to-aliyun-rds.mjs`：PR23 一次性数据回填脚本，将 Supabase 表数据 upsert 到阿里云 RDS。
 - `scripts/migrate-supabase-evidence-to-aliyun-oss.mjs`：PR23 一次性附件回填脚本，将 Supabase Storage 证据文件上传到阿里云 OSS。
 - `scripts/smoke-aliyun-pr22.mjs`：阿里云部署后 H5 与 `/api` 自动 smoke。
