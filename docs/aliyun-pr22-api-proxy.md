@@ -43,6 +43,14 @@ VITE_DEEP_VERIFICATION_HIGH_LIMIT=50000
 
 这样前端构建产物里不会包含 Supabase publishable key。旧的 `VITE_SUPABASE_PUBLISHABLE_KEY` 只保留给 GitHub Pages / 本地直连 Supabase 回滚链路。
 
+推荐使用仓库脚本生成阿里云静态包：
+
+```bash
+npm run verify:release
+```
+
+该命令会构建 `/api` 国内模式，并执行 `npm run verify:dist`，防止 Supabase Function URL、Supabase publishable key、智谱 key 或阿里云上游 key 标记进入 H5 产物。
+
 ## 阿里云 API 环境变量
 
 这些变量只配置在 ECS / 宝塔 Node 项目 / systemd / PM2 环境中，不能进入前端：
@@ -127,6 +135,7 @@ PR22 必须验证：
 - `npm test`
 - `npm run build`
 - `npm run verify:dist`
+- `npm run verify:release`
 - `GET /api/health` 返回 200。
 - 前端构建产物不包含 `supabase.co/functions/v1/assessments`。
 - 前端构建产物不包含 `sb_publishable`。

@@ -7,8 +7,10 @@
     "dev": "vite --host 0.0.0.0",
     "api:proxy": "node aliyun-api/server.js",
     "build": "vite build",
+    "build:aliyun": "VITE_ASSESSMENT_API_URL=/api VITE_ASSESSMENT_API_KEY= VITE_ASSESSMENT_API_TIMEOUT_MS=8000 VITE_DEEP_VERIFICATION_HIGH_LIMIT=50000 vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "vitest run",
+    "verify:release": "npm run build:aliyun && npm run verify:dist",
     "verify:dist": "node scripts/verify-dist-no-secrets.mjs"
   },
   "dependencies": {

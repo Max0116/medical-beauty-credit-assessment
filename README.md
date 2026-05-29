@@ -69,6 +69,14 @@ npm run build
 npm run verify:dist
 ```
 
+阿里云国内静态包建议使用：
+
+```bash
+npm run verify:release
+```
+
+该命令会以 `VITE_ASSESSMENT_API_URL=/api` 构建，并扫描 `dist`，确认不会把 Supabase Function URL、Supabase publishable key、智谱 key 或阿里云上游 key 标记打进前端产物。
+
 PR 检查由 `.github/workflows/ci.yml` 自动执行：
 
 - `npm ci`
