@@ -118,6 +118,7 @@ HEALTH_BASE_URL=https://credit.xxx.com HEALTH_EXPECT_READY=true HEALTH_EXPECT_BA
 SMOKE_BASE_URL=https://credit.xxx.com npm run smoke:aliyun
 SMOKE_BASE_URL=https://credit.xxx.com SMOKE_FULL_FLOW=true npm run smoke:aliyun
 SMOKE_BASE_URL=https://credit.xxx.com SMOKE_EXPECT_API_READY=true SMOKE_EXPECT_BACKEND_MODE=aliyun npm run smoke:aliyun
+API_FLOW_BASE_URL=https://credit.xxx.com API_FLOW_EXPECT_API_READY=true API_FLOW_EXPECT_BACKEND_MODE=aliyun API_FLOW_EXPECT_BACKEND_DATABASE=postgres API_FLOW_EXPECT_STORAGE_CONFIGURED=true API_FLOW_EXPECT_VERIFICATION_CONFIGURED=true npm run smoke:aliyun:api-flow
 ```
 
 PR23 数据库回填：
@@ -248,6 +249,7 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `scripts/verify-dist-no-secrets.mjs`：构建产物密钥与上游地址扫描脚本。
 - `scripts/build-aliyun-release.mjs`：生成阿里云部署发布包，PR23 起包含完整 Node API、RDS migration 和 OSS / 智谱依赖声明。
 - `scripts/check-aliyun-health.mjs`：部署后检查 `/api/health` readiness，可要求 RDS / OSS / 智谱均已配置。
+- `scripts/aliyun-api-flow-smoke.mjs`：PR23 部署后检查保存评估记录、立即可见核验日志、历史列表返回记录。
 - `scripts/format-aliyun-inventory-report.mjs`：把阿里云服务器只读盘点日志转换为脱敏 JSON / Markdown 报告。
 - `scripts/aliyun-inventory-gate.mjs`：根据脱敏盘点报告判断 PR23 是否可进入部署前配置预检。
 - `scripts/backup-supabase.mjs`：PR23 迁移前备份脚本，导出 Supabase 业务表和证据附件清单。

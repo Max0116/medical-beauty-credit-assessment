@@ -426,6 +426,7 @@ SUPABASE_URL=https://<project-ref>.supabase.co SUPABASE_SERVICE_ROLE_KEY=<servic
 SUPABASE_URL=https://<project-ref>.supabase.co SUPABASE_SERVICE_ROLE_KEY=<service-role-key> MIGRATE_DRY_RUN=true npm run db:migrate:supabase-to-aliyun
 BACKUP_DIR=/path/to/backups/supabase-pre-aliyun-xxx VERIFY_OSS=true npm run migration:verify:aliyun
 SMOKE_BASE_URL=https://credit.xxx.com SMOKE_EXPECT_API_READY=true SMOKE_EXPECT_BACKEND_MODE=dual_write npm run smoke:aliyun
+API_FLOW_BASE_URL=https://credit.xxx.com API_FLOW_EXPECT_API_READY=true API_FLOW_EXPECT_BACKEND_MODE=dual_write API_FLOW_EXPECT_BACKEND_DATABASE=postgres API_FLOW_EXPECT_STORAGE_CONFIGURED=true API_FLOW_EXPECT_VERIFICATION_CONFIGURED=true npm run smoke:aliyun:api-flow
 ```
 
 `/api/health` 应返回可读的 readiness 分段，便于上线前判断是哪一段未配置或不可达：
@@ -444,6 +445,7 @@ SMOKE_BASE_URL=https://credit.xxx.com SMOKE_EXPECT_API_READY=true SMOKE_EXPECT_B
 业务链路：
 
 - 新建机构并保存，RDS 出现 `assessment_records`。
+- `smoke:aliyun:api-flow` 能证明保存后立即可读到同一记录的 `verification_logs`，不会卡在首批智谱搜索前。
 - 草稿保存和恢复可用。
 - 历史记录列表可用。
 - 保存后自动生成 `verification_logs`。

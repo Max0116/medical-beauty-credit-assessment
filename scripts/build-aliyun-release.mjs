@@ -27,6 +27,7 @@ await copyDirectoryFiltered(join(root, 'aliyun-api'), join(packageDir, 'api', 'a
 });
 await cp(join(root, 'scripts', 'aliyun-health.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-health.mjs'));
 await cp(join(root, 'scripts', 'check-aliyun-health.mjs'), join(packageDir, 'api', 'scripts', 'check-aliyun-health.mjs'));
+await cp(join(root, 'scripts', 'aliyun-api-flow-smoke.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-api-flow-smoke.mjs'));
 await cp(join(root, 'scripts', 'format-aliyun-inventory-report.mjs'), join(packageDir, 'api', 'scripts', 'format-aliyun-inventory-report.mjs'));
 await cp(join(root, 'scripts', 'aliyun-inventory-gate.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-inventory-gate.mjs'));
 await cp(join(root, 'scripts', 'apply-aliyun-postgres-migration.mjs'), join(packageDir, 'api', 'scripts', 'apply-aliyun-postgres-migration.mjs'));
@@ -55,6 +56,7 @@ await writeFile(join(packageDir, 'api', 'package.json'), `${JSON.stringify({
   scripts: {
     start: 'node aliyun-api/server.js',
     'health:aliyun': 'node scripts/check-aliyun-health.mjs',
+    'smoke:aliyun:api-flow': 'node scripts/aliyun-api-flow-smoke.mjs',
     'inventory:aliyun:format': 'node scripts/format-aliyun-inventory-report.mjs',
     'inventory:aliyun:gate': 'node scripts/aliyun-inventory-gate.mjs',
     'backup:supabase': 'node scripts/backup-supabase.mjs',
@@ -86,6 +88,7 @@ const manifest = {
     'api/aliyun-api/migrations/',
     'api/scripts/aliyun-health.mjs',
     'api/scripts/check-aliyun-health.mjs',
+    'api/scripts/aliyun-api-flow-smoke.mjs',
     'api/scripts/format-aliyun-inventory-report.mjs',
     'api/scripts/aliyun-inventory-gate.mjs',
     'api/scripts/apply-aliyun-postgres-migration.mjs',
@@ -124,6 +127,7 @@ const manifest = {
     'Run INVENTORY_REPORT_FILE=release/inventory/<report>.json npm run inventory:aliyun:gate before deploying PR23 to catch blocking server states.',
     'Configure Nginx /api/ to proxy to http://127.0.0.1:8787/api/.',
     'Run npm run db:migrate:aliyun in the API current directory after IT provides the RDS credentials.',
+    'Run API_FLOW_BASE_URL=https://credit.xxx.com API_FLOW_EXPECT_API_READY=true API_FLOW_EXPECT_BACKEND_MODE=dual_write npm run smoke:aliyun:api-flow to verify record save, immediate verification log visibility, and history list.',
     'Run npm run backup:supabase before any one-off Supabase backfill; keep the generated backup directory outside the browser-visible H5 root.',
     'Optionally run npm run storage:migrate:supabase-to-oss and npm run db:migrate:supabase-to-aliyun for one-off Supabase backfills with SUPABASE_SERVICE_ROLE_KEY set only in the shell session.',
     'Run BACKUP_DIR=/path/to/backup VERIFY_OSS=true npm run migration:verify:aliyun after backfill to compare backup counts and OSS objects.'

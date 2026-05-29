@@ -225,6 +225,14 @@ SMOKE_BASE_URL=https://credit.xxx.com \
 SMOKE_EXPECT_API_READY=true \
 SMOKE_EXPECT_BACKEND_MODE=aliyun \
 npm run smoke:aliyun
+
+API_FLOW_BASE_URL=https://credit.xxx.com \
+API_FLOW_EXPECT_API_READY=true \
+API_FLOW_EXPECT_BACKEND_MODE=aliyun \
+API_FLOW_EXPECT_BACKEND_DATABASE=postgres \
+API_FLOW_EXPECT_STORAGE_CONFIGURED=true \
+API_FLOW_EXPECT_VERIFICATION_CONFIGURED=true \
+npm run smoke:aliyun:api-flow
 ```
 
 | 验收项 | 结果 | 备注 |
