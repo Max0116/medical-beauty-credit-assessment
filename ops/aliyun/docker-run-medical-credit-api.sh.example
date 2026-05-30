@@ -10,6 +10,7 @@ set -euo pipefail
 # Purpose:
 # - Build and start only the independent medical-credit API container.
 # - Binds the API to 127.0.0.1:8787 so only local Nginx can reach it.
+# - Adds host.docker.internal for the case where IT explicitly chooses local MySQL.
 # - Does not edit Nginx, H5 files, databases, or other containers.
 # - Refuses to replace an existing container with the same name.
 
@@ -21,6 +22,7 @@ IMAGE_TAG="${IMAGE_TAG:-medical-credit-assessment-api:pr23}"
 DOCKERFILE="${DOCKERFILE:-$API_ROOT/ops/aliyun/Dockerfile.medical-credit-api}"
 HOST_BIND="${MEDICAL_CREDIT_PROXY_HOST:-127.0.0.1}"
 PORT="${MEDICAL_CREDIT_PROXY_PORT:-8787}"
+HOST_GATEWAY_ALIAS="${MEDICAL_CREDIT_DOCKER_HOST_GATEWAY_ALIAS:-host.docker.internal:host-gateway}"
 
 case "$API_ROOT" in
   /var/www/medical-credit-api|/www/wwwroot/medical-credit-api) ;;
@@ -77,6 +79,7 @@ docker run -d \
   --name "$CONTAINER_NAME" \
   --restart unless-stopped \
   --env-file "$API_ENV" \
+  --add-host "$HOST_GATEWAY_ALIAS" \
   -e MEDICAL_CREDIT_PROXY_HOST=0.0.0.0 \
   -e MEDICAL_CREDIT_PROXY_PORT="$PORT" \
   -e PORT="$PORT" \
@@ -106,4 +109,5 @@ Next manual steps:
   1. Configure Nginx /api/ to proxy to http://$HOST_BIND:$PORT/api/
   2. Run: HEALTH_BASE_URL=<public-origin> npm run health:aliyun
   3. Keep MEDICAL_CREDIT_BACKEND_MODE=dual_write until PR23 smoke passes
+  4. If using local MySQL from Docker, set ALIYUN_MYSQL_HOST=host.docker.internal and verify MySQL bind/user host with IT
 EOF

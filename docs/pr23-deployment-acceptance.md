@@ -121,6 +121,7 @@ INVENTORY_REPORT_FILE=release/inventory/<report>.json npm run inventory:aliyun:g
 | Docker 路线已确认 `docker` daemon 可用 |  |  |
 | Docker 路线已确认容器只绑定 `127.0.0.1:8787` |  |  |
 | Docker 路线使用受限启动脚本或人工等效命令 |  | `ops/aliyun/docker-run-medical-credit-api.sh.example` |
+| Docker + 本机 MySQL 路线未使用 `ALIYUN_MYSQL_HOST=127.0.0.1` / `localhost` |  | 推荐 RDS；本机 MySQL 使用 `host.docker.internal` 并由 IT 确认权限 |
 | Node 路线已确认 Node 版本 >= 20 |  |  |
 | API `.env` 位于 API 根目录而非 H5 根目录 |  |  |
 | Nginx `/api/` 只代理到本项目独立端口 |  |  |

@@ -180,6 +180,8 @@ npm run resources:aliyun:check
 
 当前服务器已确认存在 MySQL 8.0.36，PgSQL 未安装；若 IT 决定先走 MySQL，请使用 `ALIYUN_DB_DRIVER=mysql` 和独立库 `medical_credit_assessment`。严禁复用 `gohomesh`、`mediverseai`、`maxfuture` 等既有业务库。
 
+如果 API 使用 Docker，而数据库使用服务器本机 MySQL，`ALIYUN_MYSQL_HOST` 不能写 `127.0.0.1` / `localhost`，因为容器内 localhost 指向容器自己。优先使用 RDS 地址；若确实使用本机 MySQL，请配合发布包中的 Docker host-gateway 配置使用 `host.docker.internal`，并让 IT 确认 MySQL bind 地址和用户 host 权限。
+
 执行只读预检：
 
 ```bash

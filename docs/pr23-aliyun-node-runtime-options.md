@@ -18,6 +18,7 @@
 - 独立 API 目录为 `/www/wwwroot/medical-credit-api` 或 `/var/www/medical-credit-api`。
 - `.env` 只放在 API 根目录，例如 `/www/wwwroot/medical-credit-api/.env`。
 - Nginx 只代理 `/api/` 到 `http://127.0.0.1:8787/api/`。
+- 如果短期使用服务器本机 MySQL，Docker 内不能使用 `ALIYUN_MYSQL_HOST=127.0.0.1`。请优先使用 RDS 地址；若使用本机 MySQL，请使用 `host.docker.internal`，并由 IT 确认 MySQL bind 地址和用户 host 权限。
 
 如果只有宝塔 Web 终端，没有 SSH 上传能力，可以直接在服务器上从 GitHub 拉取已审核分支并在 Docker 内构建发布包。该脚本只做 versioned staging，不切 `current`，不改 Nginx，不重启服务：
 
@@ -58,6 +59,7 @@ docker run -d \
   --name medical-credit-api \
   --restart unless-stopped \
   --env-file /www/wwwroot/medical-credit-api/.env \
+  --add-host host.docker.internal:host-gateway \
   -e MEDICAL_CREDIT_PROXY_HOST=0.0.0.0 \
   -e MEDICAL_CREDIT_PROXY_PORT=8787 \
   -e PORT=8787 \
@@ -71,6 +73,8 @@ docker run -d \
 API_ROOT=/www/wwwroot/medical-credit-api \
 bash /www/wwwroot/medical-credit-api/ops/aliyun/docker-run-medical-credit-api.sh.example
 ```
+
+受限启动脚本会自动加入 `host.docker.internal:host-gateway`，用于 Docker API 访问宿主机资源。该能力只解决容器到宿主机的寻址问题；MySQL 是否允许来自 Docker 网桥地址的连接，仍需 IT 在 MySQL 用户 host / bind-address 层面确认。
 
 如果服务器支持 Docker Compose，也可以复制 `ops/aliyun/docker-compose.medical-credit-api.yml.example` 后使用：
 
@@ -126,6 +130,7 @@ MEDICAL_CREDIT_RUNTIME=node bash ops/aliyun/preflight-release.sh.example
 - 需要修改既有业务项目目录。
 - 需要复用 `gohomesh`、`mediverseai`、`maxfuture` 任意已有数据库。
 - `127.0.0.1:8787` 被非本项目占用。
+- Docker 路线下 `ALIYUN_DB_DRIVER=mysql` 且 `ALIYUN_MYSQL_HOST=127.0.0.1` / `localhost`。
 - `.env` 或密钥被放进 H5 静态目录。
 - Nginx `nginx -t` 失败。
 - Docker / Node 路线未被 IT 明确确认。

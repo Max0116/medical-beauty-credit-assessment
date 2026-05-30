@@ -43,11 +43,12 @@ export function evaluateAliyunResourceReadiness(content = '', {
   });
   const mode = envGate.mode;
   const driver = normalizeDriver(envGate.driver);
+  const runtime = String(env.MEDICAL_CREDIT_RUNTIME || '').trim().toLowerCase();
   const blockers = [...envGate.blockers];
   const warnings = [...envGate.warnings];
   const components = {
     env: summarizeEnvGate(envGate),
-    database: buildDatabaseComponent(env, { mode, driver }),
+    database: buildDatabaseComponent(env, { mode, driver, runtime }),
     storage: buildKeyedComponent(env, {
       id: 'storage',
       label: '阿里云 OSS 附件存储',
@@ -221,7 +222,7 @@ function summarizeEnvGate(envGate) {
   };
 }
 
-function buildDatabaseComponent(env, { mode, driver }) {
+function buildDatabaseComponent(env, { mode, driver, runtime }) {
   if (mode === 'proxy') {
     return skippedComponent({
       id: 'database',
@@ -250,6 +251,16 @@ function buildDatabaseComponent(env, { mode, driver }) {
     component.ok = false;
     component.blockers.push(`Database must be a dedicated medical-credit database, not existing business database: ${databaseName}`);
     component.summary = '独立数据库未通过';
+  }
+  if (
+    (driver === 'mysql' || driver === 'mariadb') &&
+    mode !== 'proxy' &&
+    runtime === 'docker' &&
+    isLocalhost(env.ALIYUN_MYSQL_HOST || env.ALIYUN_RDS_HOST)
+  ) {
+    component.ok = false;
+    component.blockers.push('Docker runtime cannot reach host MySQL through localhost; use an RDS host, host.docker.internal with host-gateway, or a verified bridge IP.');
+    component.summary = 'Docker 到 MySQL 主机不可达';
   }
   return component;
 }
@@ -379,6 +390,10 @@ function normalizeDriver(driver = '') {
 function isPlaceholderValue(value) {
   const text = String(value ?? '').trim();
   return !text || /<[^>]+>/.test(text) || /xxx/i.test(text) || ['***', 'changeme', 'replace-me'].includes(text);
+}
+
+function isLocalhost(value) {
+  return ['127.0.0.1', 'localhost', '::1'].includes(String(value || '').trim().toLowerCase());
 }
 
 function unique(items = []) {

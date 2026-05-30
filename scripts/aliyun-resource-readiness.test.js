@@ -118,6 +118,19 @@ ALIYUN_MYSQL_PASSWORD=mysql-secret
     expect(report.blockers).toContain('Database must be a dedicated medical-credit database, not existing business database: mediverseai');
   });
 
+  it('blocks Docker API from using localhost for host MySQL', () => {
+    const report = evaluateAliyunResourceReadiness(validAliyunMysql.replace(
+      'ALIYUN_MYSQL_HOST=rm-example.mysql.rds.aliyuncs.com',
+      'ALIYUN_MYSQL_HOST=127.0.0.1'
+    ), {
+      envFile: '/www/wwwroot/medical-credit-api/.env',
+      expectedMode: 'aliyun'
+    });
+
+    expect(report.decision).toBe('blocked');
+    expect(report.blockers).toContain('Docker runtime cannot reach host MySQL through localhost; use an RDS host, host.docker.internal with host-gateway, or a verified bridge IP.');
+  });
+
   it('keeps proxy mode as manual review because it does not prove RDS or OSS readiness', () => {
     const report = evaluateAliyunResourceReadiness(`
 NODE_ENV=production

@@ -68,4 +68,12 @@ describe('Aliyun release manifest helpers', () => {
     expect(releaseScript).toContain("'db:migrate:aliyun': 'node scripts/apply-aliyun-db-migration.mjs'");
     expect(releaseScript).toContain("'mysql2'");
   });
+
+  it('keeps Docker host gateway guidance for local MySQL fallback', async () => {
+    const dockerRunScript = await readFile(new URL('../ops/aliyun/docker-run-medical-credit-api.sh.example', import.meta.url), 'utf8');
+    const dockerCompose = await readFile(new URL('../ops/aliyun/docker-compose.medical-credit-api.yml.example', import.meta.url), 'utf8');
+
+    expect(dockerRunScript).toContain('host.docker.internal:host-gateway');
+    expect(dockerCompose).toContain('host.docker.internal:host-gateway');
+  });
 });

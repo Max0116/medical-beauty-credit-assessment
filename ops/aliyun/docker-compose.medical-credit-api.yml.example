@@ -8,6 +8,8 @@ services:
     restart: unless-stopped
     env_file:
       - /www/wwwroot/medical-credit-api/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       MEDICAL_CREDIT_PROXY_HOST: 0.0.0.0
       MEDICAL_CREDIT_PROXY_PORT: 8787

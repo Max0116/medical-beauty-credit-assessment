@@ -73,6 +73,8 @@ npm test -- scripts/aliyun-api-flow-smoke.test.js
 | Docker | `docker` 已安装，版本 `29.0.2`，服务 active | 当前更适合优先走 Docker 独立容器路线，避免改宿主机 Node 环境 |
 | API 进程 | 未发现本项目独立 Node API 进程 | `/api` 目前仍按 PR22 由 Nginx 直接中转 Supabase，而非本地 Node API |
 
+补充注意：若 Docker API 连接服务器本机 MySQL，`ALIYUN_MYSQL_HOST=127.0.0.1` / `localhost` 会指向容器自身而非宿主机。PR23 已补充 host-gateway 模板和资源就绪闸门；短期本机 MySQL 路线应使用 `host.docker.internal` 或由 IT 提供可达的 MySQL/RDS 地址。
+
 ### 服务器侧 staging 记录
 
 2026-05-30 通过已登录宝塔终端执行了受控 staging 验证：
