@@ -128,6 +128,16 @@ npm run nginx:aliyun:gate
 
 在 API 目录创建 `.env`，先使用 `dual_write`。当前服务器宿主机未检测到 `node` / `npm`，但 Docker 已安装并 active；运行时路线优先参考 [PR23 阿里云 Node API 运行时路线](./pr23-aliyun-node-runtime-options.md)。
 
+可先生成服务端 `.env` 模板，生成器只输出占位符，不包含真实密钥：
+
+```bash
+ALIYUN_ENV_TEMPLATE_MODE=dual_write \
+ALIYUN_ENV_TEMPLATE_DRIVER=postgres \
+ALIYUN_ENV_TEMPLATE_ALLOWED_ORIGIN=https://credit.xxx.com \
+ALIYUN_ENV_TEMPLATE_OUTPUT_FILE=/tmp/medical-credit-api.env.template \
+npm run env:aliyun:template
+```
+
 ```bash
 MEDICAL_CREDIT_BACKEND_MODE=dual_write
 MEDICAL_CREDIT_RUNTIME=docker
@@ -148,6 +158,16 @@ ASSESSMENT_UPSTREAM_API_KEY=<supabase-function-key>
 ```
 
 若 IT 只能先提供 MySQL 兼容 RDS / 独立 MySQL 库，将 `ALIYUN_DB_DRIVER` 改为 `mysql`，并使用 `ALIYUN_MYSQL_HOST`、`ALIYUN_MYSQL_PORT`、`ALIYUN_MYSQL_DATABASE`、`ALIYUN_MYSQL_USER`、`ALIYUN_MYSQL_PASSWORD`。禁止复用 `gohomesh`、`mediverseai`、`maxfuture` 等既有业务库。
+
+创建 `.env` 后，先运行服务端环境闸门；它只输出缺失项和脱敏结论，不打印密钥值：
+
+```bash
+ALIYUN_ENV_FILE=/www/wwwroot/medical-credit-api/.env \
+ALIYUN_ENV_EXPECT_MODE=dual_write \
+API_ROOT=/www/wwwroot/medical-credit-api \
+H5_ROOT=/www/wwwroot/medical-credit-assessment \
+npm run env:aliyun:guard
+```
 
 执行只读预检：
 

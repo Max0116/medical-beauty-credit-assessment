@@ -48,6 +48,7 @@ await copyDirectoryFiltered(join(root, 'aliyun-api'), join(packageDir, 'api', 'a
 await cp(join(root, 'scripts', 'aliyun-health.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-health.mjs'));
 await cp(join(root, 'scripts', 'check-aliyun-health.mjs'), join(packageDir, 'api', 'scripts', 'check-aliyun-health.mjs'));
 await cp(join(root, 'scripts', 'aliyun-api-flow-smoke.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-api-flow-smoke.mjs'));
+await cp(join(root, 'scripts', 'aliyun-env-guard.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-env-guard.mjs'));
 await cp(join(root, 'scripts', 'generate-aliyun-nginx-vhost.mjs'), join(packageDir, 'api', 'scripts', 'generate-aliyun-nginx-vhost.mjs'));
 await cp(join(root, 'scripts', 'aliyun-nginx-entry-gate.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-nginx-entry-gate.mjs'));
 await cp(join(root, 'scripts', 'format-aliyun-inventory-report.mjs'), join(packageDir, 'api', 'scripts', 'format-aliyun-inventory-report.mjs'));
@@ -76,6 +77,8 @@ await writeFile(join(packageDir, 'api', 'package.json'), `${JSON.stringify({
     start: 'node aliyun-api/server.js',
     'health:aliyun': 'node scripts/check-aliyun-health.mjs',
     'smoke:aliyun:api-flow': 'node scripts/aliyun-api-flow-smoke.mjs',
+    'env:aliyun:guard': 'node scripts/aliyun-env-guard.mjs',
+    'env:aliyun:template': 'ALIYUN_ENV_TEMPLATE_ONLY=yes node scripts/aliyun-env-guard.mjs',
     'nginx:aliyun:generate': 'node scripts/generate-aliyun-nginx-vhost.mjs',
     'nginx:aliyun:gate': 'node scripts/aliyun-nginx-entry-gate.mjs',
     'inventory:aliyun:format': 'node scripts/format-aliyun-inventory-report.mjs',
@@ -111,6 +114,7 @@ const manifest = {
     'api/scripts/aliyun-health.mjs',
     'api/scripts/check-aliyun-health.mjs',
     'api/scripts/aliyun-api-flow-smoke.mjs',
+    'api/scripts/aliyun-env-guard.mjs',
     'api/scripts/generate-aliyun-nginx-vhost.mjs',
     'api/scripts/aliyun-nginx-entry-gate.mjs',
     'api/scripts/format-aliyun-inventory-report.mjs',
@@ -153,6 +157,8 @@ const manifest = {
     'If only the BT web terminal is available, use ops/aliyun/stage-from-github-source.sh.example to clone or download the approved branch, build it in Docker, and then call stage-release without switching traffic.',
     'If host node/npm is unavailable but Docker is active, use docs/pr23-aliyun-node-runtime-options.md and ops/aliyun/Dockerfile.medical-credit-api to run the API as an isolated container bound to 127.0.0.1:8787.',
     'Use ops/aliyun/docker-run-medical-credit-api.sh.example only after staging the API release and creating API_ROOT/.env; it refuses unexpected API roots and existing containers.',
+    'Generate a server-side template with ALIYUN_ENV_TEMPLATE_MODE=dual_write ALIYUN_ENV_TEMPLATE_ALLOWED_ORIGIN=https://credit.xxx.com npm run env:aliyun:template; never copy the resulting .env into the H5 root.',
+    'Validate server secrets with ALIYUN_ENV_FILE=/www/wwwroot/medical-credit-api/.env ALIYUN_ENV_EXPECT_MODE=dual_write npm run env:aliyun:guard before preflight; output is redacted and blocks H5-root .env files.',
     'Format the inventory log with INVENTORY_INPUT_FILE=/tmp/medical-credit-inventory.txt npm run inventory:aliyun:format before filling the PR23 acceptance checklist.',
     'Run INVENTORY_REPORT_FILE=release/inventory/<report>.json npm run inventory:aliyun:gate before deploying PR23 to catch blocking server states.',
     'Generate an independent domain vhost with NGINX_SERVER_NAME=credit.xxx.com NGINX_OUTPUT_FILE=/tmp/medical-credit.conf npm run nginx:aliyun:generate; the generator refuses bare IPs and non-local API upstreams by default.',

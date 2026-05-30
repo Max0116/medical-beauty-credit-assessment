@@ -47,11 +47,14 @@
 
 ```bash
 cd /var/www/medical-credit-api/current
+ALIYUN_ENV_FILE=/www/wwwroot/medical-credit-api/.env ALIYUN_ENV_EXPECT_MODE=dual_write npm run env:aliyun:guard
 bash ops/aliyun/preflight-release.sh.example
 ```
 
 | 验收项 | 结果 | 证据 |
 | --- | --- | --- |
+| `npm run env:aliyun:guard` 未输出 `blocked` |  |  |
+| `.env` 位于 API 根目录，不在 H5 根目录 |  |  |
 | preflight 未打印任何密钥明文 |  |  |
 | `MEDICAL_CREDIT_BACKEND_MODE` 与预期一致 |  |  |
 | `proxy` 模式已检查 Supabase 上游配置 |  |  |
