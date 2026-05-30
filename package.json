@@ -18,6 +18,7 @@
     "health:aliyun": "node scripts/check-aliyun-health.mjs",
     "smoke:aliyun": "node scripts/smoke-aliyun-pr22.mjs",
     "smoke:aliyun:api-flow": "node scripts/aliyun-api-flow-smoke.mjs",
+    "nginx:aliyun:generate": "node scripts/generate-aliyun-nginx-vhost.mjs",
     "nginx:aliyun:gate": "node scripts/aliyun-nginx-entry-gate.mjs",
     "inventory:aliyun:format": "node scripts/format-aliyun-inventory-report.mjs",
     "inventory:aliyun:gate": "node scripts/aliyun-inventory-gate.mjs",

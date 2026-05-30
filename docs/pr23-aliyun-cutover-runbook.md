@@ -102,6 +102,19 @@ bash ops/aliyun/stage-from-github-source.sh.example
 
 在把任何公网入口指向 medical-credit 前，先检查 Nginx `server_name` 是否与既有项目冲突。尤其不要复用已经被 `hear-us` 等项目占用的裸 IP：
 
+如果 IT 已确认独立备案子域名，可以先生成一份待复核的 vhost 配置。生成器只输出文件，不会安装或 reload Nginx；默认拒绝裸 IP、外部 API upstream 和非 medical-credit 根目录：
+
+```bash
+NGINX_SERVER_NAME=credit.xxx.com \
+NGINX_MODE=https \
+NGINX_SSL_CERTIFICATE=/www/server/panel/vhost/cert/credit.xxx.com/fullchain.pem \
+NGINX_SSL_CERTIFICATE_KEY=/www/server/panel/vhost/cert/credit.xxx.com/privkey.pem \
+NGINX_OUTPUT_FILE=/tmp/medical-credit-credit.xxx.com.conf \
+npm run nginx:aliyun:generate
+```
+
+生成后由 IT 复核，再放入独立 vhost 文件。随后执行：
+
 ```bash
 nginx -T > /tmp/medical-credit-nginxT.txt 2>/tmp/medical-credit-nginxT.err
 NGINX_DUMP_FILE=/tmp/medical-credit-nginxT.txt \
