@@ -34,6 +34,8 @@ describe('Aliyun release manifest helpers', () => {
   it('keeps BT entry lookup helper documented in the release manifest source', async () => {
     const releaseScript = await readFile(new URL('./build-aliyun-release.mjs', import.meta.url), 'utf8');
     expect(releaseScript).toContain('ops/aliyun/bt-entry-readonly.sh.example');
+    expect(releaseScript).toContain('ops/aliyun/stage-release.sh.example');
+    expect(releaseScript).toContain('without switching traffic or reloading services');
   });
 
   it('keeps PR24 Supabase audit runnable from the release API package', async () => {

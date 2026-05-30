@@ -140,6 +140,18 @@ bash ops/aliyun/preflight-release.sh.example
 
 ## 七、服务器部署顺序
 
+已有宝塔 HTML 项目时，建议先只 staging。这个动作只解压到 `releases/`，不会切流量、不会改 Nginx、不会重启服务：
+
+```bash
+RELEASE_ARCHIVE=/tmp/medical-credit-assessment-aliyun-xxx.tar.gz \
+RELEASE_SHA256=/tmp/medical-credit-assessment-aliyun-xxx.tar.gz.sha256 \
+H5_ROOT=/www/wwwroot/medical-credit-assessment \
+API_ROOT=/www/wwwroot/medical-credit-api \
+sudo -E bash ops/aliyun/stage-release.sh.example
+```
+
+确认 staging 目录、`.env`、preflight、数据库和 OSS 都通过后，再使用 `deploy-release.sh.example` 或手动切换 `current`。
+
 ```bash
 RELEASE_ARCHIVE=/tmp/medical-credit-assessment-aliyun-xxx.tar.gz \
 RELEASE_SHA256=/tmp/medical-credit-assessment-aliyun-xxx.tar.gz.sha256 \

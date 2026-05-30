@@ -87,6 +87,18 @@ npm run release:aliyun
 该命令会生成 `release/medical-credit-assessment-aliyun-*.tar.gz` 和对应 `.sha256`，包内包含 `h5/`、完整 `api/aliyun-api/`、RDS migration、`ops/aliyun/` 和发布清单。
 PR CI 也会执行 `npm run release:aliyun`，确保每个合并前版本都能生成可交给 IT 的阿里云发布包。
 
+如果服务器上已经有宝塔 HTML 项目，建议先只 staging，不切流量、不重启服务：
+
+```bash
+RELEASE_ARCHIVE=/tmp/medical-credit-assessment-aliyun-xxx.tar.gz \
+RELEASE_SHA256=/tmp/medical-credit-assessment-aliyun-xxx.tar.gz.sha256 \
+H5_ROOT=/www/wwwroot/medical-credit-assessment \
+API_ROOT=/www/wwwroot/medical-credit-api \
+sudo -E bash ops/aliyun/stage-release.sh.example
+```
+
+`stage-release` 只会把包解压到 `releases/` 版本目录和独立 API 目录，不会覆盖当前 `index.html`、不会改 Nginx、不会 reload、不会启动服务。确认后再按 runbook 显式切 `current`。
+
 已有业务服务器部署前，先让 IT 执行只读盘点，确认不会覆盖现有站点、目录或端口：
 
 ```bash

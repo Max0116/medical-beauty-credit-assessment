@@ -65,6 +65,7 @@ bash ops/aliyun/preflight-release.sh.example
 | 发布包包含完整 `api/aliyun-api/` |  |  |
 | 发布包包含 RDS migration |  |  |
 | 发布包包含只读服务器盘点脚本 |  | `ops/aliyun/server-inventory-readonly.sh.example` |
+| 发布包包含只 staging 脚本 |  | `ops/aliyun/stage-release.sh.example` |
 | 发布包包含只读盘点报告生成器 |  | `api/scripts/format-aliyun-inventory-report.mjs` |
 | 发布包包含只读盘点闸门校验器 |  | `api/scripts/aliyun-inventory-gate.mjs` |
 | 发布包包含只读盘点记录表 |  | `docs/aliyun-pr23-server-inventory-checklist.md` |
@@ -99,6 +100,26 @@ INVENTORY_REPORT_FILE=release/inventory/<report>.json npm run inventory:aliyun:g
 | 已生成脱敏 JSON / Markdown 盘点报告 |  |  |
 | `inventory:aliyun:gate` 结果为 `go` 或已完成人工复核 |  |  |
 | `docs/aliyun-pr23-server-inventory-checklist.md` 已填写 |  |  |
+
+### 可选：只 staging 发布包
+
+当前服务器若已有宝塔 HTML 项目，先只 staging，不切流量：
+
+```bash
+RELEASE_ARCHIVE=/tmp/medical-credit-assessment-aliyun-xxx.tar.gz \
+RELEASE_SHA256=/tmp/medical-credit-assessment-aliyun-xxx.tar.gz.sha256 \
+H5_ROOT=/www/wwwroot/medical-credit-assessment \
+API_ROOT=/www/wwwroot/medical-credit-api \
+sudo -E bash ops/aliyun/stage-release.sh.example
+```
+
+| 验收项 | 结果 | 证据 |
+| --- | --- | --- |
+| staging 未切换 `current` |  |  |
+| staging 未覆盖当前 H5 根目录文件 |  |  |
+| staging 未修改 Nginx / systemd / PM2 |  |  |
+| H5 release 已进入 `releases/` 版本目录 |  |  |
+| API release 已进入独立 API 版本目录 |  |  |
 
 ## 五、迁移命令记录
 

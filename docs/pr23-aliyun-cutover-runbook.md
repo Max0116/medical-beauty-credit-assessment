@@ -4,7 +4,7 @@
 
 ## 一、切换原则
 
-- 只使用独立目录：`/var/www/medical-credit` 和 `/var/www/medical-credit-api`。
+- 只使用独立目录：`/var/www/medical-credit` / `/var/www/medical-credit-api`，或宝塔现有独立站点目录 `/www/wwwroot/medical-credit-assessment` 与独立 API 目录 `/www/wwwroot/medical-credit-api`。
 - 只新增独立 Nginx vhost / location；不改已有业务站点配置。
 - 先只读盘点，再 preflight，再部署，再 `dual_write`，最后才切 `aliyun`。
 - 任一阻断项出现时，暂停切换并回滚到 `proxy`。
@@ -67,9 +67,22 @@ tar -tzf medical-credit-assessment-aliyun-<commit>-<timestamp>.tar.gz | grep MAN
 - `api/aliyun-api/`
 - `api/aliyun-api/migrations/001_init_postgres.sql`
 - `ops/aliyun/preflight-release.sh.example`
+- `ops/aliyun/stage-release.sh.example`
 - `ops/aliyun/rollback-release.sh.example`
 - `docs/pr23-deployment-acceptance.md`
 - `docs/pr23-aliyun-cutover-runbook.md`
+
+如果当前服务器已经有宝塔 HTML 项目，先只 staging：
+
+```bash
+RELEASE_ARCHIVE=/tmp/medical-credit-assessment-aliyun-<commit>-<timestamp>.tar.gz \
+RELEASE_SHA256=/tmp/medical-credit-assessment-aliyun-<commit>-<timestamp>.tar.gz.sha256 \
+H5_ROOT=/www/wwwroot/medical-credit-assessment \
+API_ROOT=/www/wwwroot/medical-credit-api \
+sudo -E bash ops/aliyun/stage-release.sh.example
+```
+
+`stage-release` 不切 `current`、不覆盖当前站点根目录、不改 Nginx、不重启服务。只有完成 preflight 和 IT 复核后，才显式执行 `ln -sfn` 切换 `current` 并 reload 独立服务。
 
 ## 五、阶段 2：API 环境预检
 
