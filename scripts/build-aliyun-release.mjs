@@ -217,7 +217,11 @@ await writeFile(join(packageDir, 'MANIFEST.json'), `${JSON.stringify(manifest, n
 
 const tar = spawnSync('tar', ['-czf', archivePath, '-C', releaseRoot, releaseName], {
   cwd: root,
-  encoding: 'utf8'
+  encoding: 'utf8',
+  env: {
+    ...process.env,
+    COPYFILE_DISABLE: '1'
+  }
 });
 if (tar.status !== 0) {
   throw new Error(`tar failed: ${tar.stderr || tar.stdout}`);

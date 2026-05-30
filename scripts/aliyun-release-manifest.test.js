@@ -71,6 +71,12 @@ describe('Aliyun release manifest helpers', () => {
     expect(releaseScript).toContain('files');
   });
 
+  it('prevents macOS AppleDouble metadata from entering release archives', async () => {
+    const releaseScript = await readFile(new URL('./build-aliyun-release.mjs', import.meta.url), 'utf8');
+    expect(releaseScript).toContain('COPYFILE_DISABLE');
+    expect(releaseScript).toContain("COPYFILE_DISABLE: '1'");
+  });
+
   it('keeps PR24 Supabase audit runnable from the release API package', async () => {
     const releaseScript = await readFile(new URL('./build-aliyun-release.mjs', import.meta.url), 'utf8');
     expect(releaseScript).toContain("audit:supabase");
