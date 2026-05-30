@@ -42,6 +42,8 @@ describe('Aliyun release manifest helpers', () => {
     expect(releaseScript).toContain('ops/aliyun/docker-compose.medical-credit-api.yml.example');
     expect(releaseScript).toContain('ops/aliyun/docker-run-medical-credit-api.sh.example');
     expect(releaseScript).toContain('api/scripts/aliyun-env-guard.mjs');
+    expect(releaseScript).toContain('api/scripts/aliyun-resource-readiness.mjs');
+    expect(releaseScript).toContain("'resources:aliyun:check': 'node scripts/aliyun-resource-readiness.mjs'");
     expect(releaseScript).toContain('api/scripts/generate-aliyun-nginx-vhost.mjs');
     expect(releaseScript).toContain('api/scripts/aliyun-nginx-entry-gate.mjs');
     expect(releaseScript).toContain('without switching traffic or reloading services');

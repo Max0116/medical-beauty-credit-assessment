@@ -49,6 +49,7 @@ npm test -- scripts/aliyun-api-flow-smoke.test.js
 - OSS 可按 `pr23-api-flow-smoke-<runId>.pdf` 定位测试 PDF。
 - 验收文档已说明如何判断测试记录和附件。
 - 已新增短版 IT 入口解锁请求：`docs/aliyun-pr23-access-unlock-request.md`。
+- 已新增资源就绪检查：`npm run resources:aliyun:check`，用于在切流量前脱敏检查独立数据库、OSS、智谱和 Supabase 回滚上游。
 
 ## 四、服务器只读盘点结论
 
@@ -118,6 +119,7 @@ PR23 真实切换仍不能直接执行，阻塞点已经从“入口不可用”
 2. 选择数据库路线：优先 RDS PostgreSQL；如短期复用现有 MySQL 服务，则只允许新建独立库和账号。
 3. 创建私有 OSS bucket 和最小权限 RAM 子账号。
 4. 使用 `ops/aliyun/stage-from-github-source.sh.example` 或最新 release 包执行 `stage-release`，只放入 `releases/`，不切流量。
-5. preflight 通过后部署独立 Node API，先启用 `MEDICAL_CREDIT_BACKEND_MODE=dual_write`。
-6. 完成 RDS / OSS 迁移、附件签名链接、API flow smoke 和微信端 smoke。
-7. 验收通过后再切 `MEDICAL_CREDIT_BACKEND_MODE=aliyun`。
+5. 在 API `.env` 完成后运行 `npm run env:aliyun:guard` 和 `npm run resources:aliyun:check`，确保独立 DB / OSS / 智谱 / 回滚上游具备条件。
+6. preflight 通过后部署独立 Node API，先启用 `MEDICAL_CREDIT_BACKEND_MODE=dual_write`。
+7. 完成 RDS / OSS 迁移、附件签名链接、API flow smoke 和微信端 smoke。
+8. 验收通过后再切 `MEDICAL_CREDIT_BACKEND_MODE=aliyun`。

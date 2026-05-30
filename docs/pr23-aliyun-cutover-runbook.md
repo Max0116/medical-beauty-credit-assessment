@@ -169,6 +169,17 @@ H5_ROOT=/www/wwwroot/medical-credit-assessment \
 npm run env:aliyun:guard
 ```
 
+再运行资源就绪检查，确认阿里云数据库 / OSS / 智谱 / Supabase 回滚上游是否都已经具备切换条件。该报告只输出 key 名、资源类型和脱敏摘要，不打印数据库密码、AccessKey 或智谱 Key：
+
+```bash
+ALIYUN_RESOURCE_ENV_FILE=/www/wwwroot/medical-credit-api/.env \
+ALIYUN_RESOURCE_EXPECT_MODE=dual_write \
+ALIYUN_RESOURCE_MARKDOWN_FILE=/tmp/medical-credit-resource-readiness.md \
+npm run resources:aliyun:check
+```
+
+当前服务器已确认存在 MySQL 8.0.36，PgSQL 未安装；若 IT 决定先走 MySQL，请使用 `ALIYUN_DB_DRIVER=mysql` 和独立库 `medical_credit_assessment`。严禁复用 `gohomesh`、`mediverseai`、`maxfuture` 等既有业务库。
+
 执行只读预检：
 
 ```bash
@@ -185,6 +196,7 @@ bash /www/wwwroot/medical-credit-api/ops/aliyun/docker-run-medical-credit-api.sh
 停止条件：
 
 - `dual_write` 所需 RDS / OSS / 智谱 / Supabase 旁路配置缺失。
+- `resources:aliyun:check` 输出 `blocked`。
 - preflight 输出任何密钥明文。
 - `.env` 被放进 H5 目录。
 

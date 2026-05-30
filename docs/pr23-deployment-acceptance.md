@@ -48,6 +48,7 @@
 ```bash
 cd /var/www/medical-credit-api/current
 ALIYUN_ENV_FILE=/www/wwwroot/medical-credit-api/.env ALIYUN_ENV_EXPECT_MODE=dual_write npm run env:aliyun:guard
+ALIYUN_RESOURCE_ENV_FILE=/www/wwwroot/medical-credit-api/.env ALIYUN_RESOURCE_EXPECT_MODE=dual_write npm run resources:aliyun:check
 bash ops/aliyun/preflight-release.sh.example
 ```
 
@@ -60,6 +61,10 @@ bash ops/aliyun/preflight-release.sh.example
 | `proxy` 模式已检查 Supabase 上游配置 |  |  |
 | `dual_write` 模式已检查 RDS / OSS / 智谱 / Supabase 旁路配置 |  |  |
 | `aliyun` 模式已检查 RDS / OSS / 智谱配置 |  |  |
+| `npm run resources:aliyun:check` 未输出 `blocked` |  |  |
+| 资源就绪报告未打印数据库密码、OSS AccessKey、智谱 Key 或 Supabase Key |  |  |
+| 数据库为独立 medical-credit 库，未复用 `gohomesh` / `mediverseai` / `maxfuture` |  |  |
+| OSS bucket 为私有 bucket，且仅供 evidence 附件使用 |  |  |
 | 没有 blocking failure |  |  |
 
 ## 三、发布包检查
