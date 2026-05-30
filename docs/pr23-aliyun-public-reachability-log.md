@@ -70,6 +70,30 @@ INVENTORY_INPUT_FILE=/tmp/medical-credit-inventory.txt npm run inventory:aliyun:
 docs/aliyun-pr23-server-inventory-checklist.md
 ```
 
+## 追加检查：公网 IP 默认站点冲突
+
+检查时间：
+
+- UTC：2026-05-30T01:36:50Z
+- CST：2026-05-30 09:36:50
+
+只读结论：
+
+| 项目 | 结论 |
+| --- | --- |
+| `http://101.132.137.25/` | 返回 `200 OK`，但页面内容已变为 `hear-us` Next.js 站点 |
+| `http://101.132.137.25/api/health` | 返回 `404 Not Found`，同样由 `hear-us` Next.js 接管 |
+| `html_101.132.137.25.conf` | 仍存在 medical-credit 静态根目录 `/www/wwwroot/medical-credit-assessment` 与 Supabase 中转 `/api` 配置 |
+| `hear-us.conf` | 存在相同 `server_name 101.132.137.25`，代理到 `127.0.0.1:3010` |
+| `nginx -T` | 输出 `conflicting server name "101.132.137.25" on 0.0.0.0:80, ignored` |
+
+判断：
+
+- 当前 IP 默认入口由前序 `hear-us` vhost 生效，medical-credit 的同名 IP vhost 被 Nginx 忽略。
+- PR23 发布包已可 staging 到独立 `releases/` 目录，但不能把 `http://101.132.137.25/` 继续当作稳定 medical-credit smoke 地址。
+- 下一步必须由 IT 提供独立备案域名 / 子域名，或明确一个不会与现有项目冲突的 Nginx server_name；不建议继续复用裸 IP 作为两个项目的入口。
+- 在未确认独立入口前，不应修改 `hear-us.conf`，也不应强行把 IP 默认站点切回 medical-credit。
+
 ## 追加检查：面板与 SSH 入口
 
 检查时间：

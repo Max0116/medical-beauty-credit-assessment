@@ -137,6 +137,36 @@ sudo -E bash ops/aliyun/stage-release.sh.example
 | H5 release 已进入 `releases/` 版本目录 |  |  |
 | API release 已进入独立 API 版本目录 |  |  |
 
+如果只有宝塔 Web 终端、没有 SSH 上传通道，也可以使用源码 staging 脚本：
+
+```bash
+CONFIRM_SOURCE_STAGING=yes \
+SOURCE_BRANCH=codex/pr23-aliyun-rds-oss \
+H5_ROOT=/www/wwwroot/medical-credit-assessment \
+API_ROOT=/www/wwwroot/medical-credit-api \
+WORK_ROOT=/www/wwwroot/medical-credit-deploy-work \
+bash ops/aliyun/stage-from-github-source.sh.example
+```
+
+| 验收项 | 结果 | 证据 |
+| --- | --- | --- |
+| 源码 staging 未切换 `current` |  |  |
+| 源码 staging 未修改 Nginx / systemd / PM2 |  |  |
+| Docker 内 `npm test` 通过 |  |  |
+| Docker 内 `npm run build` 通过 |  |  |
+| 发布包名称包含 commit 短 SHA |  |  |
+| `MANIFEST.json` 记录 branch / commit |  |  |
+
+### 入口归属确认
+
+当前裸 IP 不能作为长期入口。若 `nginx -T` 出现相同 `server_name` 冲突，必须先确认独立域名或 server_name，不能覆盖既有项目：
+
+| 验收项 | 结果 | 证据 |
+| --- | --- | --- |
+| 已确认正式入口不会复用被其他项目占用的裸 IP server_name |  |  |
+| 已确认不会修改 `hear-us` 等既有业务 vhost |  |  |
+| 已确认 `credit.xxx.com` 或等效备案子域名可用 |  |  |
+
 ## 五、迁移命令记录
 
 ### 1. RDS 建表
