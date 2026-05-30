@@ -14,6 +14,7 @@
 | H5 目录 | `/var/www/medical-credit/current` |
 | API 目录 | `/var/www/medical-credit-api/current` |
 | API 端口 | `127.0.0.1:8787` |
+| API 运行时 | Docker / 宝塔 Node 项目 / systemd Node |
 | RDS 类型 | PostgreSQL / MySQL |
 | RDS 实例 / 库名 |  |
 | OSS bucket |  |
@@ -40,6 +41,7 @@
 | `ZHIPUAI_API_KEY` |  | 服务端保存 |
 | `ASSESSMENT_UPSTREAM_URL` |  | `dual_write` / `proxy` 回滚需要 |
 | `ASSESSMENT_UPSTREAM_API_KEY` |  | 服务端保存 |
+| `MEDICAL_CREDIT_RUNTIME` |  | `docker` 或 `node`，当前服务器推荐 `docker` |
 
 完成 `.env` 后执行只读 preflight：
 
@@ -100,6 +102,19 @@ INVENTORY_REPORT_FILE=release/inventory/<report>.json npm run inventory:aliyun:g
 | 已生成脱敏 JSON / Markdown 盘点报告 |  |  |
 | `inventory:aliyun:gate` 结果为 `go` 或已完成人工复核 |  |  |
 | `docs/aliyun-pr23-server-inventory-checklist.md` 已填写 |  |  |
+
+### 运行时路线确认
+
+参考：[PR23 阿里云 Node API 运行时路线](./pr23-aliyun-node-runtime-options.md)。
+
+| 验收项 | 结果 | 证据 |
+| --- | --- | --- |
+| 已确认 API 运行时路线 |  | Docker / 宝塔 Node 项目 / systemd Node |
+| Docker 路线已确认 `docker` daemon 可用 |  |  |
+| Docker 路线已确认容器只绑定 `127.0.0.1:8787` |  |  |
+| Node 路线已确认 Node 版本 >= 20 |  |  |
+| API `.env` 位于 API 根目录而非 H5 根目录 |  |  |
+| Nginx `/api/` 只代理到本项目独立端口 |  |  |
 
 ### 可选：只 staging 发布包
 

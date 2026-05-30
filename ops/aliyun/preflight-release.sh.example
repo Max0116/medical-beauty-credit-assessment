@@ -14,6 +14,7 @@ H5_ROOT="${H5_ROOT:-/var/www/medical-credit}"
 API_ROOT="${API_ROOT:-/var/www/medical-credit-api}"
 PROXY_HOST="${MEDICAL_CREDIT_PROXY_HOST:-127.0.0.1}"
 PROXY_PORT="${MEDICAL_CREDIT_PROXY_PORT:-8787}"
+RUNTIME="${MEDICAL_CREDIT_RUNTIME:-node}"
 
 case "$H5_ROOT" in
   /var/www/medical-credit|/www/wwwroot/medical-credit-assessment) ;;
@@ -131,8 +132,18 @@ ok "hostname: $(hostname 2>/dev/null || echo unknown)"
 ok "kernel: $(uname -a)"
 ok "user: $(id -un) uid=$(id -u)"
 
+section "Runtime mode"
+case "$RUNTIME" in
+  node|docker)
+    ok "MEDICAL_CREDIT_RUNTIME=$RUNTIME"
+    ;;
+  *)
+    fail "unsupported MEDICAL_CREDIT_RUNTIME: $RUNTIME"
+    ;;
+esac
+
 section "Required commands"
-for cmd in node npm nginx curl tar sha256sum; do
+for cmd in nginx curl tar sha256sum; do
   if command_exists "$cmd"; then
     ok "$cmd: $(command -v "$cmd")"
   else
@@ -140,8 +151,26 @@ for cmd in node npm nginx curl tar sha256sum; do
   fi
 done
 
+if [[ "$RUNTIME" == "node" ]]; then
+  for cmd in node npm; do
+    if command_exists "$cmd"; then
+      ok "$cmd: $(command -v "$cmd")"
+    else
+      fail "$cmd is missing for MEDICAL_CREDIT_RUNTIME=node"
+    fi
+  done
+fi
+
+if [[ "$RUNTIME" == "docker" ]]; then
+  if command_exists docker; then
+    ok "docker: $(command -v docker)"
+  else
+    fail "docker is missing for MEDICAL_CREDIT_RUNTIME=docker"
+  fi
+fi
+
 section "Node.js"
-if command_exists node; then
+if [[ "$RUNTIME" == "node" ]] && command_exists node; then
   node_version="$(node -v)"
   ok "node version: $node_version"
   major_version="${node_version#v}"
@@ -151,6 +180,26 @@ if command_exists node; then
   else
     fail "node major version must be >= 20"
   fi
+elif [[ "$RUNTIME" == "docker" ]]; then
+  ok "host Node.js is not required when using Docker runtime"
+fi
+
+section "Docker"
+if [[ "$RUNTIME" == "docker" ]]; then
+  if command_exists docker && docker version >/tmp/medical-credit-docker-preflight.log 2>&1; then
+    ok "docker daemon is reachable"
+  else
+    fail "docker daemon is not reachable"
+    sed -n '1,20p' /tmp/medical-credit-docker-preflight.log 2>/dev/null || true
+  fi
+
+  if command_exists docker && docker compose version >/tmp/medical-credit-docker-compose-preflight.log 2>&1; then
+    ok "docker compose is available"
+  else
+    warn "docker compose is not available; use docker build/run commands from docs/pr23-aliyun-node-runtime-options.md"
+  fi
+else
+  warn "docker runtime not selected"
 fi
 
 section "Nginx"

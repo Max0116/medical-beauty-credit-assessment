@@ -1,0 +1,17 @@
+FROM node:20-bookworm-slim
+
+ENV NODE_ENV=production
+ENV MEDICAL_CREDIT_PROXY_HOST=0.0.0.0
+ENV MEDICAL_CREDIT_PROXY_PORT=8787
+
+WORKDIR /app
+
+COPY package.json ./
+RUN npm install --omit=dev --package-lock=false
+
+COPY aliyun-api ./aliyun-api
+COPY scripts ./scripts
+
+EXPOSE 8787
+
+CMD ["npm", "start"]

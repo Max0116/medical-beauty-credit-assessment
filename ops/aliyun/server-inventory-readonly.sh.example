@@ -84,7 +84,7 @@ if command_exists whoami; then
 fi
 
 section "Runtime commands"
-for cmd in node npm nginx curl tar sha256sum systemctl ss lsof find awk sed; do
+for cmd in node npm docker nginx curl tar sha256sum systemctl ss lsof find awk sed; do
   if command_exists "$cmd"; then
     ok "$cmd: $(command -v "$cmd")"
   else
@@ -102,6 +102,24 @@ if command_exists npm; then
   ok "npm version: $(npm -v)"
 else
   warn "npm is not installed"
+fi
+
+section "Docker"
+if command_exists docker; then
+  ok "docker version: $(docker --version 2>/dev/null || echo unknown)"
+  if docker version >/tmp/medical-credit-inventory-docker.log 2>&1; then
+    ok "docker daemon is reachable"
+  else
+    warn "docker command exists but daemon is not reachable"
+    sed -n '1,20p' /tmp/medical-credit-inventory-docker.log
+  fi
+  if docker compose version >/tmp/medical-credit-inventory-docker-compose.log 2>&1; then
+    ok "docker compose: $(docker compose version 2>/dev/null)"
+  else
+    warn "docker compose is not available"
+  fi
+else
+  warn "docker is not installed"
 fi
 
 section "Candidate isolated target paths"

@@ -12,6 +12,7 @@ describe('Aliyun release manifest helpers', () => {
       'pr23-pr24-handoff-index.md',
       'aliyun-pr23-access-unlock-request.md',
       'pr23-aliyun-cutover-runbook.md',
+      'pr23-aliyun-node-runtime-options.md',
       'pr23-readiness-audit.md',
       'pr23-deployment-acceptance.md',
       'pr24-supabase-decommission-audit.md',
@@ -25,6 +26,7 @@ describe('Aliyun release manifest helpers', () => {
       'docs/aliyun-pr23-access-unlock-request.md',
       'docs/pr23-pr24-handoff-index.md',
       'docs/pr23-aliyun-cutover-runbook.md',
+      'docs/pr23-aliyun-node-runtime-options.md',
       'docs/pr23-readiness-audit.md',
       'docs/pr24-supabase-decommission-audit.md',
       'docs/pr24-aliyun-production-ops-runbook.md'
@@ -35,6 +37,8 @@ describe('Aliyun release manifest helpers', () => {
     const releaseScript = await readFile(new URL('./build-aliyun-release.mjs', import.meta.url), 'utf8');
     expect(releaseScript).toContain('ops/aliyun/bt-entry-readonly.sh.example');
     expect(releaseScript).toContain('ops/aliyun/stage-release.sh.example');
+    expect(releaseScript).toContain('ops/aliyun/Dockerfile.medical-credit-api');
+    expect(releaseScript).toContain('ops/aliyun/docker-compose.medical-credit-api.yml.example');
     expect(releaseScript).toContain('without switching traffic or reloading services');
   });
 

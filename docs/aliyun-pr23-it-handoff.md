@@ -39,11 +39,11 @@
 | 智谱 Key | 仅配置在服务器 `.env`，不进入前端 |
 | Supabase 迁移 Key | 仅用于一次性备份/回填 shell，会后清理 |
 | 出网能力 | 服务器可访问 Supabase、OSS、智谱 API |
-| Node 运行时 | 当前 shell 未检测到 `node` / `npm`，需要 IT 安装 Node LTS、启用宝塔 Node 项目，或确认 Docker 部署路线 |
+| Node 运行时 | 当前 shell 未检测到 `node` / `npm`，但 Docker 已安装并 active；推荐优先确认 Docker 独立容器路线 |
 
 ## 三、当前入口解锁请求
 
-2026-05-30 已确认宝塔面板 `https://101.132.137.25:29119/home` 可登录，且宝塔终端可用。当前下一步不是继续解锁入口，而是准备 Node 运行时、独立数据库 / OSS 资源创建和 staging 部署。
+2026-05-30 已确认宝塔面板 `https://101.132.137.25:29119/home` 可登录，且宝塔终端可用。只读盘点显示 Docker 可用、宿主机 Node/npm 不可用。当前下一步不是继续解锁入口，而是按 [PR23 阿里云 Node API 运行时路线](./pr23-aliyun-node-runtime-options.md) 确认 Docker / Node 部署方式、独立数据库 / OSS 资源创建和 staging 部署。
 
 如后续开发侧再次只能看到宝塔“安全入口校验失败”，或 SSH 连接在认证前被服务器关闭，请 IT 先完成以下最小动作之一：
 

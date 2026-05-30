@@ -18,6 +18,7 @@
 | RDS | 独立库、最小权限账号、允许 ECS 内网访问 |
 | OSS | 私有 bucket、RAM 最小权限、支持签名 URL |
 | 智谱 | `ZHIPUAI_API_KEY` 可在服务器端访问 |
+| API 运行时 | 推荐 Docker 独立容器；备选 Node LTS / 宝塔 Node 项目 |
 | 域名 / HTTPS | 已备案域名优先；IP 只能作为临时测试 |
 | 回滚链路 | `MEDICAL_CREDIT_BACKEND_MODE=proxy` 仍可访问 Supabase 上游 |
 
@@ -86,10 +87,11 @@ sudo -E bash ops/aliyun/stage-release.sh.example
 
 ## 五、阶段 2：API 环境预检
 
-在 API 目录创建 `.env`，先使用 `dual_write`：
+在 API 目录创建 `.env`，先使用 `dual_write`。当前服务器宿主机未检测到 `node` / `npm`，但 Docker 已安装并 active；运行时路线优先参考 [PR23 阿里云 Node API 运行时路线](./pr23-aliyun-node-runtime-options.md)。
 
 ```bash
 MEDICAL_CREDIT_BACKEND_MODE=dual_write
+MEDICAL_CREDIT_RUNTIME=docker
 MEDICAL_CREDIT_ALLOWED_ORIGINS=https://credit.xxx.com,http://101.132.137.25
 ALIYUN_DB_DRIVER=postgres
 ALIYUN_RDS_HOST=<rds-host>

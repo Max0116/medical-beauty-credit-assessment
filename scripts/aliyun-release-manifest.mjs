@@ -7,6 +7,7 @@ export const ALIYUN_RELEASE_DOC_FILES = [
   'aliyun-pr23-it-handoff.md',
   'aliyun-pr23-access-unlock-request.md',
   'aliyun-pr23-server-inventory-checklist.md',
+  'pr23-aliyun-node-runtime-options.md',
   'pr23-aliyun-cutover-runbook.md',
   'pr23-aliyun-public-reachability-log.md',
   'pr23-readiness-audit.md',

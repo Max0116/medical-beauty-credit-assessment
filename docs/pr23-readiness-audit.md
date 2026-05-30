@@ -68,6 +68,7 @@ npm test -- scripts/aliyun-api-flow-smoke.test.js
 | PostgreSQL / PgSQL | 宝塔 PgSQL 面板显示未安装 | 若坚持 PostgreSQL，需要安装 PgSQL 或购买 RDS PostgreSQL |
 | MySQL | 已有 MySQL，本地已有 `gohomesh`、`mediverseai`、`maxfuture` 三个既有库 | 不能碰既有库；如走 MySQL，必须新建独立库 `medical_credit_assessment` |
 | Node / npm | `node`、`npm` 不在当前 PATH | 若部署 Node API，需要先由 IT 安装 Node LTS，或改用 Docker / 宝塔 Node 项目能力 |
+| Docker | `docker` 已安装，版本 `29.0.2`，服务 active | 当前更适合优先走 Docker 独立容器路线，避免改宿主机 Node 环境 |
 | API 进程 | 未发现本项目独立 Node API 进程 | `/api` 目前仍按 PR22 由 Nginx 直接中转 Supabase，而非本地 Node API |
 
 ## 五、当前阻塞
@@ -80,7 +81,7 @@ PR23 真实切换仍不能直接执行，阻塞点已经从“入口不可用”
 | OSS bucket | 未获得 `medical-credit-verification-evidence` bucket / RAM Key | 创建私有 bucket 和最小权限 RAM 子账号 |
 | API 服务目录 | 未看到 `/www/wwwroot/medical-credit-api` 或 `/var/www/medical-credit-api` 已部署 | 部署 PR23 release 包后创建独立 API 目录和 systemd 服务 |
 | 生产域名与 HTTPS | 当前仅 IP 访问，站点 SSL 未部署 | 后续需要备案域名与证书，微信正式使用不建议长期用 IP |
-| Node 运行时 | 当前 shell 中 `node` / `npm` 不可用 | 由 IT 安装 Node LTS，或确认宝塔 Node 项目 / Docker 部署路线 |
+| Node 运行时 | 当前 shell 中 `node` / `npm` 不可用，Docker 可用 | 推荐优先使用 Docker 独立容器；备选为 IT 安装 Node LTS 或宝塔 Node 项目 |
 
 ## 六、进入真实部署前必须确认
 
@@ -94,7 +95,7 @@ PR23 真实切换仍不能直接执行，阻塞点已经从“入口不可用”
 
 ## 七、下一步动作
 
-1. 由 IT 确认 Node API 部署路线：安装 Node LTS、使用宝塔 Node 项目，或使用 Docker 独立容器。
+1. 由 IT 确认 Node API 部署路线：推荐 Docker 独立容器；备选为安装 Node LTS 或使用宝塔 Node 项目。路线说明见 `docs/pr23-aliyun-node-runtime-options.md`。
 2. 选择数据库路线：优先 RDS PostgreSQL；如短期复用现有 MySQL 服务，则只允许新建独立库和账号。
 3. 创建私有 OSS bucket 和最小权限 RAM 子账号。
 4. 将最新 `e89704f` release 包先执行 `stage-release`，只放入 `releases/`，不切流量。
