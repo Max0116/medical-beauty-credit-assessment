@@ -98,8 +98,8 @@ credit.xxx.com
 
 | 项目 | 状态 | 备注 |
 | --- | --- | --- |
-| 独立 RDS PostgreSQL 已创建 |  |  |
-| RDS 库名 `medical_credit` 已创建 |  |  |
+| 独立 RDS PostgreSQL 或 MySQL 已创建 |  |  |
+| RDS 库名 `medical_credit` 或 `medical_credit_assessment` 已创建 |  |  |
 | RDS 账号 `medical_credit_app` 已创建 |  |  |
 | ECS 到 RDS 网络可达 |  |  |
 | 独立 OSS bucket 已创建 |  |  |

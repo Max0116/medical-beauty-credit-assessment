@@ -18,6 +18,7 @@ export function createAliyunApiHandler({
   allowedOrigins = [],
   verificationService,
   mode = 'aliyun',
+  databaseDriver = '',
   now = () => new Date()
 } = {}) {
   if (!repository) throw new Error('Aliyun API handler requires a repository.');
@@ -58,6 +59,7 @@ export function createAliyunApiHandler({
           ready,
           service: 'medical-credit-assessment-api',
           mode,
+          databaseDriver,
           backend,
           storage,
           verification

@@ -78,6 +78,7 @@ tar -tzf medical-credit-assessment-aliyun-<commit>-<timestamp>.tar.gz | grep MAN
 ```bash
 MEDICAL_CREDIT_BACKEND_MODE=dual_write
 MEDICAL_CREDIT_ALLOWED_ORIGINS=https://credit.xxx.com,http://101.132.137.25
+ALIYUN_DB_DRIVER=postgres
 ALIYUN_RDS_HOST=<rds-host>
 ALIYUN_RDS_PORT=5432
 ALIYUN_RDS_DATABASE=<database>
@@ -91,6 +92,8 @@ ZHIPUAI_API_KEY=<zhipu-key>
 ASSESSMENT_UPSTREAM_URL=<supabase-function-url>
 ASSESSMENT_UPSTREAM_API_KEY=<supabase-function-key>
 ```
+
+若 IT 只能先提供 MySQL 兼容 RDS / 独立 MySQL 库，将 `ALIYUN_DB_DRIVER` 改为 `mysql`，并使用 `ALIYUN_MYSQL_HOST`、`ALIYUN_MYSQL_PORT`、`ALIYUN_MYSQL_DATABASE`、`ALIYUN_MYSQL_USER`、`ALIYUN_MYSQL_PASSWORD`。禁止复用 `gohomesh`、`mediverseai`、`maxfuture` 等既有业务库。
 
 执行只读预检：
 
@@ -111,7 +114,8 @@ bash ops/aliyun/preflight-release.sh.example
 ```bash
 cd /var/www/medical-credit-api/current
 npm install --omit=dev --package-lock=false
-npm run db:migrate:aliyun
+ALIYUN_DB_DRIVER=postgres npm run db:migrate:aliyun
+# 或：ALIYUN_DB_DRIVER=mysql npm run db:migrate:aliyun
 ```
 
 迁移前备份 Supabase：

@@ -32,6 +32,7 @@ describe('Aliyun migration verifier', () => {
 
     expect(result).toMatchObject({
       ok: true,
+      dialect: 'postgres',
       exactCounts: false,
       checkOss: false,
       tables: [
@@ -43,6 +44,27 @@ describe('Aliyun migration verifier', () => {
         expected: 1
       }
     });
+  });
+
+  it('uses MySQL count syntax when verifying a MySQL-compatible RDS target', async () => {
+    const pool = createFakePool({ assessment_records: 1 });
+    const result = await verifyAliyunMigration({
+      pool,
+      dialect: 'mysql',
+      backupDir: '/tmp/backup',
+      readFileImpl: createBackupReader({
+        manifest: {
+          type: 'supabase_pre_migration_backup',
+          tables: [{ table: 'assessment_records', rows: 1 }],
+          evidenceAttachments: { file: 'evidence-attachments.json', count: 0 }
+        },
+        evidenceAttachments: []
+      }),
+      logger: { warn: vi.fn() }
+    });
+
+    expect(result).toMatchObject({ ok: true, dialect: 'mysql' });
+    expect(pool.queries[0]).toBe('select count(*) as count from assessment_records');
   });
 
   it('fails when exact counts do not match', async () => {

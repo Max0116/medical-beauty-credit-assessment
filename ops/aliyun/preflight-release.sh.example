@@ -88,6 +88,34 @@ require_env_value() {
   fi
 }
 
+require_database_env() {
+  local driver
+  driver="$(env_value ALIYUN_DB_DRIVER)"
+  driver="${driver:-postgres}"
+
+  case "$driver" in
+    mysql|mariadb)
+      ok "ALIYUN_DB_DRIVER=$driver"
+      require_env_value ALIYUN_MYSQL_HOST "Aliyun RDS MySQL"
+      require_env_value ALIYUN_MYSQL_PORT "Aliyun RDS MySQL"
+      require_env_value ALIYUN_MYSQL_DATABASE "Aliyun RDS MySQL"
+      require_env_value ALIYUN_MYSQL_USER "Aliyun RDS MySQL"
+      require_env_value ALIYUN_MYSQL_PASSWORD "Aliyun RDS MySQL"
+      ;;
+    postgres|postgresql|'')
+      ok "ALIYUN_DB_DRIVER=${driver:-postgres}"
+      require_env_value ALIYUN_RDS_HOST "Aliyun RDS PostgreSQL"
+      require_env_value ALIYUN_RDS_PORT "Aliyun RDS PostgreSQL"
+      require_env_value ALIYUN_RDS_DATABASE "Aliyun RDS PostgreSQL"
+      require_env_value ALIYUN_RDS_USER "Aliyun RDS PostgreSQL"
+      require_env_value ALIYUN_RDS_PASSWORD "Aliyun RDS PostgreSQL"
+      ;;
+    *)
+      fail "unsupported ALIYUN_DB_DRIVER: $driver"
+      ;;
+  esac
+}
+
 warn_if_env_present() {
   local key="$1"
   local description="$2"
@@ -199,11 +227,7 @@ if [[ -f "$API_ROOT/.env" ]]; then
       require_env_value ASSESSMENT_UPSTREAM_API_KEY "Supabase proxy upstream key"
       ;;
     dual_write)
-      require_env_value ALIYUN_RDS_HOST "Aliyun RDS"
-      require_env_value ALIYUN_RDS_PORT "Aliyun RDS"
-      require_env_value ALIYUN_RDS_DATABASE "Aliyun RDS"
-      require_env_value ALIYUN_RDS_USER "Aliyun RDS"
-      require_env_value ALIYUN_RDS_PASSWORD "Aliyun RDS"
+      require_database_env
       require_env_value ALIYUN_OSS_REGION "Aliyun OSS"
       require_env_value ALIYUN_OSS_BUCKET "Aliyun OSS"
       require_env_value ALIYUN_OSS_ACCESS_KEY_ID "Aliyun OSS"
@@ -213,11 +237,7 @@ if [[ -f "$API_ROOT/.env" ]]; then
       require_env_value ASSESSMENT_UPSTREAM_API_KEY "dual_write Supabase secondary key"
       ;;
     aliyun)
-      require_env_value ALIYUN_RDS_HOST "Aliyun RDS"
-      require_env_value ALIYUN_RDS_PORT "Aliyun RDS"
-      require_env_value ALIYUN_RDS_DATABASE "Aliyun RDS"
-      require_env_value ALIYUN_RDS_USER "Aliyun RDS"
-      require_env_value ALIYUN_RDS_PASSWORD "Aliyun RDS"
+      require_database_env
       require_env_value ALIYUN_OSS_REGION "Aliyun OSS"
       require_env_value ALIYUN_OSS_BUCKET "Aliyun OSS"
       require_env_value ALIYUN_OSS_ACCESS_KEY_ID "Aliyun OSS"

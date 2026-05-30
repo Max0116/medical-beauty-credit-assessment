@@ -61,17 +61,19 @@ Node API 建议支持三种模式，方便灰度和回滚：
 ### 当前实现状态
 
 - `proxy`：沿用 PR22，可继续作为回滚模式。
-- `aliyun`：已新增 Node API handler、RDS repository、OSS evidence storage、Postgres migration、智谱 Web Search 核验服务和 AI 线索摘要兜底。
+- `aliyun`：已新增 Node API handler、RDS repository、OSS evidence storage、Postgres / MySQL migration、智谱 Web Search 核验服务和 AI 线索摘要兜底。
 - `dual_write`：已新增灰度 repository。读走 RDS；草稿、评估记录、人工确认写入以 RDS 为准，并最佳努力旁路写 Supabase。旁路失败只记录 warning，不影响阿里云主链路。
 
 当前可用命令：
 
 ```bash
-npm run db:migrate:aliyun
+ALIYUN_DB_DRIVER=postgres npm run db:migrate:aliyun
+# 或者，当 IT 只能先提供 MySQL 兼容 RDS / 独立 MySQL 库：
+ALIYUN_DB_DRIVER=mysql npm run db:migrate:aliyun
 npm run health:aliyun
 ```
 
-该命令读取 `aliyun-api/migrations/001_init_postgres.sql` 并对 `ALIYUN_RDS_*` 指向的 PostgreSQL 数据库建表。执行前必须由 IT 提供独立 RDS 库和最小权限账号。
+该命令会根据 `ALIYUN_DB_DRIVER` 读取 `aliyun-api/migrations/001_init_postgres.sql` 或 `aliyun-api/migrations/001_init_mysql.sql` 并建表。执行前必须由 IT 提供独立数据库和最小权限账号，禁止复用或改动已有业务库。
 
 `npm run release:aliyun` 生成的发布包在 PR23 起会包含完整 `api/aliyun-api/`、Postgres migration、健康检查脚本和 API 端依赖声明。PR CI 会自动执行该命令，避免代码合并时只验证 H5、却遗漏阿里云发布包。部署到服务器后，需要在 API current 目录执行：
 
@@ -159,7 +161,7 @@ npm run migration:verify:aliyun
 
 ## 四、RDS 表结构
 
-推荐优先使用阿里云 RDS PostgreSQL，原因是当前 Supabase 已是 Postgres，JSONB、timestamptz、索引和迁移成本最低。若 IT 只能提供 MySQL，需要单独做字段类型映射。
+推荐优先使用阿里云 RDS PostgreSQL，原因是当前 Supabase 已是 Postgres，JSONB、timestamptz、索引和迁移成本最低。若 IT 只能提供 MySQL，本 PR 已提供 MySQL 兼容迁移表结构、repository 和迁移 upsert 语法，但必须使用独立数据库 `medical_credit_assessment` 与独立账号 `medical_credit_app`。
 
 ### assessment_records
 

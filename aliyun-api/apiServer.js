@@ -1,7 +1,7 @@
 import { createProxyServer, parseAllowedOrigins } from './proxyServer.js';
 import { createAliyunApiServer } from './aliyunHandler.js';
+import { createAssessmentDatabaseFromEnv } from './databaseFactory.js';
 import { createOssClientFromEnv, createOssEvidenceStorage } from './ossStorage.js';
-import { createPostgresPoolFromEnv, createRdsAssessmentRepository } from './rdsRepository.js';
 import { createDualWriteAssessmentRepository, createUpstreamAssessmentRepository } from './upstreamRepository.js';
 import { createZhipuVerificationService } from './zhipuVerificationService.js';
 
@@ -29,8 +29,6 @@ export function createAssessmentApiServer({ env = process.env } = {}) {
     });
   }
 
-  const pool = createPostgresPoolFromEnv(env);
-  if (!pool) throw new Error('ALIYUN_RDS_HOST is required when MEDICAL_CREDIT_BACKEND_MODE=aliyun or dual_write.');
   const ossClient = createOssClientFromEnv(env);
   const evidenceStorage = ossClient
     ? createOssEvidenceStorage({
@@ -39,8 +37,8 @@ export function createAssessmentApiServer({ env = process.env } = {}) {
       signedUrlTtlSeconds: Number(env.ALIYUN_OSS_SIGNED_URL_TTL_SECONDS || 1800)
     })
     : null;
-  const rdsRepository = createRdsAssessmentRepository({
-    pool,
+  const database = createAssessmentDatabaseFromEnv({
+    env,
     signEvidenceAttachments: evidenceStorage?.signEvidenceAttachments
   });
   const secondaryRepository = mode === BACKEND_MODES.dualWrite
@@ -51,8 +49,8 @@ export function createAssessmentApiServer({ env = process.env } = {}) {
     })
     : null;
   const repository = mode === BACKEND_MODES.dualWrite
-    ? createDualWriteAssessmentRepository({ primary: rdsRepository, secondary: secondaryRepository })
-    : rdsRepository;
+    ? createDualWriteAssessmentRepository({ primary: database.repository, secondary: secondaryRepository })
+    : database.repository;
   const verificationService = createZhipuVerificationService({
     apiKey: env.ZHIPUAI_API_KEY || '',
     summaryModel: env.ZHIPUAI_SUMMARY_MODEL || 'glm-4-flash',
@@ -65,6 +63,7 @@ export function createAssessmentApiServer({ env = process.env } = {}) {
     evidenceStorage,
     verificationService,
     mode,
+    databaseDriver: database.driver,
     allowedOrigins: parseAllowedOrigins(env.MEDICAL_CREDIT_ALLOWED_ORIGINS || '')
   });
 }

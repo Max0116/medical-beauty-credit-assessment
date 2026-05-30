@@ -92,7 +92,7 @@ export function mapRecordRow(row = {}) {
 
 export function mapVerificationLogRow(row = {}) {
   const extractedFlags = asObject(row.extracted_flags);
-  const rawResults = Array.isArray(row.raw_results) ? row.raw_results : [];
+  const rawResults = asArray(row.raw_results);
   return {
     id: String(row.id),
     recordId: String(row.assessment_record_id || ''),
@@ -213,7 +213,7 @@ export async function mapVerificationReviewRow(row = {}, { signEvidenceAttachmen
     suggestedPublicCreditStatus: String(row.suggested_public_credit_status || ''),
     evidenceUrl: String(row.evidence_url || ''),
     evidenceNote: String(row.evidence_note || ''),
-    evidenceAttachments: await signEvidenceAttachments(Array.isArray(evidenceAttachments) ? evidenceAttachments : []),
+    evidenceAttachments: await signEvidenceAttachments(asArray(evidenceAttachments)),
     verificationSnapshot,
     appliedFields: asObject(row.applied_fields),
     createdAt: toIsoLikeString(row.created_at)
@@ -266,11 +266,39 @@ export function normalizeEvidenceAttachments(value, clientInstanceId, recordId, 
 }
 
 export function asObject(value) {
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
 export function asStringArray(value) {
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.map(String) : [];
+    } catch {
+      return [];
+    }
+  }
   return Array.isArray(value) ? value.map(String) : [];
+}
+
+export function asArray(value) {
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return Array.isArray(value) ? value : [];
 }
 
 function toIsoLikeString(value) {

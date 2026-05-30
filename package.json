@@ -22,7 +22,7 @@
     "inventory:aliyun:gate": "node scripts/aliyun-inventory-gate.mjs",
     "qr:aliyun": "node scripts/generate-aliyun-qr.mjs",
     "backup:supabase": "node scripts/backup-supabase.mjs",
-    "db:migrate:aliyun": "node scripts/apply-aliyun-postgres-migration.mjs",
+    "db:migrate:aliyun": "node scripts/apply-aliyun-db-migration.mjs",
     "db:migrate:supabase-to-aliyun": "node scripts/migrate-supabase-to-aliyun-rds.mjs",
     "storage:migrate:supabase-to-oss": "node scripts/migrate-supabase-evidence-to-aliyun-oss.mjs",
     "migration:verify:aliyun": "node scripts/verify-aliyun-migration.mjs"
@@ -32,6 +32,7 @@
     "ali-oss": "^6.23.0",
     "busboy": "^1.6.0",
     "lucide-react": "^0.468.0",
+    "mysql2": "^3.15.3",
     "pg": "^8.21.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

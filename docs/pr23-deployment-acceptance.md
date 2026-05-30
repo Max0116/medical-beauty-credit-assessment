@@ -14,6 +14,7 @@
 | H5 目录 | `/var/www/medical-credit/current` |
 | API 目录 | `/var/www/medical-credit-api/current` |
 | API 端口 | `127.0.0.1:8787` |
+| RDS 类型 | PostgreSQL / MySQL |
 | RDS 实例 / 库名 |  |
 | OSS bucket |  |
 | 初始运行模式 | `dual_write` |
@@ -27,10 +28,11 @@
 | --- | --- | --- |
 | `MEDICAL_CREDIT_BACKEND_MODE` |  | 先 `dual_write`，后 `aliyun` |
 | `MEDICAL_CREDIT_ALLOWED_ORIGINS` |  | 必须包含正式域名 |
-| `ALIYUN_RDS_HOST` |  |  |
-| `ALIYUN_RDS_DATABASE` |  |  |
-| `ALIYUN_RDS_USER` |  |  |
-| `ALIYUN_RDS_PASSWORD` |  | 不进入前端、不截图明文 |
+| `ALIYUN_DB_DRIVER` |  | `postgres` 或 `mysql` |
+| `ALIYUN_RDS_HOST` / `ALIYUN_MYSQL_HOST` |  | 按数据库类型二选一 |
+| `ALIYUN_RDS_DATABASE` / `ALIYUN_MYSQL_DATABASE` |  | 独立库，禁止复用既有业务库 |
+| `ALIYUN_RDS_USER` / `ALIYUN_MYSQL_USER` |  | 独立最小权限账号 |
+| `ALIYUN_RDS_PASSWORD` / `ALIYUN_MYSQL_PASSWORD` |  | 不进入前端、不截图明文 |
 | `ALIYUN_OSS_REGION` |  |  |
 | `ALIYUN_OSS_BUCKET` |  | 私有 bucket |
 | `ALIYUN_OSS_ACCESS_KEY_ID` |  | 最小权限 RAM |
@@ -103,7 +105,8 @@ INVENTORY_REPORT_FILE=release/inventory/<report>.json npm run inventory:aliyun:g
 ### 1. RDS 建表
 
 ```bash
-npm run db:migrate:aliyun
+ALIYUN_DB_DRIVER=postgres npm run db:migrate:aliyun
+# 或：ALIYUN_DB_DRIVER=mysql npm run db:migrate:aliyun
 ```
 
 | 验收项 | 结果 | 备注 |

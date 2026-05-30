@@ -63,7 +63,7 @@ sudo 权限：允许执行只读盘点、创建独立目录、创建独立服务
 - 新增 `/var/www/medical-credit-deploy-work`
 - 新增独立 Nginx 配置，例如 `medical-credit-assessment.conf`
 - 新增独立 systemd 服务 `medical-credit-api`
-- 使用独立 RDS 库 `medical_credit`
+- 使用独立 RDS PostgreSQL 库 `medical_credit`，或独立 MySQL 兼容库 `medical_credit_assessment`
 - 使用独立私有 OSS bucket `medical-credit-verification-evidence`
 
 禁止：

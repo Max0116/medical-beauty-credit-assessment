@@ -3,6 +3,7 @@ import {
   buildUpsertQuery,
   fetchSupabaseTableBatches,
   migrateSupabaseToRds,
+  normalizeRdsDialect,
   normalizeMigratedRow,
   parseTableNames,
   resolveTableConfigs,
@@ -72,6 +73,24 @@ describe('Supabase to Aliyun RDS migration helpers', () => {
     expect(query.values[13]).toBe(JSON.stringify([]));
   });
 
+  it('builds MySQL-compatible upsert SQL for Aliyun RDS MySQL fallback', () => {
+    const table = SUPABASE_RDS_TABLES.find((item) => item.name === 'assessment_drafts');
+    const query = buildUpsertQuery(table, {
+      client_instance_id: 'client-1',
+      form_snapshot: { institutionName: '上海星澜' },
+      created_at: '2026-05-30T00:00:00.000Z',
+      updated_at: '2026-05-30T00:00:00.000Z'
+    }, {
+      dialect: 'mysql'
+    });
+
+    expect(query.sql).toContain('insert into assessment_drafts');
+    expect(query.sql).not.toContain('cast(? as json)');
+    expect(query.sql).toContain('on duplicate key update');
+    expect(query.sql).toContain('form_snapshot = values(form_snapshot)');
+    expect(query.values[1]).toBe(JSON.stringify({ institutionName: '上海星澜' }));
+  });
+
   it('migrates requested tables into RDS with dry-run support', async () => {
     const pool = {
       calls: [],
@@ -106,6 +125,7 @@ describe('Supabase to Aliyun RDS migration helpers', () => {
     expect(summary).toMatchObject({
       ok: true,
       dryRun: false,
+      dialect: 'postgres',
       tables: [
         {
           table: 'assessment_drafts',
@@ -136,6 +156,9 @@ describe('Supabase to Aliyun RDS migration helpers', () => {
 
     expect(resolveTableConfigs(['assessment_records']).map((table) => table.name)).toEqual(['assessment_records']);
     expect(() => resolveTableConfigs(['unknown_table'])).toThrow('Unknown migration table(s): unknown_table');
+    expect(normalizeRdsDialect('mysql')).toBe('mysql');
+    expect(normalizeRdsDialect('mariadb')).toBe('mysql');
+    expect(normalizeRdsDialect('')).toBe('postgres');
   });
 
   it('can rewrite migrated review attachment buckets for Aliyun OSS', () => {

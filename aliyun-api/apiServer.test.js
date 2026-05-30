@@ -24,4 +24,19 @@ describe('assessment API server mode resolution', () => {
       }
     })).toThrow('ALIYUN_RDS_HOST is required');
   });
+
+  it('can bootstrap aliyun mode against an explicit MySQL-compatible RDS target', () => {
+    const server = createAssessmentApiServer({
+      env: {
+        MEDICAL_CREDIT_BACKEND_MODE: 'aliyun',
+        ALIYUN_DB_DRIVER: 'mysql',
+        ALIYUN_MYSQL_HOST: '127.0.0.1',
+        ALIYUN_MYSQL_DATABASE: 'medical_credit_assessment',
+        ALIYUN_MYSQL_USER: 'medical_credit_app',
+        ALIYUN_MYSQL_PASSWORD: 'secret'
+      }
+    });
+    expect(server).toBeTruthy();
+    server.close();
+  });
 });

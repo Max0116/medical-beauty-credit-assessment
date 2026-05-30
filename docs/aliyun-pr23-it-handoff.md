@@ -22,7 +22,7 @@
 | H5 静态目录 | `/var/www/medical-credit` |
 | Node API 目录 | `/var/www/medical-credit-api` |
 | 临时解包目录 | `/var/www/medical-credit-deploy-work` |
-| RDS 库名 | `medical_credit` |
+| RDS 库名 | PostgreSQL 推荐 `medical_credit`；MySQL 兼容库可用 `medical_credit_assessment` |
 | RDS 账号 | `medical_credit_app` |
 | OSS bucket | `medical-credit-verification-evidence` |
 | systemd 服务 | `medical-credit-api` |
@@ -33,7 +33,7 @@
 | --- | --- |
 | 已备案域名 | 例如 `credit.xxx.com` |
 | HTTPS 证书 | 阿里云证书或宝塔证书路径 |
-| RDS PostgreSQL | 主机、端口、库名、账号、密码、SSL 要求 |
+| RDS PostgreSQL / MySQL | 数据库类型、主机、端口、库名、账号、密码、SSL 要求 |
 | OSS bucket | region、bucket 名、私有读写权限 |
 | RAM 权限 | 仅允许指定 OSS bucket 上传/读取/签名 |
 | 智谱 Key | 仅配置在服务器 `.env`，不进入前端 |
@@ -162,6 +162,7 @@ PR23 推荐先配置：
 ```bash
 MEDICAL_CREDIT_BACKEND_MODE=dual_write
 MEDICAL_CREDIT_ALLOWED_ORIGINS=https://credit.xxx.com
+ALIYUN_DB_DRIVER=postgres
 ALIYUN_RDS_HOST=<rds-host>
 ALIYUN_RDS_PORT=5432
 ALIYUN_RDS_DATABASE=medical_credit
@@ -175,6 +176,18 @@ ALIYUN_OSS_ACCESS_KEY_SECRET=<ram-access-key-secret>
 ZHIPUAI_API_KEY=<zhipu-key>
 ASSESSMENT_UPSTREAM_URL=https://<project-ref>.supabase.co/functions/v1/assessments
 ASSESSMENT_UPSTREAM_API_KEY=<server-side-key>
+```
+
+如果短期只能使用 MySQL 兼容 RDS 或服务器独立 MySQL 库，请改用：
+
+```bash
+ALIYUN_DB_DRIVER=mysql
+ALIYUN_MYSQL_HOST=<mysql-host>
+ALIYUN_MYSQL_PORT=3306
+ALIYUN_MYSQL_DATABASE=medical_credit_assessment
+ALIYUN_MYSQL_USER=medical_credit_app
+ALIYUN_MYSQL_PASSWORD=<password>
+ALIYUN_MYSQL_SSL=false
 ```
 
 配置完成后再次执行：

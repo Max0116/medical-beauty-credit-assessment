@@ -135,8 +135,9 @@ SUPABASE_URL=https://<project-ref>.supabase.co \
 SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
 npm run backup:supabase
 
-# 先建表
-npm run db:migrate:aliyun
+# 先建表。默认使用 PostgreSQL；如 IT 短期只能提供 MySQL 兼容 RDS / 独立 MySQL 库，可设置 ALIYUN_DB_DRIVER=mysql。
+ALIYUN_DB_DRIVER=postgres npm run db:migrate:aliyun
+# ALIYUN_DB_DRIVER=mysql npm run db:migrate:aliyun
 
 # 再从 Supabase REST 逐表回填到阿里云 RDS。service role key 只放在本次 shell 环境，不写进前端或仓库。
 SUPABASE_URL=https://<project-ref>.supabase.co \

@@ -12,6 +12,7 @@ export const forbiddenDistPatterns = [
   { label: '智谱 API key marker', pattern: /ZHIPUAI_API_KEY/i },
   { label: 'Aliyun OSS AccessKey marker', pattern: /ALIYUN_OSS_ACCESS_KEY/i },
   { label: 'Aliyun RDS password marker', pattern: /ALIYUN_RDS_PASSWORD/i },
+  { label: 'Aliyun MySQL password marker', pattern: /ALIYUN_MYSQL_PASSWORD/i },
   { label: 'Aliyun AccessKey ID marker', pattern: /ACCESS_KEY_ID/i },
   { label: 'Aliyun AccessKey secret marker', pattern: /ACCESS_KEY_SECRET/i },
   { label: 'Aliyun upstream URL marker', pattern: /ASSESSMENT_UPSTREAM_URL/i },

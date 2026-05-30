@@ -1,9 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { resolveTableConfigs } from './supabase-rds-migration.mjs';
+import { normalizeRdsDialect, resolveTableConfigs } from './supabase-rds-migration.mjs';
 
 export async function verifyAliyunMigration({
   pool,
+  dialect = 'postgres',
   ossClient,
   backupDir,
   exactCounts = false,
@@ -11,7 +12,8 @@ export async function verifyAliyunMigration({
   readFileImpl = readFile,
   logger = console
 } = {}) {
-  if (!pool?.query) throw new Error('Aliyun migration verification requires a pg-compatible pool.');
+  const normalizedDialect = normalizeRdsDialect(dialect);
+  if (!pool?.query) throw new Error('Aliyun migration verification requires a database pool with query().');
   if (!backupDir) throw new Error('BACKUP_DIR is required.');
   if (checkOss && !ossClient?.head) throw new Error('VERIFY_OSS=true requires an ali-oss client with head().');
 
@@ -21,7 +23,7 @@ export async function verifyAliyunMigration({
 
   for (const table of backup.manifest.tables) {
     resolveTableConfigs([table.table]);
-    const targetRows = await countTableRows(pool, table.table);
+    const targetRows = await countTableRows(pool, table.table, { dialect: normalizedDialect });
     const ok = exactCounts ? targetRows === table.rows : targetRows >= table.rows;
     if (!ok) {
       failures.push({
@@ -62,6 +64,7 @@ export async function verifyAliyunMigration({
   return {
     ok: failures.length === 0,
     backupDir,
+    dialect: normalizedDialect,
     exactCounts,
     checkOss,
     tables: tableResults,
@@ -88,9 +91,13 @@ export async function loadBackupSnapshot({ backupDir, readFileImpl = readFile } 
   };
 }
 
-export async function countTableRows(pool, tableName) {
+export async function countTableRows(pool, tableName, { dialect = 'postgres' } = {}) {
   resolveTableConfigs([tableName]);
-  const { rows } = await pool.query(`select count(*)::integer as count from ${tableName}`);
+  const normalizedDialect = normalizeRdsDialect(dialect);
+  const sql = normalizedDialect === 'mysql'
+    ? `select count(*) as count from ${tableName}`
+    : `select count(*)::integer as count from ${tableName}`;
+  const { rows } = await pool.query(sql);
   return Number(rows?.[0]?.count || 0);
 }
 

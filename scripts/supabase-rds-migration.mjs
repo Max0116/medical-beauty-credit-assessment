@@ -90,17 +90,20 @@ export async function migrateSupabaseToRds({
   batchSize = 500,
   tableNames = SUPABASE_RDS_TABLES.map((table) => table.name),
   targetEvidenceBucket = '',
+  dialect = 'postgres',
   dryRun = false,
   logger = console
 } = {}) {
-  if (!pool?.query && !dryRun) throw new Error('RDS migration requires a pg-compatible pool.');
+  const normalizedDialect = normalizeRdsDialect(dialect);
+  if (!pool?.query && !dryRun) throw new Error('RDS migration requires a database pool with query().');
   if (!fetchImpl) throw new Error('Fetch API is not available in this Node.js runtime.');
   const tableConfigs = resolveTableConfigs(tableNames);
   const summary = {
     ok: true,
     dryRun,
     source: 'supabase_rest',
-    target: dryRun ? 'dry_run' : 'aliyun_rds',
+    target: dryRun ? 'dry_run' : `aliyun_rds_${normalizedDialect}`,
+    dialect: normalizedDialect,
     tables: []
   };
 
@@ -125,7 +128,9 @@ export async function migrateSupabaseToRds({
 
       if (!dryRun) {
         for (const row of rows) {
-          await upsertSupabaseRow(pool, table, normalizeMigratedRow(table, row, { targetEvidenceBucket }));
+          await upsertSupabaseRow(pool, table, normalizeMigratedRow(table, row, { targetEvidenceBucket }), {
+            dialect: normalizedDialect
+          });
         }
       }
       tableSummary.upserted += dryRun ? 0 : rows.length;
@@ -176,17 +181,33 @@ export async function* fetchSupabaseTableBatches({
   }
 }
 
-export async function upsertSupabaseRow(pool, table, row = {}) {
-  const { sql, values } = buildUpsertQuery(table, row);
+export async function upsertSupabaseRow(pool, table, row = {}, { dialect = 'postgres' } = {}) {
+  const { sql, values } = buildUpsertQuery(table, row, { dialect });
   await pool.query(sql, values);
 }
 
-export function buildUpsertQuery(table, row = {}) {
+export function buildUpsertQuery(table, row = {}, { dialect = 'postgres' } = {}) {
+  const normalizedDialect = normalizeRdsDialect(dialect);
   const jsonColumns = new Set(table.jsonColumns || []);
   const defaults = table.defaults || {};
   const values = table.columns.map((column) => normalizeColumnValue(row[column] ?? defaults[column], jsonColumns.has(column)));
-  const placeholders = table.columns.map((column, index) => `$${index + 1}${jsonColumns.has(column) ? '::jsonb' : ''}`);
   const updateColumns = table.columns.filter((column) => !table.conflictColumns.includes(column));
+
+  if (normalizedDialect === 'mysql') {
+    const placeholders = table.columns.map(() => '?');
+    const assignments = updateColumns.map((column) => `${column} = values(${column})`);
+    return {
+      sql: [
+        `insert into ${table.name} (${table.columns.join(', ')})`,
+        `values (${placeholders.join(', ')})`,
+        'on duplicate key update',
+        assignments.join(', ')
+      ].join(' '),
+      values
+    };
+  }
+
+  const placeholders = table.columns.map((column, index) => `$${index + 1}${jsonColumns.has(column) ? '::jsonb' : ''}`);
   const assignments = updateColumns.map((column) => `${column} = excluded.${column}`);
 
   return {
@@ -248,6 +269,12 @@ export function parseTableNames(value = '') {
 
 export function normalizeSupabaseUrl(value = '') {
   return String(value || '').trim().replace(/\/+$/, '');
+}
+
+export function normalizeRdsDialect(value = 'postgres') {
+  const dialect = String(value || '').trim().toLowerCase();
+  if (['mysql', 'mariadb'].includes(dialect)) return 'mysql';
+  return 'postgres';
 }
 
 function normalizeColumnValue(value, isJsonColumn) {

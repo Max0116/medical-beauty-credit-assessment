@@ -35,6 +35,7 @@ await cp(join(root, 'scripts', 'aliyun-api-flow-smoke.mjs'), join(packageDir, 'a
 await cp(join(root, 'scripts', 'format-aliyun-inventory-report.mjs'), join(packageDir, 'api', 'scripts', 'format-aliyun-inventory-report.mjs'));
 await cp(join(root, 'scripts', 'aliyun-inventory-gate.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-inventory-gate.mjs'));
 await cp(join(root, 'scripts', 'audit-supabase-dependencies.mjs'), join(packageDir, 'api', 'scripts', 'audit-supabase-dependencies.mjs'));
+await cp(join(root, 'scripts', 'apply-aliyun-db-migration.mjs'), join(packageDir, 'api', 'scripts', 'apply-aliyun-db-migration.mjs'));
 await cp(join(root, 'scripts', 'apply-aliyun-postgres-migration.mjs'), join(packageDir, 'api', 'scripts', 'apply-aliyun-postgres-migration.mjs'));
 await cp(join(root, 'scripts', 'supabase-backup.mjs'), join(packageDir, 'api', 'scripts', 'supabase-backup.mjs'));
 await cp(join(root, 'scripts', 'backup-supabase.mjs'), join(packageDir, 'api', 'scripts', 'backup-supabase.mjs'));
@@ -61,12 +62,12 @@ await writeFile(join(packageDir, 'api', 'package.json'), `${JSON.stringify({
     'inventory:aliyun:gate': 'node scripts/aliyun-inventory-gate.mjs',
     'audit:supabase': 'node scripts/audit-supabase-dependencies.mjs',
     'backup:supabase': 'node scripts/backup-supabase.mjs',
-    'db:migrate:aliyun': 'node scripts/apply-aliyun-postgres-migration.mjs',
+    'db:migrate:aliyun': 'node scripts/apply-aliyun-db-migration.mjs',
     'db:migrate:supabase-to-aliyun': 'node scripts/migrate-supabase-to-aliyun-rds.mjs',
     'storage:migrate:supabase-to-oss': 'node scripts/migrate-supabase-evidence-to-aliyun-oss.mjs',
     'migration:verify:aliyun': 'node scripts/verify-aliyun-migration.mjs'
   },
-  dependencies: pickDependencies(rootPackage.dependencies, ['ali-oss', 'busboy', 'pg']),
+  dependencies: pickDependencies(rootPackage.dependencies, ['ali-oss', 'busboy', 'mysql2', 'pg']),
   engines: {
     node: '>=20'
   }
@@ -93,6 +94,7 @@ const manifest = {
     'api/scripts/format-aliyun-inventory-report.mjs',
     'api/scripts/aliyun-inventory-gate.mjs',
     'api/scripts/audit-supabase-dependencies.mjs',
+    'api/scripts/apply-aliyun-db-migration.mjs',
     'api/scripts/apply-aliyun-postgres-migration.mjs',
     'api/scripts/supabase-backup.mjs',
     'api/scripts/backup-supabase.mjs',
@@ -123,7 +125,7 @@ const manifest = {
     'Format the inventory log with INVENTORY_INPUT_FILE=/tmp/medical-credit-inventory.txt npm run inventory:aliyun:format before filling the PR23 acceptance checklist.',
     'Run INVENTORY_REPORT_FILE=release/inventory/<report>.json npm run inventory:aliyun:gate before deploying PR23 to catch blocking server states.',
     'Configure Nginx /api/ to proxy to http://127.0.0.1:8787/api/.',
-    'Run npm run db:migrate:aliyun in the API current directory after IT provides the RDS credentials.',
+    'Run npm run db:migrate:aliyun in the API current directory after IT provides the RDS credentials; set ALIYUN_DB_DRIVER=postgres or mysql.',
     'Run API_FLOW_BASE_URL=https://credit.xxx.com API_FLOW_EXPECT_API_READY=true API_FLOW_EXPECT_BACKEND_MODE=dual_write npm run smoke:aliyun:api-flow to verify record save, immediate verification log visibility, and history list.',
     'Run npm run backup:supabase before any one-off Supabase backfill; keep the generated backup directory outside the browser-visible H5 root.',
     'Optionally run npm run storage:migrate:supabase-to-oss and npm run db:migrate:supabase-to-aliyun for one-off Supabase backfills with SUPABASE_SERVICE_ROLE_KEY set only in the shell session.',

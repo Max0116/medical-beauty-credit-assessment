@@ -41,4 +41,11 @@ describe('Aliyun release manifest helpers', () => {
     expect(releaseScript).toContain("audit:supabase");
     expect(releaseScript).toContain('api/scripts/audit-supabase-dependencies.mjs');
   });
+
+  it('keeps generic Postgres/MySQL RDS migration support in the release package', async () => {
+    const releaseScript = await readFile(new URL('./build-aliyun-release.mjs', import.meta.url), 'utf8');
+    expect(releaseScript).toContain('api/scripts/apply-aliyun-db-migration.mjs');
+    expect(releaseScript).toContain("'db:migrate:aliyun': 'node scripts/apply-aliyun-db-migration.mjs'");
+    expect(releaseScript).toContain("'mysql2'");
+  });
 });
