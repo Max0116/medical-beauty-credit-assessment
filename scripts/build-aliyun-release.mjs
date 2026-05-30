@@ -9,8 +9,24 @@ import {
 
 const root = process.cwd();
 const releaseRoot = join(root, 'release');
-const shortSha = git('rev-parse', '--short=12', 'HEAD');
-const branch = git('branch', '--show-current') || 'unknown';
+const commit = resolveReleaseValue({
+  envKeys: ['MEDICAL_CREDIT_RELEASE_COMMIT', 'GIT_COMMIT', 'SOURCE_COMMIT'],
+  gitArgs: ['rev-parse', 'HEAD'],
+  fallback: 'unknown'
+});
+const shortSha = normalizeReleaseSegment(
+  resolveReleaseValue({
+    envKeys: ['MEDICAL_CREDIT_RELEASE_SHORT_SHA', 'GIT_SHORT_SHA', 'SOURCE_SHORT_SHA'],
+    gitArgs: ['rev-parse', '--short=12', 'HEAD'],
+    fallback: commit === 'unknown' ? 'unknown' : commit.slice(0, 12)
+  }),
+  'unknown'
+);
+const branch = resolveReleaseValue({
+  envKeys: ['MEDICAL_CREDIT_RELEASE_BRANCH', 'GIT_BRANCH', 'SOURCE_BRANCH'],
+  gitArgs: ['branch', '--show-current'],
+  fallback: 'unknown'
+});
 const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
 const releaseName = `medical-credit-assessment-aliyun-${shortSha}-${timestamp}`;
 const packageDir = join(releaseRoot, releaseName);
@@ -79,7 +95,7 @@ const manifest = {
   stage: 'PR23 Aliyun RDS OSS backend',
   createdAt: new Date().toISOString(),
   branch,
-  commit: git('rev-parse', 'HEAD'),
+  commit,
   h5Target: '/var/www/medical-credit',
   apiTarget: '/var/www/medical-credit-api',
   apiHealthPath: '/api/health',
@@ -108,6 +124,7 @@ const manifest = {
     'ops/aliyun/',
     'ops/aliyun/deploy-release.sh.example',
     'ops/aliyun/stage-release.sh.example',
+    'ops/aliyun/stage-from-github-source.sh.example',
     'ops/aliyun/Dockerfile.medical-credit-api',
     'ops/aliyun/docker-compose.medical-credit-api.yml.example',
     'ops/aliyun/docker-run-medical-credit-api.sh.example',
@@ -127,6 +144,7 @@ const manifest = {
     'If the BT/aaPanel safe entry is unknown, ask IT to run bash ops/aliyun/bt-entry-readonly.sh.example or /etc/init.d/bt default from the server terminal.',
     'Before touching an existing server, run bash ops/aliyun/server-inventory-readonly.sh.example to capture a read-only inventory of paths, Nginx, ports, and service layout.',
     'On an existing BT/aaPanel site, prefer ops/aliyun/stage-release.sh.example first; it unpacks the release into versioned releases/ directories without switching traffic or reloading services.',
+    'If only the BT web terminal is available, use ops/aliyun/stage-from-github-source.sh.example to clone or download the approved branch, build it in Docker, and then call stage-release without switching traffic.',
     'If host node/npm is unavailable but Docker is active, use docs/pr23-aliyun-node-runtime-options.md and ops/aliyun/Dockerfile.medical-credit-api to run the API as an isolated container bound to 127.0.0.1:8787.',
     'Use ops/aliyun/docker-run-medical-credit-api.sh.example only after staging the API release and creating API_ROOT/.env; it refuses unexpected API roots and existing containers.',
     'Format the inventory log with INVENTORY_INPUT_FILE=/tmp/medical-credit-inventory.txt npm run inventory:aliyun:format before filling the PR23 acceptance checklist.',
@@ -166,6 +184,29 @@ function git(...args) {
   const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
   if (result.status !== 0) return '';
   return result.stdout.trim();
+}
+
+function resolveReleaseValue({ envKeys = [], gitArgs = [], fallback = '' }) {
+  for (const key of envKeys) {
+    const value = process.env[key]?.trim();
+    if (value) return value;
+  }
+
+  if (gitArgs.length > 0) {
+    const value = git(...gitArgs);
+    if (value) return value;
+  }
+
+  return fallback;
+}
+
+function normalizeReleaseSegment(value, fallback) {
+  const normalized = String(value || '')
+    .trim()
+    .replace(/[^0-9A-Za-z._-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  return normalized || fallback;
 }
 
 async function copyDirectoryFiltered(sourceDir, targetDir, { excludeFile } = {}) {

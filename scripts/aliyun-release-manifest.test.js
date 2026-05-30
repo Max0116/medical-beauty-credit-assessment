@@ -37,10 +37,18 @@ describe('Aliyun release manifest helpers', () => {
     const releaseScript = await readFile(new URL('./build-aliyun-release.mjs', import.meta.url), 'utf8');
     expect(releaseScript).toContain('ops/aliyun/bt-entry-readonly.sh.example');
     expect(releaseScript).toContain('ops/aliyun/stage-release.sh.example');
+    expect(releaseScript).toContain('ops/aliyun/stage-from-github-source.sh.example');
     expect(releaseScript).toContain('ops/aliyun/Dockerfile.medical-credit-api');
     expect(releaseScript).toContain('ops/aliyun/docker-compose.medical-credit-api.yml.example');
     expect(releaseScript).toContain('ops/aliyun/docker-run-medical-credit-api.sh.example');
     expect(releaseScript).toContain('without switching traffic or reloading services');
+  });
+
+  it('keeps release packages traceable when built inside Docker without git', async () => {
+    const releaseScript = await readFile(new URL('./build-aliyun-release.mjs', import.meta.url), 'utf8');
+    expect(releaseScript).toContain('MEDICAL_CREDIT_RELEASE_COMMIT');
+    expect(releaseScript).toContain('MEDICAL_CREDIT_RELEASE_BRANCH');
+    expect(releaseScript).toContain('normalizeReleaseSegment');
   });
 
   it('keeps PR24 Supabase audit runnable from the release API package', async () => {

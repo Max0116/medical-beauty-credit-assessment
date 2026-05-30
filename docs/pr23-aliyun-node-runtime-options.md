@@ -19,6 +19,19 @@
 - `.env` 只放在 API 根目录，例如 `/www/wwwroot/medical-credit-api/.env`。
 - Nginx 只代理 `/api/` 到 `http://127.0.0.1:8787/api/`。
 
+如果只有宝塔 Web 终端，没有 SSH 上传能力，可以直接在服务器上从 GitHub 拉取已审核分支并在 Docker 内构建发布包。该脚本只做 versioned staging，不切 `current`，不改 Nginx，不重启服务：
+
+```bash
+CONFIRM_SOURCE_STAGING=yes \
+SOURCE_BRANCH=codex/pr23-aliyun-rds-oss \
+H5_ROOT=/www/wwwroot/medical-credit-assessment \
+API_ROOT=/www/wwwroot/medical-credit-api \
+WORK_ROOT=/www/wwwroot/medical-credit-deploy-work \
+bash ops/aliyun/stage-from-github-source.sh.example
+```
+
+脚本会把源码放入 `WORK_ROOT/source-<timestamp>`，发布包解包到 `H5_ROOT/releases/<release>` 和 `API_ROOT/releases/<release>`。只有 IT 确认 `.env`、RDS、OSS、Nginx `/api/` 后，才允许显式切换 `current`。
+
 只读预检：
 
 ```bash

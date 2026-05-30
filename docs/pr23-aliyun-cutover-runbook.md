@@ -85,6 +85,19 @@ sudo -E bash ops/aliyun/stage-release.sh.example
 
 `stage-release` 不切 `current`、不覆盖当前站点根目录、不改 Nginx、不重启服务。只有完成 preflight 和 IT 复核后，才显式执行 `ln -sfn` 切换 `current` 并 reload 独立服务。
 
+如果只有宝塔 Web 终端、没有可靠的本地上传通道，可以使用源码 staging 脚本。它会在服务器独立工作目录拉取 PR 分支，在 Docker 内执行 `npm ci`、`npm test`、`npm run build`、`npm run release:aliyun`，再调用 `stage-release`；同样不切流量、不改 Nginx、不重启：
+
+```bash
+CONFIRM_SOURCE_STAGING=yes \
+SOURCE_BRANCH=codex/pr23-aliyun-rds-oss \
+H5_ROOT=/www/wwwroot/medical-credit-assessment \
+API_ROOT=/www/wwwroot/medical-credit-api \
+WORK_ROOT=/www/wwwroot/medical-credit-deploy-work \
+bash ops/aliyun/stage-from-github-source.sh.example
+```
+
+注意：Docker 镜像内可能没有 `git`，发布包脚本会优先使用 `MEDICAL_CREDIT_RELEASE_COMMIT` / `MEDICAL_CREDIT_RELEASE_BRANCH`，确保 release 名称和 `MANIFEST.json` 仍能追溯到源分支与 commit。
+
 ## 五、阶段 2：API 环境预检
 
 在 API 目录创建 `.env`，先使用 `dual_write`。当前服务器宿主机未检测到 `node` / `npm`，但 Docker 已安装并 active；运行时路线优先参考 [PR23 阿里云 Node API 运行时路线](./pr23-aliyun-node-runtime-options.md)。
