@@ -112,6 +112,7 @@ INVENTORY_REPORT_FILE=release/inventory/<report>.json npm run inventory:aliyun:g
 | 已确认 API 运行时路线 |  | Docker / 宝塔 Node 项目 / systemd Node |
 | Docker 路线已确认 `docker` daemon 可用 |  |  |
 | Docker 路线已确认容器只绑定 `127.0.0.1:8787` |  |  |
+| Docker 路线使用受限启动脚本或人工等效命令 |  | `ops/aliyun/docker-run-medical-credit-api.sh.example` |
 | Node 路线已确认 Node 版本 >= 20 |  |  |
 | API `.env` 位于 API 根目录而非 H5 根目录 |  |  |
 | Nginx `/api/` 只代理到本项目独立端口 |  |  |

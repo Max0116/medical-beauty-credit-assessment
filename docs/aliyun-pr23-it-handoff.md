@@ -45,6 +45,8 @@
 
 2026-05-30 已确认宝塔面板 `https://101.132.137.25:29119/home` 可登录，且宝塔终端可用。只读盘点显示 Docker 可用、宿主机 Node/npm 不可用。当前下一步不是继续解锁入口，而是按 [PR23 阿里云 Node API 运行时路线](./pr23-aliyun-node-runtime-options.md) 确认 Docker / Node 部署方式、独立数据库 / OSS 资源创建和 staging 部署。
 
+如果选择 Docker 路线，发布包内已提供受限启动脚本 `ops/aliyun/docker-run-medical-credit-api.sh.example`：它只允许本项目 API 根目录，只绑定 `127.0.0.1:8787`，且不会自动替换已有同名容器。
+
 如后续开发侧再次只能看到宝塔“安全入口校验失败”，或 SSH 连接在认证前被服务器关闭，请 IT 先完成以下最小动作之一：
 
 ```bash

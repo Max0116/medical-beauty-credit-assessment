@@ -116,6 +116,13 @@ ASSESSMENT_UPSTREAM_API_KEY=<supabase-function-key>
 bash ops/aliyun/preflight-release.sh.example
 ```
 
+若选择 Docker 路线，staging 和 `.env` 确认后可用受限脚本启动 API 容器：
+
+```bash
+API_ROOT=/www/wwwroot/medical-credit-api \
+bash /www/wwwroot/medical-credit-api/ops/aliyun/docker-run-medical-credit-api.sh.example
+```
+
 停止条件：
 
 - `dual_write` 所需 RDS / OSS / 智谱 / Supabase 旁路配置缺失。

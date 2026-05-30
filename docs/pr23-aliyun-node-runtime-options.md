@@ -52,6 +52,13 @@ docker run -d \
   medical-credit-assessment-api:pr23
 ```
 
+也可以使用发布包内的受限启动脚本。它只允许本项目 API 根目录，只绑定 `127.0.0.1:8787`，并且如果同名容器已存在会直接停止，不会自动替换：
+
+```bash
+API_ROOT=/www/wwwroot/medical-credit-api \
+bash /www/wwwroot/medical-credit-api/ops/aliyun/docker-run-medical-credit-api.sh.example
+```
+
 如果服务器支持 Docker Compose，也可以复制 `ops/aliyun/docker-compose.medical-credit-api.yml.example` 后使用：
 
 ```bash
