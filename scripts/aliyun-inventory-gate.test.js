@@ -14,6 +14,7 @@ const baseReport = {
     targetPort: 'free',
     domesticOutbound: 'ok',
     zhipuOutbound: 'ok',
+    docker: 'active',
     medicalCreditService: 'not_registered',
     pm2: 'missing'
   },
@@ -72,6 +73,33 @@ describe('Aliyun inventory deployment gate', () => {
       '智谱 API 出网异常，联网核验可能失败。',
       '服务器上已存在 medical-credit-api.service，需确认是否为本项目历史服务，避免覆盖未知服务。'
     ]);
+  });
+
+  it('allows Docker runtime review instead of blocking when host Node is missing but Docker is active', () => {
+    const gate = evaluateInventoryGate({
+      ...baseReport,
+      recommendations: ['宿主机 Node.js / npm 缺失，但 Docker 可用；优先按 Docker 独立容器路线部署 API。']
+    });
+
+    expect(gate.ok).toBe(false);
+    expect(gate.decision).toBe('manual_review');
+    expect(gate.blockers).toEqual([]);
+    expect(gate.warnings).toContain('宿主机 Node.js / npm 缺失，但 Docker 可用；需按 Docker 独立容器路线部署 API。');
+  });
+
+  it('blocks when Node is missing and no Docker runtime is available', () => {
+    const gate = evaluateInventoryGate({
+      ...baseReport,
+      signals: {
+        ...baseReport.signals,
+        docker: 'missing'
+      },
+      recommendations: ['Node.js / npm 缺失，需安装 Node.js 20+ 或确认 Docker 运行时后再部署 API。']
+    });
+
+    expect(gate.ok).toBe(false);
+    expect(gate.decision).toBe('blocked');
+    expect(gate.blockers).toContain('Node.js / npm 缺失，需要先安装 Node.js 20+ 或确认 Docker 运行时。');
   });
 
   it('renders markdown and writes optional gate outputs', async () => {

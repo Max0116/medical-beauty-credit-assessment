@@ -26,6 +26,10 @@ OK   medical-credit-api.service is not registered yet
 == PM2 ==
 WARN pm2 missing or not in PATH
 
+== Docker ==
+OK   docker version: Docker version 29.0.2, build 8108357
+OK   docker daemon is reachable
+
 == Outbound network ==
 OK   domestic HTTPS outbound works
 OK   Zhipu endpoint appears reachable
@@ -51,12 +55,13 @@ describe('Aliyun inventory report formatter', () => {
       sourceFile: '/tmp/inventory.log'
     });
 
-    expect(report.counts).toMatchObject({ ok: 9, warn: 1, fail: 0 });
+    expect(report.counts).toMatchObject({ ok: 11, warn: 1, fail: 0 });
     expect(report.signals).toMatchObject({
       nginxTest: 'passed',
       targetPort: 'free',
       domesticOutbound: 'ok',
       zhipuOutbound: 'ok',
+      docker: 'active',
       medicalCreditService: 'not_registered',
       pm2: 'missing'
     });
@@ -73,6 +78,7 @@ describe('Aliyun inventory report formatter', () => {
 
     expect(markdown).toContain('# PR23 阿里云服务器只读盘点报告');
     expect(markdown).toContain('| API 目标端口 | 空闲 |');
+    expect(markdown).toContain('| Docker 状态 | 可用 |');
     expect(markdown).toContain('未发现明显阻断项');
     expect(markdown).not.toContain('real-secret-value');
   });

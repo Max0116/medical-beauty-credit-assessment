@@ -52,6 +52,7 @@ export function renderInventoryMarkdown(report) {
     ['API 目标端口', labelSignal(report.signals.targetPort)],
     ['国内 HTTPS 出网', labelSignal(report.signals.domesticOutbound)],
     ['智谱 API 出网', labelSignal(report.signals.zhipuOutbound)],
+    ['Docker 状态', labelSignal(report.signals.docker)],
     ['medical-credit-api 服务', labelSignal(report.signals.medicalCreditService)],
     ['PM2 状态', labelSignal(report.signals.pm2)]
   ];
@@ -169,6 +170,12 @@ function extractSignals(sections, allLines) {
       ['warning', /Zhipu endpoint check failed/i],
       ['ok', /Zhipu endpoint appears reachable/i]
     ]),
+    docker: classifyByLines(allLines, [
+      ['active', /docker daemon is reachable|docker.*active/i],
+      ['installed', /docker version:/i],
+      ['missing', /docker is not installed|docker is missing/i],
+      ['warning', /docker command exists but daemon is not reachable/i]
+    ]),
     medicalCreditService: classifyByLines(allLines, [
       ['exists', /medical-credit-api\.service already exists/i],
       ['not_registered', /medical-credit-api\.service is not registered yet/i]
@@ -214,8 +221,11 @@ function buildRecommendations({ counts, signals, allLines }) {
   if (signals.zhipuOutbound === 'warning') {
     recommendations.push('智谱 API 出网异常，联网核验可能失败，需先确认出口策略。');
   }
-  if (allLines.some((line) => /node is not installed|npm is not installed/i.test(line))) {
-    recommendations.push('Node.js / npm 缺失，需安装 Node.js 20+ 后再部署 API。');
+  const nodeMissing = allLines.some((line) => /node is not installed|npm is not installed|no_node|no_npm/i.test(line));
+  if (nodeMissing && signals.docker === 'active') {
+    recommendations.push('宿主机 Node.js / npm 缺失，但 Docker 可用；优先按 Docker 独立容器路线部署 API。');
+  } else if (nodeMissing) {
+    recommendations.push('Node.js / npm 缺失，需安装 Node.js 20+ 或确认 Docker 运行时后再部署 API。');
   }
   if (signals.medicalCreditService === 'exists') {
     recommendations.push('目标 systemd 服务已存在，部署前确认是否为本项目历史服务，避免覆盖未知服务。');
@@ -238,6 +248,8 @@ function labelSignal(value) {
     not_registered: '未注册',
     present: '存在',
     missing: '未发现',
+    active: '可用',
+    installed: '已安装',
     unknown: '未知'
   };
   return labels[value] || value || '未知';

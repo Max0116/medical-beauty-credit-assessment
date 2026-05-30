@@ -40,8 +40,11 @@ export function evaluateInventoryGate(report = {}) {
     warnings.push('服务器上已存在 medical-credit-api.service，需确认是否为本项目历史服务，避免覆盖未知服务。');
   }
 
-  if (recommendations.some((item) => /Node\.js \/ npm 缺失|node is not installed|npm is not installed/i.test(item))) {
-    blockers.push('Node.js / npm 缺失，需要先安装 Node.js 20+。');
+  const nodeRuntimeMissing = recommendations.some((item) => /Node\.js \/ npm 缺失|node is not installed|npm is not installed/i.test(item));
+  if (nodeRuntimeMissing && signals.docker === 'active') {
+    warnings.push('宿主机 Node.js / npm 缺失，但 Docker 可用；需按 Docker 独立容器路线部署 API。');
+  } else if (nodeRuntimeMissing) {
+    blockers.push('Node.js / npm 缺失，需要先安装 Node.js 20+ 或确认 Docker 运行时。');
   }
 
   const decision = blockers.length > 0 ? 'blocked' : warnings.length > 0 ? 'manual_review' : 'go';
