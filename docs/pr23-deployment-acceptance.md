@@ -85,6 +85,22 @@ npm run db:bootstrap:mysql
 | SQL 未引用 `gohomesh` / `mediverseai` / `maxfuture` |  |  |
 | IT 已确认 MySQL user host 与 Docker/RDS 网络路径匹配 |  |  |
 
+也可以先生成完整 IT 交接包，统一交付 `.env` 模板、MySQL SQL 模板、OSS policy、Nginx 草案和执行命令清单：
+
+```bash
+ALIYUN_HANDOFF_DOMAIN=credit.xxx.com \
+ALIYUN_HANDOFF_DRIVER=mysql \
+npm run handoff:aliyun:generate
+```
+
+| 验收项 | 结果 | 证据 |
+| --- | --- | --- |
+| `handoff:aliyun:generate` 输出目录已生成 |  |  |
+| 交接包不包含真实密码、AccessKey、智谱 Key 或 Supabase Key |  |  |
+| `mysql-bootstrap.template.sql` 未引用既有业务库 |  |  |
+| `nginx-medical-credit.conf` 使用独立备案域名，不使用裸 IP |  |  |
+| `oss-ram-policy.json` 不包含删除对象或全局 bucket 权限 |  |  |
+
 如使用 OSS 附件存储，先生成并复核 RAM 最小权限策略：
 
 ```bash

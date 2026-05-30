@@ -52,6 +52,8 @@ describe('Aliyun release manifest helpers', () => {
     expect(releaseScript).toContain("'db:bootstrap:mysql': 'node scripts/generate-aliyun-mysql-bootstrap.mjs'");
     expect(releaseScript).toContain('api/scripts/generate-aliyun-oss-policy.mjs');
     expect(releaseScript).toContain("'oss:policy:generate': 'node scripts/generate-aliyun-oss-policy.mjs'");
+    expect(releaseScript).toContain('api/scripts/generate-aliyun-it-handoff-bundle.mjs');
+    expect(releaseScript).toContain("'handoff:aliyun:generate': 'node scripts/generate-aliyun-it-handoff-bundle.mjs'");
     expect(releaseScript).toContain('api/scripts/generate-aliyun-nginx-vhost.mjs');
     expect(releaseScript).toContain('api/scripts/aliyun-nginx-entry-gate.mjs');
     expect(releaseScript).toContain('without switching traffic or reloading services');

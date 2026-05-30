@@ -29,6 +29,7 @@
     "qr:aliyun": "node scripts/generate-aliyun-qr.mjs",
     "backup:supabase": "node scripts/backup-supabase.mjs",
     "db:bootstrap:mysql": "node scripts/generate-aliyun-mysql-bootstrap.mjs",
+    "handoff:aliyun:generate": "node scripts/generate-aliyun-it-handoff-bundle.mjs",
     "db:migrate:aliyun": "node scripts/apply-aliyun-db-migration.mjs",
     "oss:policy:generate": "node scripts/generate-aliyun-oss-policy.mjs",
     "db:migrate:supabase-to-aliyun": "node scripts/migrate-supabase-to-aliyun-rds.mjs",

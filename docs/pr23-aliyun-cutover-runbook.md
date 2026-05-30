@@ -214,6 +214,16 @@ npm run oss:policy:generate
 
 生成后由 IT 在阿里云控制台创建私有 OSS bucket，并把 `/tmp/medical-credit-oss-policy.json` 绑定到本项目专用 RAM 身份。策略仅允许 `medical-credit-verification-evidence/verification-evidence/*` 前缀对象的上传和读取，不包含删除对象、列出全部 bucket 等权限。
 
+也可以生成一份完整 IT 交接包，用于把 `.env` 模板、MySQL SQL 模板、OSS policy、Nginx vhost 草案和执行顺序集中交给 IT：
+
+```bash
+ALIYUN_HANDOFF_DOMAIN=credit.xxx.com \
+ALIYUN_HANDOFF_DRIVER=mysql \
+npm run handoff:aliyun:generate
+```
+
+该命令不连接阿里云、不读取真实密钥、不修改服务器。若域名仍是裸 IP，会输出 `blocked`，避免继续复用已有业务入口。
+
 执行只读预检：
 
 ```bash

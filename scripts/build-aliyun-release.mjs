@@ -62,6 +62,7 @@ await cp(join(root, 'scripts', 'supabase-backup.mjs'), join(packageDir, 'api', '
 await cp(join(root, 'scripts', 'backup-supabase.mjs'), join(packageDir, 'api', 'scripts', 'backup-supabase.mjs'));
 await cp(join(root, 'scripts', 'generate-aliyun-mysql-bootstrap.mjs'), join(packageDir, 'api', 'scripts', 'generate-aliyun-mysql-bootstrap.mjs'));
 await cp(join(root, 'scripts', 'generate-aliyun-oss-policy.mjs'), join(packageDir, 'api', 'scripts', 'generate-aliyun-oss-policy.mjs'));
+await cp(join(root, 'scripts', 'generate-aliyun-it-handoff-bundle.mjs'), join(packageDir, 'api', 'scripts', 'generate-aliyun-it-handoff-bundle.mjs'));
 await cp(join(root, 'scripts', 'aliyun-migration-verifier.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-migration-verifier.mjs'));
 await cp(join(root, 'scripts', 'verify-aliyun-migration.mjs'), join(packageDir, 'api', 'scripts', 'verify-aliyun-migration.mjs'));
 await cp(join(root, 'scripts', 'supabase-rds-migration.mjs'), join(packageDir, 'api', 'scripts', 'supabase-rds-migration.mjs'));
@@ -92,6 +93,7 @@ await writeFile(join(packageDir, 'api', 'package.json'), `${JSON.stringify({
     'audit:supabase': 'node scripts/audit-supabase-dependencies.mjs',
     'backup:supabase': 'node scripts/backup-supabase.mjs',
     'db:bootstrap:mysql': 'node scripts/generate-aliyun-mysql-bootstrap.mjs',
+    'handoff:aliyun:generate': 'node scripts/generate-aliyun-it-handoff-bundle.mjs',
     'db:migrate:aliyun': 'node scripts/apply-aliyun-db-migration.mjs',
     'oss:policy:generate': 'node scripts/generate-aliyun-oss-policy.mjs',
     'db:migrate:supabase-to-aliyun': 'node scripts/migrate-supabase-to-aliyun-rds.mjs',
@@ -136,6 +138,7 @@ const manifest = {
     'api/scripts/backup-supabase.mjs',
     'api/scripts/generate-aliyun-mysql-bootstrap.mjs',
     'api/scripts/generate-aliyun-oss-policy.mjs',
+    'api/scripts/generate-aliyun-it-handoff-bundle.mjs',
     'api/scripts/aliyun-migration-verifier.mjs',
     'api/scripts/verify-aliyun-migration.mjs',
     'api/scripts/supabase-rds-migration.mjs',
@@ -175,6 +178,7 @@ const manifest = {
     'Run ALIYUN_CUTOVER_PHASE=dual_write npm run cutover:aliyun:gate with the generated report files to produce a final go/no-go summary before changing traffic or backend mode.',
     'If IT chooses MySQL, generate reviewable bootstrap SQL with ALIYUN_MYSQL_BOOTSTRAP_OUTPUT_FILE=/tmp/medical-credit-mysql-bootstrap.sql npm run db:bootstrap:mysql; it refuses existing business database names and will not print real passwords to stdout.',
     'Generate a least-privilege OSS/RAM handoff with ALIYUN_OSS_POLICY_OUTPUT_FILE=/tmp/medical-credit-oss-policy.json ALIYUN_OSS_POLICY_MARKDOWN_FILE=/tmp/medical-credit-oss-policy.md npm run oss:policy:generate.',
+    'Generate a complete IT handoff bundle with ALIYUN_HANDOFF_DOMAIN=credit.xxx.com npm run handoff:aliyun:generate; it contains templates only and no real secrets.',
     'Format the inventory log with INVENTORY_INPUT_FILE=/tmp/medical-credit-inventory.txt npm run inventory:aliyun:format before filling the PR23 acceptance checklist.',
     'Run INVENTORY_REPORT_FILE=release/inventory/<report>.json npm run inventory:aliyun:gate before deploying PR23 to catch blocking server states.',
     'Generate an independent domain vhost with NGINX_SERVER_NAME=credit.xxx.com NGINX_OUTPUT_FILE=/tmp/medical-credit.conf npm run nginx:aliyun:generate; the generator refuses bare IPs and non-local API upstreams by default.',
