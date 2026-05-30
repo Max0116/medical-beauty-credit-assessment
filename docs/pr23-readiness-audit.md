@@ -6,7 +6,7 @@
 
 | 项目 | 状态 | 证据 |
 | --- | --- | --- |
-| PR23 代码准备 | 已具备提交条件 | 本地测试、构建、发布包生成均通过 |
+| PR23 代码准备 | 已提交并推送到 PR #23 | commit `743702aca873103cf9f8c4449f8b4c8311892995`，PR CI 通过 |
 | 风控评分规则 | 未改动 | 本轮改动集中在 smoke、验收文档和阿里云迁移交接 |
 | 前端国内入口 | 当前可访问 | `http://101.132.137.25` smoke 通过 |
 | 当前线上后端 | 仍是 PR22 兼容链路 | `/api/health` 显示 `proxy=aliyun-nginx`、`upstream=supabase` |
@@ -25,6 +25,13 @@ npm run release:aliyun
 HEALTH_BASE_URL=http://101.132.137.25 npm run health:aliyun
 SMOKE_BASE_URL=http://101.132.137.25 SMOKE_EXPECT_API=true SMOKE_VERSION_LABEL=pr23-ready-to-commit npm run smoke:aliyun
 git diff --check
+```
+
+最新 PR23 发布包：
+
+```text
+release/medical-credit-assessment-aliyun-743702aca873-20260529T211813Z.tar.gz
+SHA256: e6a8c05f43f1a2b8c906f07f0db8d6a0fed02b95ec6e1c37481dd6a4a091dff8
 ```
 
 补充聚焦验证：
@@ -65,10 +72,9 @@ PR23 无法继续真实部署的原因不是代码，而是服务器入口：
 
 ## 六、下一步动作
 
-1. 提交并推送当前 PR23 smoke 可追踪性和交接文档改动。
-2. 将 `docs/aliyun-pr23-access-unlock-request.md` 发给 IT。
-3. IT 提供真实宝塔入口或独立 SSH。
-4. 执行只读服务器盘点。
-5. 盘点通过后部署 PR23 包，先启用 `MEDICAL_CREDIT_BACKEND_MODE=dual_write`。
-6. 完成 RDS / OSS 迁移、附件签名链接、API flow smoke 和微信端 smoke。
-7. 验收通过后再切 `MEDICAL_CREDIT_BACKEND_MODE=aliyun`。
+1. 将 `docs/aliyun-pr23-access-unlock-request.md` 发给 IT。
+2. IT 提供真实宝塔入口或独立 SSH。
+3. 执行只读服务器盘点。
+4. 盘点通过后部署 PR23 包，先启用 `MEDICAL_CREDIT_BACKEND_MODE=dual_write`。
+5. 完成 RDS / OSS 迁移、附件签名链接、API flow smoke 和微信端 smoke。
+6. 验收通过后再切 `MEDICAL_CREDIT_BACKEND_MODE=aliyun`。

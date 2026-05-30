@@ -17,6 +17,33 @@
 /etc/init.d/bt default
 ```
 
+如果从阿里云控制台操作，可以进入：
+
+```text
+ECS 控制台 -> 实例 -> 远程连接 -> Workbench / VNC -> 服务器终端
+```
+
+然后复制执行：
+
+```bash
+echo "== 宝塔入口 =="
+/etc/init.d/bt default
+
+echo "== 当前登录用户 =="
+whoami
+
+echo "== 当前目录 =="
+pwd
+```
+
+请把“宝塔入口”输出发回即可，不要截图或转发任何密码、AccessKey、API Key。
+
+如果 PR23 发布包已经在服务器上，也可以在发布包目录执行同等只读脚本：
+
+```bash
+bash ops/aliyun/bt-entry-readonly.sh.example
+```
+
 方式二：提供独立 SSH 登录方式。
 
 ```text
@@ -48,12 +75,14 @@ sudo 权限：允许执行只读盘点、创建独立目录、创建独立服务
 
 ## 拿到入口后的第一步
 
-开发侧只执行只读盘点，不部署、不重启、不 reload、不写入现有项目：
+开发侧只执行只读盘点，不部署、不重启、不 reload、不写入现有项目。若发布包已经解压到服务器，进入发布包目录后执行：
 
 ```bash
 bash ops/aliyun/server-inventory-readonly.sh.example > /tmp/medical-credit-inventory.txt
 INVENTORY_INPUT_FILE=/tmp/medical-credit-inventory.txt npm run inventory:aliyun:format
 INVENTORY_REPORT_FILE=release/inventory/<report>.json npm run inventory:aliyun:gate
 ```
+
+如果服务器上暂时还没有发布包，IT 可先只提供宝塔真实入口或 SSH；开发侧拿到后再上传 PR23 发布包并执行同一套只读盘点。
 
 盘点通过后，才会进入 PR23 `dual_write` 灰度部署；如有异常，优先回滚到 `proxy` 模式，不删除 RDS / OSS / 备份。

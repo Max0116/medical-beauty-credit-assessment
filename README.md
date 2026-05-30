@@ -247,14 +247,19 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `docs/aliyun-pr22-api-proxy.md`：阿里云 API 中转部署、验收和回滚说明。
 - `docs/aliyun-pr22-it-handoff.md`：给 IT 的 PR22 独立部署交接单。
 - `docs/pr23-aliyun-rds-oss-migration-plan.md`：PR23 阿里云 RDS / OSS 迁移设计草案。
+- `docs/pr23-pr24-handoff-index.md`：PR23 / PR24 阿里云迁移交接索引，串联入口解锁、盘点、切换、去 Supabase 和生产运维。
 - `docs/aliyun-pr23-it-handoff.md`：给 IT 的 PR23 RDS / OSS 迁移交接单。
 - `docs/aliyun-pr23-access-unlock-request.md`：给 IT 的 PR23 宝塔入口 / SSH 解锁短版请求。
 - `docs/aliyun-pr23-server-inventory-checklist.md`：已有阿里云服务器只读盘点记录表。
+- `docs/pr23-aliyun-cutover-runbook.md`：PR23 从只读盘点到 `dual_write` / `aliyun` 切换和回滚的执行手册。
+- `docs/pr24-supabase-decommission-audit.md`：PR24 去 Supabase 前置审计、依赖清单和验收门槛。
+- `docs/pr24-aliyun-production-ops-runbook.md`：PR24 去 Supabase 后的阿里云生产运维、备份、恢复、告警和密钥轮换手册。
 - `docs/pr23-aliyun-public-reachability-log.md`：PR23 迁移前公网只读可达性记录。
 - `docs/pr23-readiness-audit.md`：PR23 当前代码、验证、阻塞和真实部署前置条件审计。
 - `docs/pr23-deployment-acceptance.md`：PR23 迁移部署验收记录模板。
-- `ops/aliyun/`：阿里云 Nginx、systemd、环境变量、只读服务器盘点和部署预检模板。
+- `ops/aliyun/`：阿里云 Nginx、systemd、环境变量、宝塔入口只读查询、只读服务器盘点和部署预检模板。
 - `scripts/verify-dist-no-secrets.mjs`：构建产物密钥与上游地址扫描脚本；PR23 起同时确认阿里云发布构建的前端 API base 为同源 `/api`，并阻断 Supabase / 智谱 / 阿里云密钥标记进入浏览器文件。
+- `scripts/audit-supabase-dependencies.mjs`：PR24 去 Supabase 前置审计脚本，分类输出生产路径、迁移脚本、旧 Supabase 源码和文档中的依赖。
 - `scripts/build-aliyun-release.mjs`：生成阿里云部署发布包，PR23 起包含完整 Node API、RDS migration 和 OSS / 智谱依赖声明。
 - `scripts/check-aliyun-health.mjs`：部署后检查 `/api/health` readiness，可要求 RDS / OSS / 智谱均已配置。
 - `scripts/aliyun-api-flow-smoke.mjs`：PR23 部署后检查保存评估记录、立即可见核验日志、历史列表返回记录；可选上传带 `PR23_API_FLOW_SMOKE` / `runId` 标识的测试 PDF 到 OSS 并校验签名链接。

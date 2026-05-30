@@ -34,6 +34,7 @@ await cp(join(root, 'scripts', 'check-aliyun-health.mjs'), join(packageDir, 'api
 await cp(join(root, 'scripts', 'aliyun-api-flow-smoke.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-api-flow-smoke.mjs'));
 await cp(join(root, 'scripts', 'format-aliyun-inventory-report.mjs'), join(packageDir, 'api', 'scripts', 'format-aliyun-inventory-report.mjs'));
 await cp(join(root, 'scripts', 'aliyun-inventory-gate.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-inventory-gate.mjs'));
+await cp(join(root, 'scripts', 'audit-supabase-dependencies.mjs'), join(packageDir, 'api', 'scripts', 'audit-supabase-dependencies.mjs'));
 await cp(join(root, 'scripts', 'apply-aliyun-postgres-migration.mjs'), join(packageDir, 'api', 'scripts', 'apply-aliyun-postgres-migration.mjs'));
 await cp(join(root, 'scripts', 'supabase-backup.mjs'), join(packageDir, 'api', 'scripts', 'supabase-backup.mjs'));
 await cp(join(root, 'scripts', 'backup-supabase.mjs'), join(packageDir, 'api', 'scripts', 'backup-supabase.mjs'));
@@ -58,6 +59,7 @@ await writeFile(join(packageDir, 'api', 'package.json'), `${JSON.stringify({
     'smoke:aliyun:api-flow': 'node scripts/aliyun-api-flow-smoke.mjs',
     'inventory:aliyun:format': 'node scripts/format-aliyun-inventory-report.mjs',
     'inventory:aliyun:gate': 'node scripts/aliyun-inventory-gate.mjs',
+    'audit:supabase': 'node scripts/audit-supabase-dependencies.mjs',
     'backup:supabase': 'node scripts/backup-supabase.mjs',
     'db:migrate:aliyun': 'node scripts/apply-aliyun-postgres-migration.mjs',
     'db:migrate:supabase-to-aliyun': 'node scripts/migrate-supabase-to-aliyun-rds.mjs',
@@ -90,6 +92,7 @@ const manifest = {
     'api/scripts/aliyun-api-flow-smoke.mjs',
     'api/scripts/format-aliyun-inventory-report.mjs',
     'api/scripts/aliyun-inventory-gate.mjs',
+    'api/scripts/audit-supabase-dependencies.mjs',
     'api/scripts/apply-aliyun-postgres-migration.mjs',
     'api/scripts/supabase-backup.mjs',
     'api/scripts/backup-supabase.mjs',
@@ -102,6 +105,7 @@ const manifest = {
     'api/package.json',
     'ops/aliyun/',
     'ops/aliyun/deploy-release.sh.example',
+    'ops/aliyun/bt-entry-readonly.sh.example',
     'ops/aliyun/server-inventory-readonly.sh.example',
     'ops/aliyun/preflight-release.sh.example',
     'ops/aliyun/rollback-release.sh.example',
@@ -114,6 +118,7 @@ const manifest = {
     'Run npm install --omit=dev --package-lock=false in the API current directory after switching releases.',
     'Create /var/www/medical-credit-api/.env from ops/aliyun/medical-credit-api.env.example on the server.',
     'Do not place ASSESSMENT_UPSTREAM_API_KEY in the H5 directory or browser-visible files.',
+    'If the BT/aaPanel safe entry is unknown, ask IT to run bash ops/aliyun/bt-entry-readonly.sh.example or /etc/init.d/bt default from the server terminal.',
     'Before touching an existing server, run bash ops/aliyun/server-inventory-readonly.sh.example to capture a read-only inventory of paths, Nginx, ports, and service layout.',
     'Format the inventory log with INVENTORY_INPUT_FILE=/tmp/medical-credit-inventory.txt npm run inventory:aliyun:format before filling the PR23 acceptance checklist.',
     'Run INVENTORY_REPORT_FILE=release/inventory/<report>.json npm run inventory:aliyun:gate before deploying PR23 to catch blocking server states.',

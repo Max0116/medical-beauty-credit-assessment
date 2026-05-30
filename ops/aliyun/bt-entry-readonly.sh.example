@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Usage:
+#   bash ops/aliyun/bt-entry-readonly.sh.example
+#
+# Purpose:
+# - Read-only helper for IT to retrieve the current BT/aaPanel safe login entry.
+# - Does not disable the safe entry.
+# - Does not create, delete, overwrite, restart, reload, or modify anything.
+# - Does not print passwords, AccessKeys, API keys, .env contents, or certificate contents.
+
+section() {
+  printf '\n== %s ==\n' "$1"
+}
+
+ok() {
+  printf 'OK   %s\n' "$1"
+}
+
+warn() {
+  printf 'WARN %s\n' "$1"
+}
+
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+run_if_exists() {
+  local command_path="$1"
+  local label="$2"
+  if [[ -x "$command_path" ]]; then
+    section "$label"
+    "$command_path" default 2>&1 || warn "$command_path default failed"
+  else
+    warn "$label command not executable: $command_path"
+  fi
+}
+
+section "Host context"
+ok "hostname: $(hostname 2>/dev/null || echo unknown)"
+ok "current user: $(id -un 2>/dev/null || whoami 2>/dev/null || echo unknown) uid=$(id -u 2>/dev/null || echo unknown)"
+ok "pwd: $(pwd)"
+
+section "BT / aaPanel entry lookup"
+run_if_exists /etc/init.d/bt "BT init script"
+run_if_exists /etc/init.d/btpanel "BT panel init script"
+
+if command_exists bt; then
+  section "bt command"
+  bt default 2>&1 || warn "bt default failed"
+else
+  warn "bt command missing from PATH"
+fi
+
+section "Panel process hints"
+if command_exists ps; then
+  ps -ef 2>/dev/null | awk '/BT-Panel|btpanel|aaPanel|panel/ && !/awk/ { print "  - " $0 }' | head -n 20
+else
+  warn "ps command missing"
+fi
+
+section "Reminder"
+ok "Only send back the BT/aaPanel login URL or safe entry output needed for login."
+ok "Do not send passwords, AccessKeys, API keys, .env contents, or certificate contents."
