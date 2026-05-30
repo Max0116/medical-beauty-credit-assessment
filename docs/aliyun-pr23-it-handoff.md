@@ -4,6 +4,8 @@
 
 当前宝塔面板已经可以登录访问；若后续需要脱离浏览器面板执行部署，仍可向 IT 要独立 SSH 账号，短版请求见：[PR23 阿里云部署入口解锁请求](./aliyun-pr23-access-unlock-request.md)。
 
+2026-05-30 已追加一次宝塔 UI 只读复核，结论见：[PR23 宝塔面板只读复核记录](./pr23-baota-readonly-panel-evidence.md)。当前 PgSQL 未安装，MySQL 中已有 `gohomesh`、`mediverseai`、`maxfuture` 三个既有业务库；PR23 不得复用或修改这些库。
+
 ## 一、部署边界
 
 必须遵守：

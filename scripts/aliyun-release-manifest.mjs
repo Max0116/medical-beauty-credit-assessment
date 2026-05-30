@@ -10,6 +10,7 @@ export const ALIYUN_RELEASE_DOC_FILES = [
   'pr23-aliyun-node-runtime-options.md',
   'pr23-aliyun-cutover-runbook.md',
   'pr23-aliyun-public-reachability-log.md',
+  'pr23-baota-readonly-panel-evidence.md',
   'pr23-readiness-audit.md',
   'pr23-deployment-acceptance.md',
   'pr24-supabase-decommission-audit.md',

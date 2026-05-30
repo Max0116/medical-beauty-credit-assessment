@@ -14,6 +14,7 @@ describe('Aliyun release manifest helpers', () => {
       'pr23-aliyun-cutover-runbook.md',
       'pr23-aliyun-node-runtime-options.md',
       'pr23-readiness-audit.md',
+      'pr23-baota-readonly-panel-evidence.md',
       'pr23-deployment-acceptance.md',
       'pr24-supabase-decommission-audit.md',
       'pr24-aliyun-production-ops-runbook.md'
@@ -28,6 +29,7 @@ describe('Aliyun release manifest helpers', () => {
       'docs/pr23-aliyun-cutover-runbook.md',
       'docs/pr23-aliyun-node-runtime-options.md',
       'docs/pr23-readiness-audit.md',
+      'docs/pr23-baota-readonly-panel-evidence.md',
       'docs/pr24-supabase-decommission-audit.md',
       'docs/pr24-aliyun-production-ops-runbook.md'
     ]));
