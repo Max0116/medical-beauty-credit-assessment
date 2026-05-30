@@ -44,6 +44,8 @@ describe('Aliyun release manifest helpers', () => {
     expect(releaseScript).toContain('api/scripts/aliyun-env-guard.mjs');
     expect(releaseScript).toContain('api/scripts/aliyun-resource-readiness.mjs');
     expect(releaseScript).toContain("'resources:aliyun:check': 'node scripts/aliyun-resource-readiness.mjs'");
+    expect(releaseScript).toContain('api/scripts/aliyun-cutover-readiness.mjs');
+    expect(releaseScript).toContain("'cutover:aliyun:gate': 'node scripts/aliyun-cutover-readiness.mjs'");
     expect(releaseScript).toContain('api/scripts/generate-aliyun-mysql-bootstrap.mjs');
     expect(releaseScript).toContain("'db:bootstrap:mysql': 'node scripts/generate-aliyun-mysql-bootstrap.mjs'");
     expect(releaseScript).toContain('api/scripts/generate-aliyun-oss-policy.mjs');

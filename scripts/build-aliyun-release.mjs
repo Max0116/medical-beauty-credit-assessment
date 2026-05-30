@@ -50,6 +50,7 @@ await cp(join(root, 'scripts', 'check-aliyun-health.mjs'), join(packageDir, 'api
 await cp(join(root, 'scripts', 'aliyun-api-flow-smoke.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-api-flow-smoke.mjs'));
 await cp(join(root, 'scripts', 'aliyun-env-guard.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-env-guard.mjs'));
 await cp(join(root, 'scripts', 'aliyun-resource-readiness.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-resource-readiness.mjs'));
+await cp(join(root, 'scripts', 'aliyun-cutover-readiness.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-cutover-readiness.mjs'));
 await cp(join(root, 'scripts', 'generate-aliyun-nginx-vhost.mjs'), join(packageDir, 'api', 'scripts', 'generate-aliyun-nginx-vhost.mjs'));
 await cp(join(root, 'scripts', 'aliyun-nginx-entry-gate.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-nginx-entry-gate.mjs'));
 await cp(join(root, 'scripts', 'format-aliyun-inventory-report.mjs'), join(packageDir, 'api', 'scripts', 'format-aliyun-inventory-report.mjs'));
@@ -83,6 +84,7 @@ await writeFile(join(packageDir, 'api', 'package.json'), `${JSON.stringify({
     'env:aliyun:guard': 'node scripts/aliyun-env-guard.mjs',
     'env:aliyun:template': 'ALIYUN_ENV_TEMPLATE_ONLY=yes node scripts/aliyun-env-guard.mjs',
     'resources:aliyun:check': 'node scripts/aliyun-resource-readiness.mjs',
+    'cutover:aliyun:gate': 'node scripts/aliyun-cutover-readiness.mjs',
     'nginx:aliyun:generate': 'node scripts/generate-aliyun-nginx-vhost.mjs',
     'nginx:aliyun:gate': 'node scripts/aliyun-nginx-entry-gate.mjs',
     'inventory:aliyun:format': 'node scripts/format-aliyun-inventory-report.mjs',
@@ -122,6 +124,7 @@ const manifest = {
     'api/scripts/aliyun-api-flow-smoke.mjs',
     'api/scripts/aliyun-env-guard.mjs',
     'api/scripts/aliyun-resource-readiness.mjs',
+    'api/scripts/aliyun-cutover-readiness.mjs',
     'api/scripts/generate-aliyun-nginx-vhost.mjs',
     'api/scripts/aliyun-nginx-entry-gate.mjs',
     'api/scripts/format-aliyun-inventory-report.mjs',
@@ -169,6 +172,7 @@ const manifest = {
     'Generate a server-side template with ALIYUN_ENV_TEMPLATE_MODE=dual_write ALIYUN_ENV_TEMPLATE_ALLOWED_ORIGIN=https://credit.xxx.com npm run env:aliyun:template; never copy the resulting .env into the H5 root.',
     'Validate server secrets with ALIYUN_ENV_FILE=/www/wwwroot/medical-credit-api/.env ALIYUN_ENV_EXPECT_MODE=dual_write npm run env:aliyun:guard before preflight; output is redacted and blocks H5-root .env files.',
     'Run ALIYUN_RESOURCE_ENV_FILE=/www/wwwroot/medical-credit-api/.env ALIYUN_RESOURCE_EXPECT_MODE=dual_write npm run resources:aliyun:check to confirm RDS/MySQL, OSS, Zhipu and Supabase rollback resources are ready without printing secrets.',
+    'Run ALIYUN_CUTOVER_PHASE=dual_write npm run cutover:aliyun:gate with the generated report files to produce a final go/no-go summary before changing traffic or backend mode.',
     'If IT chooses MySQL, generate reviewable bootstrap SQL with ALIYUN_MYSQL_BOOTSTRAP_OUTPUT_FILE=/tmp/medical-credit-mysql-bootstrap.sql npm run db:bootstrap:mysql; it refuses existing business database names and will not print real passwords to stdout.',
     'Generate a least-privilege OSS/RAM handoff with ALIYUN_OSS_POLICY_OUTPUT_FILE=/tmp/medical-credit-oss-policy.json ALIYUN_OSS_POLICY_MARKDOWN_FILE=/tmp/medical-credit-oss-policy.md npm run oss:policy:generate.',
     'Format the inventory log with INVENTORY_INPUT_FILE=/tmp/medical-credit-inventory.txt npm run inventory:aliyun:format before filling the PR23 acceptance checklist.',

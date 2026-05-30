@@ -103,6 +103,27 @@ npm run oss:policy:generate
 | Bucket 权限保持私有，未开启公共读写 |  |  |
 | OSS AccessKey 只写入 API `.env`，未进入 H5 目录或前端构建产物 |  |  |
 
+PR23 切换前总闸门：
+
+```bash
+ALIYUN_CUTOVER_PHASE=dual_write \
+ALIYUN_CUTOVER_INVENTORY_GATE_FILE=/tmp/medical-credit-inventory-gate.json \
+ALIYUN_CUTOVER_NGINX_GATE_FILE=/tmp/medical-credit-nginx-gate.json \
+ALIYUN_CUTOVER_ENV_GATE_FILE=/tmp/medical-credit-env-gate.json \
+ALIYUN_CUTOVER_RESOURCE_FILE=/tmp/medical-credit-resource-readiness.json \
+ALIYUN_CUTOVER_HEALTH_FILE=/tmp/medical-credit-health.json \
+ALIYUN_CUTOVER_API_FLOW_FILE=/tmp/medical-credit-api-flow.json \
+ALIYUN_CUTOVER_OUTPUT_FILE=/tmp/medical-credit-cutover-dual-write.json \
+ALIYUN_CUTOVER_MARKDOWN_FILE=/tmp/medical-credit-cutover-dual-write.md \
+npm run cutover:aliyun:gate
+```
+
+| 验收项 | 结果 | 证据 |
+| --- | --- | --- |
+| `cutover:aliyun:gate` 未输出 `blocked` |  |  |
+| 总闸门已读取 inventory / nginx / env / resource / health / api-flow 证据文件 |  |  |
+| `aliyun` 最终切换前已额外读取 `migration:verify:aliyun` 证据文件 |  |  |
+
 ## 三、发布包检查
 
 | 验收项 | 结果 | 证据 |
@@ -118,6 +139,7 @@ npm run oss:policy:generate
 | 发布包包含 `backup:supabase` |  |  |
 | 发布包包含 `db:bootstrap:mysql` |  |  |
 | 发布包包含 `oss:policy:generate` |  |  |
+| 发布包包含 `cutover:aliyun:gate` |  |  |
 | 发布包包含 `db:migrate:supabase-to-aliyun` |  |  |
 | 发布包包含 `storage:migrate:supabase-to-oss` |  |  |
 | 发布包包含 `migration:verify:aliyun` |  |  |

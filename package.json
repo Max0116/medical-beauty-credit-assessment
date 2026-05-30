@@ -21,6 +21,7 @@
     "env:aliyun:guard": "node scripts/aliyun-env-guard.mjs",
     "env:aliyun:template": "ALIYUN_ENV_TEMPLATE_ONLY=yes node scripts/aliyun-env-guard.mjs",
     "resources:aliyun:check": "node scripts/aliyun-resource-readiness.mjs",
+    "cutover:aliyun:gate": "node scripts/aliyun-cutover-readiness.mjs",
     "nginx:aliyun:generate": "node scripts/generate-aliyun-nginx-vhost.mjs",
     "nginx:aliyun:gate": "node scripts/aliyun-nginx-entry-gate.mjs",
     "inventory:aliyun:format": "node scripts/format-aliyun-inventory-report.mjs",

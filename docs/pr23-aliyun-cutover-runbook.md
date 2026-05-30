@@ -43,7 +43,10 @@ bash ops/aliyun/bt-entry-readonly.sh.example
 cd /var/www/medical-credit-api/current
 bash ops/aliyun/server-inventory-readonly.sh.example > /tmp/medical-credit-inventory.txt
 INVENTORY_INPUT_FILE=/tmp/medical-credit-inventory.txt npm run inventory:aliyun:format
-INVENTORY_REPORT_FILE=release/inventory/<report>.json npm run inventory:aliyun:gate
+INVENTORY_REPORT_FILE=release/inventory/<report>.json \
+INVENTORY_GATE_OUTPUT_FILE=/tmp/medical-credit-inventory-gate.json \
+INVENTORY_GATE_MARKDOWN_FILE=/tmp/medical-credit-inventory-gate.md \
+npm run inventory:aliyun:gate
 ```
 
 停止条件：
@@ -119,6 +122,8 @@ npm run nginx:aliyun:generate
 nginx -T > /tmp/medical-credit-nginxT.txt 2>/tmp/medical-credit-nginxT.err
 NGINX_DUMP_FILE=/tmp/medical-credit-nginxT.txt \
 NGINX_TARGET_SERVER_NAMES=credit.xxx.com \
+NGINX_GATE_OUTPUT_FILE=/tmp/medical-credit-nginx-gate.json \
+NGINX_GATE_MARKDOWN_FILE=/tmp/medical-credit-nginx-gate.md \
 npm run nginx:aliyun:gate
 ```
 
@@ -166,6 +171,7 @@ ALIYUN_ENV_FILE=/www/wwwroot/medical-credit-api/.env \
 ALIYUN_ENV_EXPECT_MODE=dual_write \
 API_ROOT=/www/wwwroot/medical-credit-api \
 H5_ROOT=/www/wwwroot/medical-credit-assessment \
+ALIYUN_ENV_OUTPUT_FILE=/tmp/medical-credit-env-gate.json \
 npm run env:aliyun:guard
 ```
 
@@ -174,6 +180,7 @@ npm run env:aliyun:guard
 ```bash
 ALIYUN_RESOURCE_ENV_FILE=/www/wwwroot/medical-credit-api/.env \
 ALIYUN_RESOURCE_EXPECT_MODE=dual_write \
+ALIYUN_RESOURCE_OUTPUT_FILE=/tmp/medical-credit-resource-readiness.json \
 ALIYUN_RESOURCE_MARKDOWN_FILE=/tmp/medical-credit-resource-readiness.md \
 npm run resources:aliyun:check
 ```
@@ -339,6 +346,38 @@ API_FLOW_UPLOAD_ATTACHMENT=true \
 API_FLOW_VERIFY_SIGNED_URL=true \
 npm run smoke:aliyun:api-flow
 ```
+
+建议把 health 和 api-flow 输出保存为证据文件，再跑 PR23 总闸门：
+
+```bash
+HEALTH_BASE_URL=https://credit.xxx.com \
+HEALTH_EXPECT_READY=true \
+HEALTH_EXPECT_BACKEND_MODE=dual_write \
+npm run health:aliyun | tee /tmp/medical-credit-health.json
+
+API_FLOW_BASE_URL=https://credit.xxx.com \
+API_FLOW_RUN_ID=pr23-dual-write-001 \
+API_FLOW_EXPECT_API_READY=true \
+API_FLOW_EXPECT_BACKEND_MODE=dual_write \
+API_FLOW_EXPECT_STORAGE_CONFIGURED=true \
+API_FLOW_EXPECT_VERIFICATION_CONFIGURED=true \
+API_FLOW_UPLOAD_ATTACHMENT=true \
+API_FLOW_VERIFY_SIGNED_URL=true \
+npm run smoke:aliyun:api-flow | tee /tmp/medical-credit-api-flow.json
+
+ALIYUN_CUTOVER_PHASE=dual_write \
+ALIYUN_CUTOVER_INVENTORY_GATE_FILE=/tmp/medical-credit-inventory-gate.json \
+ALIYUN_CUTOVER_NGINX_GATE_FILE=/tmp/medical-credit-nginx-gate.json \
+ALIYUN_CUTOVER_ENV_GATE_FILE=/tmp/medical-credit-env-gate.json \
+ALIYUN_CUTOVER_RESOURCE_FILE=/tmp/medical-credit-resource-readiness.json \
+ALIYUN_CUTOVER_HEALTH_FILE=/tmp/medical-credit-health.json \
+ALIYUN_CUTOVER_API_FLOW_FILE=/tmp/medical-credit-api-flow.json \
+ALIYUN_CUTOVER_OUTPUT_FILE=/tmp/medical-credit-cutover-dual-write.json \
+ALIYUN_CUTOVER_MARKDOWN_FILE=/tmp/medical-credit-cutover-dual-write.md \
+npm run cutover:aliyun:gate
+```
+
+`cutover:aliyun:gate` 输出 `blocked` 时，禁止 reload Nginx、启动新 API 容器或切换 backend mode。
 
 人工验收：
 
