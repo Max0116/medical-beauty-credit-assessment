@@ -108,15 +108,36 @@ await writeFile(join(packageDir, 'api', 'package.json'), `${JSON.stringify({
 
 const manifest = {
   name: releaseName,
+  releaseName,
   project: 'medical-credit-assessment',
   stage: 'PR23 Aliyun RDS OSS backend',
   createdAt: new Date().toISOString(),
   branch,
   commit,
+  git: {
+    branch,
+    commit,
+    shortSha
+  },
   h5Target: '/var/www/medical-credit',
   apiTarget: '/var/www/medical-credit-api',
   apiHealthPath: '/api/health',
+  targets: {
+    h5: '/var/www/medical-credit',
+    api: '/var/www/medical-credit-api',
+    apiHealthPath: '/api/health'
+  },
   frontendApiBase: '/api',
+  frontend: {
+    apiBase: '/api',
+    dist: 'h5/'
+  },
+  files: {
+    h5: 'h5/',
+    api: 'api/',
+    ops: 'ops/aliyun/',
+    docs: buildAliyunReleaseDocIncludes()
+  },
   includes: [
     'h5/',
     'api/aliyun-api/',

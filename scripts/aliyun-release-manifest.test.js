@@ -64,6 +64,11 @@ describe('Aliyun release manifest helpers', () => {
     expect(releaseScript).toContain('MEDICAL_CREDIT_RELEASE_COMMIT');
     expect(releaseScript).toContain('MEDICAL_CREDIT_RELEASE_BRANCH');
     expect(releaseScript).toContain('normalizeReleaseSegment');
+    expect(releaseScript).toContain('releaseName');
+    expect(releaseScript).toContain('shortSha');
+    expect(releaseScript).toContain('targets');
+    expect(releaseScript).toContain('frontend');
+    expect(releaseScript).toContain('files');
   });
 
   it('keeps PR24 Supabase audit runnable from the release API package', async () => {
