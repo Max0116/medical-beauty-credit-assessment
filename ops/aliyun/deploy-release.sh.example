@@ -85,8 +85,9 @@ API current:
 
 Next manual server steps:
   1. Create or update $API_ROOT/.env from $API_ROOT/ops/aliyun/medical-credit-api.env.example
-  2. Point systemd WorkingDirectory to $API_ROOT/current
-  3. Point Nginx root to $H5_ROOT/current
-  4. Point Nginx /api/ to http://127.0.0.1:8787/api/
-  5. Reload systemd service and Nginx, then verify /api/health
+  2. Run: cd $API_ROOT/current && npm install --omit=dev --package-lock=false
+  3. Point systemd WorkingDirectory to $API_ROOT/current
+  4. Point Nginx root to $H5_ROOT/current
+  5. Point Nginx /api/ to http://127.0.0.1:8787/api/
+  6. Reload systemd service and Nginx, then verify /api/health
 EOF

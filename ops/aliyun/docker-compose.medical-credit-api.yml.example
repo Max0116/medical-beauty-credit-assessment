@@ -1,0 +1,18 @@
+services:
+  medical-credit-api:
+    build:
+      context: /www/wwwroot/medical-credit-api/current
+      dockerfile: /www/wwwroot/medical-credit-api/ops/aliyun/Dockerfile.medical-credit-api
+    image: medical-credit-assessment-api:pr23
+    container_name: medical-credit-api
+    restart: unless-stopped
+    env_file:
+      - /www/wwwroot/medical-credit-api/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      MEDICAL_CREDIT_PROXY_HOST: 0.0.0.0
+      MEDICAL_CREDIT_PROXY_PORT: 8787
+      PORT: 8787
+    ports:
+      - "127.0.0.1:8787:8787"

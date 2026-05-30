@@ -1,8 +1,16 @@
 import { chromium } from 'playwright';
+import {
+  buildHealthExpectationsFromEnv,
+  fetchAliyunHealth,
+  formatHealthDiagnostics,
+  normalizeBaseUrl,
+  validateAliyunHealth
+} from './aliyun-health.mjs';
 
 const baseUrl = normalizeBaseUrl(process.env.SMOKE_BASE_URL || 'http://101.132.137.25');
 const timeoutMs = Number(process.env.SMOKE_TIMEOUT_MS || 30000);
 const expectApi = process.env.SMOKE_EXPECT_API !== 'false';
+const healthExpectations = buildHealthExpectationsFromEnv(process.env, 'SMOKE');
 const fullFlow = process.env.SMOKE_FULL_FLOW === 'true';
 const viewport = {
   width: Number(process.env.SMOKE_VIEWPORT_WIDTH || 390),
@@ -38,7 +46,8 @@ try {
   });
   page.on('pageerror', (error) => result.pageErrors.push(error.message));
 
-  const url = `${baseUrl}/?v=pr22-smoke-${Date.now()}`;
+  const versionLabel = process.env.SMOKE_VERSION_LABEL || 'aliyun-smoke';
+  const url = `${baseUrl}/?v=${encodeURIComponent(versionLabel)}-${Date.now()}`;
   await page.goto(url, { waitUntil: 'networkidle', timeout: timeoutMs });
   await page.waitForTimeout(1000);
 
@@ -82,25 +91,20 @@ if (result.consoleErrors.length || result.pageErrors.length) {
 console.log(JSON.stringify(result, null, 2));
 
 async function checkApiHealth() {
-  const response = await fetchWithTimeout(`${baseUrl}/api/health`, { timeoutMs });
-  const text = await response.text();
-  let payload = null;
-  try {
-    payload = text ? JSON.parse(text) : null;
-  } catch {
-    payload = text;
+  const health = await fetchAliyunHealth({ baseUrl, timeoutMs });
+  if (!health.ok) {
+    throw new Error(`/api/health returned ${health.status}: ${String(health.rawText || '').slice(0, 240)}`);
   }
 
-  if (!response.ok) {
-    throw new Error(`/api/health returned ${response.status}: ${text.slice(0, 240)}`);
-  }
-  if (!payload?.ok) {
-    throw new Error(`/api/health payload is not ok: ${text.slice(0, 240)}`);
+  const validation = validateAliyunHealth(health.payload, healthExpectations);
+  if (!validation.ok) {
+    throw new Error(`/api/health readiness mismatch: ${formatHealthDiagnostics(validation, health.payload)}`);
   }
 
   return {
-    status: response.status,
-    payload
+    status: health.status,
+    payload: health.payload,
+    summary: validation.summary
   };
 }
 
@@ -135,18 +139,4 @@ async function runFullFlow(page) {
     hasRecordsCall,
     apiResponses
   };
-}
-
-async function fetchWithTimeout(url, { timeoutMs }) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { signal: controller.signal });
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-function normalizeBaseUrl(value) {
-  return String(value || '').trim().replace(/\/+$/, '');
 }

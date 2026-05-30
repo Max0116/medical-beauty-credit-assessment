@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Usage:
+#   CONFIRM_SOURCE_STAGING=yes \
+#   SOURCE_BRANCH=codex/pr23-aliyun-rds-oss \
+#   H5_ROOT=/www/wwwroot/medical-credit-assessment \
+#   API_ROOT=/www/wwwroot/medical-credit-api \
+#   bash ops/aliyun/stage-from-github-source.sh.example
+#
+# Purpose:
+# - Server-side helper for BT/aaPanel terminals when SSH upload is unavailable.
+# - Fetches the approved source branch into an independent work directory.
+# - Builds and tests the release inside Docker, so host Node.js is not required.
+# - Calls stage-release.sh.example to unpack into versioned releases only.
+# - Does not switch current symlinks, edit Nginx, restart services, touch databases, or delete files.
+
+CONFIRM_SOURCE_STAGING="${CONFIRM_SOURCE_STAGING:-no}"
+SOURCE_GIT_URL="${SOURCE_GIT_URL:-https://github.com/Max0116/medical-beauty-credit-assessment.git}"
+SOURCE_BRANCH="${SOURCE_BRANCH:-codex/pr23-aliyun-rds-oss}"
+SOURCE_TARBALL_URL="${SOURCE_TARBALL_URL:-}"
+SOURCE_COMMIT="${SOURCE_COMMIT:-}"
+H5_ROOT="${H5_ROOT:-/www/wwwroot/medical-credit-assessment}"
+API_ROOT="${API_ROOT:-/www/wwwroot/medical-credit-api}"
+WORK_ROOT="${WORK_ROOT:-/www/wwwroot/medical-credit-deploy-work}"
+NODE_IMAGE="${NODE_IMAGE:-node:20-bookworm-slim}"
+NPM_REGISTRY="${NPM_REGISTRY:-https://registry.npmmirror.com}"
+RUN_TESTS="${RUN_TESTS:-true}"
+
+if [[ "$CONFIRM_SOURCE_STAGING" != "yes" ]]; then
+  echo "Set CONFIRM_SOURCE_STAGING=yes after confirming this is the independent medical-credit deployment." >&2
+  exit 1
+fi
+
+case "$H5_ROOT" in
+  /var/www/medical-credit|/www/wwwroot/medical-credit-assessment) ;;
+  *)
+    echo "Refusing unexpected H5_ROOT: $H5_ROOT" >&2
+    exit 1
+    ;;
+esac
+
+case "$API_ROOT" in
+  /var/www/medical-credit-api|/www/wwwroot/medical-credit-api) ;;
+  *)
+    echo "Refusing unexpected API_ROOT: $API_ROOT" >&2
+    exit 1
+    ;;
+esac
+
+case "$WORK_ROOT" in
+  /var/www/medical-credit-deploy-work|/www/wwwroot/medical-credit-deploy-work) ;;
+  *)
+    echo "Refusing unexpected WORK_ROOT: $WORK_ROOT" >&2
+    exit 1
+    ;;
+esac
+
+for cmd in docker tar sha256sum; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "$cmd is required." >&2
+    exit 1
+  fi
+done
+
+if ! docker version >/tmp/medical-credit-source-stage-docker.log 2>&1; then
+  echo "docker daemon is not reachable." >&2
+  sed -n '1,20p' /tmp/medical-credit-source-stage-docker.log >&2
+  exit 1
+fi
+
+stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+mkdir -p "$WORK_ROOT/logs"
+log_file="$WORK_ROOT/logs/source-stage-$stamp.log"
+exec > >(tee -a "$log_file") 2>&1
+
+source_dir="$WORK_ROOT/source-$stamp"
+archive_path="$WORK_ROOT/source-$stamp.tar.gz"
+
+if [[ -e "$source_dir" || -e "$archive_path" ]]; then
+  echo "Source staging target already exists for $stamp. Refusing to overwrite." >&2
+  exit 1
+fi
+
+echo "SOURCE_STAGE_START $stamp"
+echo "LOG_FILE=$log_file"
+echo "SOURCE_BRANCH=$SOURCE_BRANCH"
+echo "H5_ROOT=$H5_ROOT"
+echo "API_ROOT=$API_ROOT"
+echo "WORK_ROOT=$WORK_ROOT"
+echo "SAFETY=no_current_switch,no_nginx_change,no_service_restart,no_database_change,no_file_delete"
+
+if command -v git >/dev/null 2>&1; then
+  echo "SOURCE_FETCH=git clone"
+  git clone --depth 1 --branch "$SOURCE_BRANCH" "$SOURCE_GIT_URL" "$source_dir"
+  cd "$source_dir"
+  resolved_commit="$(git rev-parse HEAD)"
+else
+  if [[ -z "$SOURCE_TARBALL_URL" ]]; then
+    SOURCE_TARBALL_URL="https://codeload.github.com/Max0116/medical-beauty-credit-assessment/tar.gz/refs/heads/$SOURCE_BRANCH"
+  fi
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "curl is required when git is unavailable." >&2
+    exit 1
+  fi
+  if [[ -z "$SOURCE_COMMIT" ]]; then
+    echo "SOURCE_COMMIT is required when using tarball mode; it keeps the release traceable." >&2
+    exit 1
+  fi
+  echo "SOURCE_FETCH=curl tarball"
+  mkdir -p "$source_dir"
+  curl -fsSL "$SOURCE_TARBALL_URL" -o "$archive_path"
+  tar -xzf "$archive_path" -C "$source_dir" --strip-components=1
+  cd "$source_dir"
+  resolved_commit="$SOURCE_COMMIT"
+fi
+
+resolved_short="${resolved_commit:0:12}"
+echo "SOURCE_COMMIT=$resolved_commit"
+
+echo "DOCKER_BUILD_TEST_RELEASE_START"
+docker run --rm \
+  -v "$source_dir:/workspace" \
+  -w /workspace \
+  -e VITE_ASSESSMENT_API_URL=/api \
+  -e VITE_ASSESSMENT_API_KEY= \
+  -e CI=1 \
+  -e MEDICAL_CREDIT_RELEASE_COMMIT="$resolved_commit" \
+  -e MEDICAL_CREDIT_RELEASE_SHORT_SHA="$resolved_short" \
+  -e MEDICAL_CREDIT_RELEASE_BRANCH="$SOURCE_BRANCH" \
+  -e NPM_REGISTRY="$NPM_REGISTRY" \
+  -e RUN_TESTS="$RUN_TESTS" \
+  "$NODE_IMAGE" \
+  bash -lc '
+    set -euo pipefail
+    node -v
+    npm -v
+    if [[ -n "${NPM_REGISTRY:-}" ]]; then npm config set registry "$NPM_REGISTRY"; fi
+    npm ci
+    if [[ "${RUN_TESTS:-true}" == "true" ]]; then npm test; fi
+    npm run build
+    npm run release:aliyun
+  '
+
+release_archive="$(find "$source_dir/release" -maxdepth 1 -type f -name 'medical-credit-assessment-aliyun-*.tar.gz' -print | sort | tail -1)"
+if [[ -z "$release_archive" || ! -f "$release_archive" ]]; then
+  echo "Release archive not found after build." >&2
+  exit 1
+fi
+
+release_sha="$release_archive.sha256"
+if [[ ! -f "$release_sha" ]]; then
+  echo "Release sha file not found: $release_sha" >&2
+  exit 1
+fi
+
+echo "STAGE_RELEASE_START"
+sha256sum "$release_archive"
+RELEASE_ARCHIVE="$release_archive" \
+RELEASE_SHA256="$release_sha" \
+H5_ROOT="$H5_ROOT" \
+API_ROOT="$API_ROOT" \
+WORK_ROOT="$WORK_ROOT" \
+bash "$source_dir/ops/aliyun/stage-release.sh.example"
+
+echo "SOURCE_STAGE_END $stamp"

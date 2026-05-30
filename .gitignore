@@ -9,5 +9,6 @@ dist/
 coverage/
 .vite/
 release/
+backups/
 supabase/.temp/
 supabase/functions/*/.npmrc

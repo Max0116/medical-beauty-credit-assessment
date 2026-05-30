@@ -37,7 +37,7 @@
 - 暂未登录，暂无角色权限。
 - 未配置远端 API 时评估记录只保存在当前浏览器。
 - 联网核验结果仍是辅助核验日志；公共信用建议必须通过人工确认日志采用或改判，不会由后台自动改写风控评分或红线判断。
-- 证据附件通过 Supabase Edge Function 写入私有 Storage bucket；未接登录前仍按当前浏览器实例隔离。
+- 证据附件通过远端 API 写入私有存储；PR23 阿里云模式下写入 OSS，旧链路仍可回滚到 Supabase Storage。
 - 未取得授权工商 API Key 前，默认使用智谱 Web Search 轻量核验；授权工商 API 仅作为条件触发的深度核验预留。
 - 暂无正式特批审批流，只显示“需特批”和原因标签。
 - 暂无管理端报表。
@@ -76,6 +76,7 @@ npm run verify:release
 ```
 
 该命令会以 `VITE_ASSESSMENT_API_URL=/api` 构建，并扫描 `dist`，确认不会把 Supabase Function URL、Supabase publishable key、智谱 key 或阿里云上游 key 标记打进前端产物。
+PR23 起，`verify:release` 内部使用 `verify:dist:aliyun`，会额外确认前端 API base 固定为同源 `/api`。
 
 需要交给 IT 或上传到 ECS 时，使用：
 
@@ -83,13 +84,89 @@ npm run verify:release
 npm run release:aliyun
 ```
 
-该命令会生成 `release/medical-credit-assessment-pr22-*.tar.gz` 和对应 `.sha256`，包内包含 `h5/`、`api/`、`ops/aliyun/` 和发布清单。
+该命令会生成 `release/medical-credit-assessment-aliyun-*.tar.gz` 和对应 `.sha256`，包内包含 `h5/`、完整 `api/aliyun-api/`、RDS migration、`ops/aliyun/` 和发布清单。
+PR CI 也会执行 `npm run release:aliyun`，确保每个合并前版本都能生成可交给 IT 的阿里云发布包。
+
+如果服务器上已经有宝塔 HTML 项目，建议先只 staging，不切流量、不重启服务：
+
+```bash
+RELEASE_ARCHIVE=/tmp/medical-credit-assessment-aliyun-xxx.tar.gz \
+RELEASE_SHA256=/tmp/medical-credit-assessment-aliyun-xxx.tar.gz.sha256 \
+H5_ROOT=/www/wwwroot/medical-credit-assessment \
+API_ROOT=/www/wwwroot/medical-credit-api \
+sudo -E bash ops/aliyun/stage-release.sh.example
+```
+
+`stage-release` 只会把包解压到 `releases/` 版本目录和独立 API 目录，不会覆盖当前 `index.html`、不会改 Nginx、不会 reload、不会启动服务。确认后再按 runbook 显式切 `current`。
+
+已有业务服务器部署前，先让 IT 执行只读盘点，确认不会覆盖现有站点、目录或端口：
+
+```bash
+bash ops/aliyun/server-inventory-readonly.sh.example
+```
+
+把盘点日志整理为脱敏 JSON / Markdown 报告：
+
+```bash
+bash ops/aliyun/server-inventory-readonly.sh.example > /tmp/medical-credit-inventory.txt
+INVENTORY_INPUT_FILE=/tmp/medical-credit-inventory.txt npm run inventory:aliyun:format
+INVENTORY_REPORT_FILE=release/inventory/<report>.json npm run inventory:aliyun:gate
+```
+
+盘点记录表：
+
+```text
+docs/aliyun-pr23-server-inventory-checklist.md
+```
+
+配置 `.env` 后，再执行 PR23 配置预检：
+
+```bash
+bash ops/aliyun/preflight-release.sh.example
+```
 
 部署后 smoke：
 
 ```bash
+HEALTH_BASE_URL=https://credit.xxx.com HEALTH_EXPECT_READY=true HEALTH_EXPECT_BACKEND_MODE=aliyun npm run health:aliyun
 SMOKE_BASE_URL=https://credit.xxx.com npm run smoke:aliyun
 SMOKE_BASE_URL=https://credit.xxx.com SMOKE_FULL_FLOW=true npm run smoke:aliyun
+SMOKE_BASE_URL=https://credit.xxx.com SMOKE_EXPECT_API_READY=true SMOKE_EXPECT_BACKEND_MODE=aliyun npm run smoke:aliyun
+API_FLOW_BASE_URL=https://credit.xxx.com API_FLOW_EXPECT_API_READY=true API_FLOW_EXPECT_BACKEND_MODE=aliyun API_FLOW_EXPECT_BACKEND_DATABASE=postgres API_FLOW_EXPECT_STORAGE_CONFIGURED=true API_FLOW_EXPECT_VERIFICATION_CONFIGURED=true npm run smoke:aliyun:api-flow
+API_FLOW_BASE_URL=https://credit.xxx.com API_FLOW_EXPECT_API_READY=true API_FLOW_EXPECT_BACKEND_MODE=aliyun API_FLOW_EXPECT_BACKEND_DATABASE=postgres API_FLOW_EXPECT_STORAGE_CONFIGURED=true API_FLOW_EXPECT_VERIFICATION_CONFIGURED=true API_FLOW_UPLOAD_ATTACHMENT=true API_FLOW_VERIFY_SIGNED_URL=true npm run smoke:aliyun:api-flow
+API_FLOW_BASE_URL=https://credit.xxx.com API_FLOW_RUN_ID=it-acceptance-001 API_FLOW_EXPECT_API_READY=true API_FLOW_EXPECT_BACKEND_MODE=aliyun API_FLOW_EXPECT_BACKEND_DATABASE=postgres API_FLOW_EXPECT_STORAGE_CONFIGURED=true API_FLOW_EXPECT_VERIFICATION_CONFIGURED=true API_FLOW_UPLOAD_ATTACHMENT=true API_FLOW_VERIFY_SIGNED_URL=true npm run smoke:aliyun:api-flow
+```
+
+`smoke:aliyun:api-flow` 会在输出里返回 `smoke.marker=PR23_API_FLOW_SMOKE` 和 `smoke.runId`。RDS 可按机构名前缀 `PR23阿里云链路验收机构`、记录 ID 前缀 `api-flow-` 或备注中的 `PR23_API_FLOW_SMOKE` 定位测试记录；OSS 可按文件名前缀 `pr23-api-flow-smoke-<runId>` 定位测试 PDF。
+
+PR23 数据库回填：
+
+```bash
+# 先备份 Supabase 当前业务表和证据附件清单。输出目录默认在 backups/，不要放到 H5 静态目录。
+SUPABASE_URL=https://<project-ref>.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
+npm run backup:supabase
+
+# 先建表。默认使用 PostgreSQL；如 IT 短期只能提供 MySQL 兼容 RDS / 独立 MySQL 库，可设置 ALIYUN_DB_DRIVER=mysql。
+ALIYUN_DB_DRIVER=postgres npm run db:migrate:aliyun
+# ALIYUN_DB_DRIVER=mysql npm run db:migrate:aliyun
+
+# 再从 Supabase REST 逐表回填到阿里云 RDS。service role key 只放在本次 shell 环境，不写进前端或仓库。
+SUPABASE_URL=https://<project-ref>.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
+MIGRATE_DRY_RUN=true \
+npm run db:migrate:supabase-to-aliyun
+
+# 如已有证据截图/PDF，先把 Supabase Storage 私有对象搬到阿里云 OSS。
+SUPABASE_URL=https://<project-ref>.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
+MIGRATE_DRY_RUN=true \
+npm run storage:migrate:supabase-to-oss
+
+# 回填后用备份目录校验 RDS 行数和 OSS 对象。
+BACKUP_DIR=/path/to/backups/supabase-pre-aliyun-xxx \
+VERIFY_OSS=true \
+npm run migration:verify:aliyun
 ```
 
 生成二维码：
@@ -183,15 +260,34 @@ https://max0116.github.io/medical-beauty-credit-assessment/
 - `docs/aliyun-pr22-api-proxy.md`：阿里云 API 中转部署、验收和回滚说明。
 - `docs/aliyun-pr22-it-handoff.md`：给 IT 的 PR22 独立部署交接单。
 - `docs/pr23-aliyun-rds-oss-migration-plan.md`：PR23 阿里云 RDS / OSS 迁移设计草案。
-- `ops/aliyun/`：阿里云 Nginx、systemd、环境变量、部署预检模板。
-- `scripts/verify-dist-no-secrets.mjs`：构建产物密钥与上游地址扫描脚本。
-- `scripts/build-aliyun-release.mjs`：生成阿里云部署发布包。
+- `docs/pr23-pr24-handoff-index.md`：PR23 / PR24 阿里云迁移交接索引，串联入口解锁、盘点、切换、去 Supabase 和生产运维。
+- `docs/aliyun-pr23-it-handoff.md`：给 IT 的 PR23 RDS / OSS 迁移交接单。
+- `docs/aliyun-pr23-access-unlock-request.md`：给 IT 的 PR23 宝塔入口 / SSH 解锁短版请求。
+- `docs/aliyun-pr23-server-inventory-checklist.md`：已有阿里云服务器只读盘点记录表。
+- `docs/pr23-aliyun-cutover-runbook.md`：PR23 从只读盘点到 `dual_write` / `aliyun` 切换和回滚的执行手册。
+- `docs/pr24-supabase-decommission-audit.md`：PR24 去 Supabase 前置审计、依赖清单和验收门槛。
+- `docs/pr24-aliyun-production-ops-runbook.md`：PR24 去 Supabase 后的阿里云生产运维、备份、恢复、告警和密钥轮换手册。
+- `docs/pr23-aliyun-public-reachability-log.md`：PR23 迁移前公网只读可达性记录。
+- `docs/pr23-readiness-audit.md`：PR23 当前代码、验证、阻塞和真实部署前置条件审计。
+- `docs/pr23-deployment-acceptance.md`：PR23 迁移部署验收记录模板。
+- `ops/aliyun/`：阿里云 Nginx、systemd、环境变量、宝塔入口只读查询、只读服务器盘点和部署预检模板。
+- `scripts/verify-dist-no-secrets.mjs`：构建产物密钥与上游地址扫描脚本；PR23 起同时确认阿里云发布构建的前端 API base 为同源 `/api`，并阻断 Supabase / 智谱 / 阿里云密钥标记进入浏览器文件。
+- `scripts/audit-supabase-dependencies.mjs`：PR24 去 Supabase 前置审计脚本，分类输出生产路径、迁移脚本、旧 Supabase 源码和文档中的依赖。
+- `scripts/build-aliyun-release.mjs`：生成阿里云部署发布包，PR23 起包含完整 Node API、RDS migration 和 OSS / 智谱依赖声明。
+- `scripts/check-aliyun-health.mjs`：部署后检查 `/api/health` readiness，可要求 RDS / OSS / 智谱均已配置。
+- `scripts/aliyun-api-flow-smoke.mjs`：PR23 部署后检查保存评估记录、立即可见核验日志、历史列表返回记录；可选上传带 `PR23_API_FLOW_SMOKE` / `runId` 标识的测试 PDF 到 OSS 并校验签名链接。
+- `scripts/format-aliyun-inventory-report.mjs`：把阿里云服务器只读盘点日志转换为脱敏 JSON / Markdown 报告。
+- `scripts/aliyun-inventory-gate.mjs`：根据脱敏盘点报告判断 PR23 是否可进入部署前配置预检。
+- `scripts/backup-supabase.mjs`：PR23 迁移前备份脚本，导出 Supabase 业务表和证据附件清单。
+- `scripts/migrate-supabase-to-aliyun-rds.mjs`：PR23 一次性数据回填脚本，将 Supabase 表数据 upsert 到阿里云 RDS。
+- `scripts/migrate-supabase-evidence-to-aliyun-oss.mjs`：PR23 一次性附件回填脚本，将 Supabase Storage 证据文件上传到阿里云 OSS。
+- `scripts/verify-aliyun-migration.mjs`：PR23 迁移后验收脚本，按备份 manifest 校验 RDS 行数和 OSS 对象。
 - `scripts/smoke-aliyun-pr22.mjs`：阿里云部署后 H5 与 `/api` 自动 smoke。
 - `scripts/generate-aliyun-qr.mjs`：根据 PR22 线上地址生成二维码。
 - `docs/pr22-deployment-acceptance.md`：PR22 部署验收记录模板。
 - `docs/ai-verification-plan.md`：智谱联网核验与多 AI Provider 规划。
 - `.env.example`：远端持久化环境变量示例。
-- `.github/workflows/ci.yml`：PR 自动测试与构建。
+- `.github/workflows/ci.yml`：PR 自动测试、普通 H5 构建、浏览器产物密钥扫描和阿里云 release 包构建。
 - `.github/workflows/deploy-pages.yml`：GitHub Pages 自动部署。
 - `supabase/migrations/`：Supabase 数据表迁移。
 - `supabase/functions/assessments/`：评估记录持久化与后台核验 Edge Function。
