@@ -48,6 +48,7 @@ await copyDirectoryFiltered(join(root, 'aliyun-api'), join(packageDir, 'api', 'a
 await cp(join(root, 'scripts', 'aliyun-health.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-health.mjs'));
 await cp(join(root, 'scripts', 'check-aliyun-health.mjs'), join(packageDir, 'api', 'scripts', 'check-aliyun-health.mjs'));
 await cp(join(root, 'scripts', 'aliyun-api-flow-smoke.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-api-flow-smoke.mjs'));
+await cp(join(root, 'scripts', 'aliyun-nginx-entry-gate.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-nginx-entry-gate.mjs'));
 await cp(join(root, 'scripts', 'format-aliyun-inventory-report.mjs'), join(packageDir, 'api', 'scripts', 'format-aliyun-inventory-report.mjs'));
 await cp(join(root, 'scripts', 'aliyun-inventory-gate.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-inventory-gate.mjs'));
 await cp(join(root, 'scripts', 'audit-supabase-dependencies.mjs'), join(packageDir, 'api', 'scripts', 'audit-supabase-dependencies.mjs'));
@@ -74,6 +75,7 @@ await writeFile(join(packageDir, 'api', 'package.json'), `${JSON.stringify({
     start: 'node aliyun-api/server.js',
     'health:aliyun': 'node scripts/check-aliyun-health.mjs',
     'smoke:aliyun:api-flow': 'node scripts/aliyun-api-flow-smoke.mjs',
+    'nginx:aliyun:gate': 'node scripts/aliyun-nginx-entry-gate.mjs',
     'inventory:aliyun:format': 'node scripts/format-aliyun-inventory-report.mjs',
     'inventory:aliyun:gate': 'node scripts/aliyun-inventory-gate.mjs',
     'audit:supabase': 'node scripts/audit-supabase-dependencies.mjs',
@@ -107,6 +109,7 @@ const manifest = {
     'api/scripts/aliyun-health.mjs',
     'api/scripts/check-aliyun-health.mjs',
     'api/scripts/aliyun-api-flow-smoke.mjs',
+    'api/scripts/aliyun-nginx-entry-gate.mjs',
     'api/scripts/format-aliyun-inventory-report.mjs',
     'api/scripts/aliyun-inventory-gate.mjs',
     'api/scripts/audit-supabase-dependencies.mjs',
@@ -149,6 +152,7 @@ const manifest = {
     'Use ops/aliyun/docker-run-medical-credit-api.sh.example only after staging the API release and creating API_ROOT/.env; it refuses unexpected API roots and existing containers.',
     'Format the inventory log with INVENTORY_INPUT_FILE=/tmp/medical-credit-inventory.txt npm run inventory:aliyun:format before filling the PR23 acceptance checklist.',
     'Run INVENTORY_REPORT_FILE=release/inventory/<report>.json npm run inventory:aliyun:gate before deploying PR23 to catch blocking server states.',
+    'Run nginx -T > /tmp/medical-credit-nginxT.txt and NGINX_DUMP_FILE=/tmp/medical-credit-nginxT.txt NGINX_TARGET_SERVER_NAMES=credit.xxx.com npm run nginx:aliyun:gate before assigning the public entry to medical-credit.',
     'Configure Nginx /api/ to proxy to http://127.0.0.1:8787/api/.',
     'Run npm run db:migrate:aliyun in the API current directory after IT provides the RDS credentials; set ALIYUN_DB_DRIVER=postgres or mysql.',
     'Run API_FLOW_BASE_URL=https://credit.xxx.com API_FLOW_EXPECT_API_READY=true API_FLOW_EXPECT_BACKEND_MODE=dual_write npm run smoke:aliyun:api-flow to verify record save, immediate verification log visibility, and history list.',

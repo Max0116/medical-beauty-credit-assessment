@@ -98,6 +98,19 @@ bash ops/aliyun/stage-from-github-source.sh.example
 
 注意：Docker 镜像内可能没有 `git`，发布包脚本会优先使用 `MEDICAL_CREDIT_RELEASE_COMMIT` / `MEDICAL_CREDIT_RELEASE_BRANCH`，确保 release 名称和 `MANIFEST.json` 仍能追溯到源分支与 commit。
 
+### 入口归属闸门
+
+在把任何公网入口指向 medical-credit 前，先检查 Nginx `server_name` 是否与既有项目冲突。尤其不要复用已经被 `hear-us` 等项目占用的裸 IP：
+
+```bash
+nginx -T > /tmp/medical-credit-nginxT.txt 2>/tmp/medical-credit-nginxT.err
+NGINX_DUMP_FILE=/tmp/medical-credit-nginxT.txt \
+NGINX_TARGET_SERVER_NAMES=credit.xxx.com \
+npm run nginx:aliyun:gate
+```
+
+如果输出 `blocked`，暂停切换；先让 IT 提供独立备案子域名或新的无冲突 `server_name`。不要直接修改已有 `hear-us` vhost。
+
 ## 五、阶段 2：API 环境预检
 
 在 API 目录创建 `.env`，先使用 `dual_write`。当前服务器宿主机未检测到 `node` / `npm`，但 Docker 已安装并 active；运行时路线优先参考 [PR23 阿里云 Node API 运行时路线](./pr23-aliyun-node-runtime-options.md)。

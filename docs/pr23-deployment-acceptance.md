@@ -166,6 +166,7 @@ bash ops/aliyun/stage-from-github-source.sh.example
 | 已确认正式入口不会复用被其他项目占用的裸 IP server_name |  |  |
 | 已确认不会修改 `hear-us` 等既有业务 vhost |  |  |
 | 已确认 `credit.xxx.com` 或等效备案子域名可用 |  |  |
+| `npm run nginx:aliyun:gate` 未输出 `blocked` |  |  |
 
 ## 五、迁移命令记录
 
