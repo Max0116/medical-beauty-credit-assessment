@@ -67,6 +67,24 @@ bash ops/aliyun/preflight-release.sh.example
 | OSS bucket 为私有 bucket，且仅供 evidence 附件使用 |  |  |
 | 没有 blocking failure |  |  |
 
+如使用 MySQL，先生成并复核 bootstrap SQL：
+
+```bash
+ALIYUN_MYSQL_BOOTSTRAP_DATABASE=medical_credit_assessment \
+ALIYUN_MYSQL_BOOTSTRAP_USER=medical_credit_app \
+ALIYUN_MYSQL_BOOTSTRAP_USER_HOST=<reviewed-mysql-user-host> \
+ALIYUN_MYSQL_BOOTSTRAP_PASSWORD='<strong-password>' \
+ALIYUN_MYSQL_BOOTSTRAP_OUTPUT_FILE=/tmp/medical-credit-mysql-bootstrap.sql \
+npm run db:bootstrap:mysql
+```
+
+| 验收项 | 结果 | 证据 |
+| --- | --- | --- |
+| `db:bootstrap:mysql` 生成 SQL 文件，未把真实密码打印到终端 |  |  |
+| SQL 只创建 `medical_credit_assessment` 和 `medical_credit_app` |  |  |
+| SQL 未引用 `gohomesh` / `mediverseai` / `maxfuture` |  |  |
+| IT 已确认 MySQL user host 与 Docker/RDS 网络路径匹配 |  |  |
+
 ## 三、发布包检查
 
 | 验收项 | 结果 | 证据 |
@@ -80,6 +98,7 @@ bash ops/aliyun/preflight-release.sh.example
 | 发布包包含只读盘点闸门校验器 |  | `api/scripts/aliyun-inventory-gate.mjs` |
 | 发布包包含只读盘点记录表 |  | `docs/aliyun-pr23-server-inventory-checklist.md` |
 | 发布包包含 `backup:supabase` |  |  |
+| 发布包包含 `db:bootstrap:mysql` |  |  |
 | 发布包包含 `db:migrate:supabase-to-aliyun` |  |  |
 | 发布包包含 `storage:migrate:supabase-to-oss` |  |  |
 | 发布包包含 `migration:verify:aliyun` |  |  |

@@ -182,6 +182,19 @@ npm run resources:aliyun:check
 
 如果 API 使用 Docker，而数据库使用服务器本机 MySQL，`ALIYUN_MYSQL_HOST` 不能写 `127.0.0.1` / `localhost`，因为容器内 localhost 指向容器自己。优先使用 RDS 地址；若确实使用本机 MySQL，请配合发布包中的 Docker host-gateway 配置使用 `host.docker.internal`，并让 IT 确认 MySQL bind 地址和用户 host 权限。
 
+如果 IT 决定使用 MySQL，可以先生成一份可审核的 bootstrap SQL，用于创建独立库、独立账号和最小权限授权。生成器不会连接数据库；提供真实密码时必须写入输出文件，默认拒绝把含密码 SQL 打印到终端：
+
+```bash
+ALIYUN_MYSQL_BOOTSTRAP_DATABASE=medical_credit_assessment \
+ALIYUN_MYSQL_BOOTSTRAP_USER=medical_credit_app \
+ALIYUN_MYSQL_BOOTSTRAP_USER_HOST=host.docker.internal \
+ALIYUN_MYSQL_BOOTSTRAP_PASSWORD='<strong-password>' \
+ALIYUN_MYSQL_BOOTSTRAP_OUTPUT_FILE=/tmp/medical-credit-mysql-bootstrap.sql \
+npm run db:bootstrap:mysql
+```
+
+生成后由 IT 复核 `/tmp/medical-credit-mysql-bootstrap.sql`，再在宝塔数据库终端或 RDS 管理端执行。该脚本会拒绝 `gohomesh`、`mediverseai`、`maxfuture` 等既有业务库名。
+
 执行只读预检：
 
 ```bash
@@ -199,6 +212,7 @@ bash /www/wwwroot/medical-credit-api/ops/aliyun/docker-run-medical-credit-api.sh
 
 - `dual_write` 所需 RDS / OSS / 智谱 / Supabase 旁路配置缺失。
 - `resources:aliyun:check` 输出 `blocked`。
+- MySQL bootstrap SQL 指向既有业务库，或将含真实密码 SQL 打印到终端。
 - preflight 输出任何密钥明文。
 - `.env` 被放进 H5 目录。
 
