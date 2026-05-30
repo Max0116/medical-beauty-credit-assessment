@@ -14,6 +14,7 @@
     "verify:dist": "node scripts/verify-dist-no-secrets.mjs",
     "verify:dist:aliyun": "VERIFY_DIST_EXPECT_API_BASE=/api node scripts/verify-dist-no-secrets.mjs",
     "audit:supabase": "node scripts/audit-supabase-dependencies.mjs",
+    "decommission:supabase:gate": "node scripts/supabase-decommission-readiness.mjs",
     "release:aliyun": "npm run verify:release && node scripts/build-aliyun-release.mjs",
     "health:aliyun": "node scripts/check-aliyun-health.mjs",
     "smoke:aliyun": "node scripts/smoke-aliyun-pr22.mjs",

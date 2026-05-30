@@ -55,7 +55,9 @@ await cp(join(root, 'scripts', 'generate-aliyun-nginx-vhost.mjs'), join(packageD
 await cp(join(root, 'scripts', 'aliyun-nginx-entry-gate.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-nginx-entry-gate.mjs'));
 await cp(join(root, 'scripts', 'format-aliyun-inventory-report.mjs'), join(packageDir, 'api', 'scripts', 'format-aliyun-inventory-report.mjs'));
 await cp(join(root, 'scripts', 'aliyun-inventory-gate.mjs'), join(packageDir, 'api', 'scripts', 'aliyun-inventory-gate.mjs'));
+await cp(join(root, 'scripts', 'verify-dist-no-secrets.mjs'), join(packageDir, 'api', 'scripts', 'verify-dist-no-secrets.mjs'));
 await cp(join(root, 'scripts', 'audit-supabase-dependencies.mjs'), join(packageDir, 'api', 'scripts', 'audit-supabase-dependencies.mjs'));
+await cp(join(root, 'scripts', 'supabase-decommission-readiness.mjs'), join(packageDir, 'api', 'scripts', 'supabase-decommission-readiness.mjs'));
 await cp(join(root, 'scripts', 'apply-aliyun-db-migration.mjs'), join(packageDir, 'api', 'scripts', 'apply-aliyun-db-migration.mjs'));
 await cp(join(root, 'scripts', 'apply-aliyun-postgres-migration.mjs'), join(packageDir, 'api', 'scripts', 'apply-aliyun-postgres-migration.mjs'));
 await cp(join(root, 'scripts', 'supabase-backup.mjs'), join(packageDir, 'api', 'scripts', 'supabase-backup.mjs'));
@@ -91,6 +93,7 @@ await writeFile(join(packageDir, 'api', 'package.json'), `${JSON.stringify({
     'inventory:aliyun:format': 'node scripts/format-aliyun-inventory-report.mjs',
     'inventory:aliyun:gate': 'node scripts/aliyun-inventory-gate.mjs',
     'audit:supabase': 'node scripts/audit-supabase-dependencies.mjs',
+    'decommission:supabase:gate': 'node scripts/supabase-decommission-readiness.mjs',
     'backup:supabase': 'node scripts/backup-supabase.mjs',
     'db:bootstrap:mysql': 'node scripts/generate-aliyun-mysql-bootstrap.mjs',
     'handoff:aliyun:generate': 'node scripts/generate-aliyun-it-handoff-bundle.mjs',
@@ -131,7 +134,9 @@ const manifest = {
     'api/scripts/aliyun-nginx-entry-gate.mjs',
     'api/scripts/format-aliyun-inventory-report.mjs',
     'api/scripts/aliyun-inventory-gate.mjs',
+    'api/scripts/verify-dist-no-secrets.mjs',
     'api/scripts/audit-supabase-dependencies.mjs',
+    'api/scripts/supabase-decommission-readiness.mjs',
     'api/scripts/apply-aliyun-db-migration.mjs',
     'api/scripts/apply-aliyun-postgres-migration.mjs',
     'api/scripts/supabase-backup.mjs',
@@ -188,7 +193,9 @@ const manifest = {
     'Run API_FLOW_BASE_URL=https://credit.xxx.com API_FLOW_EXPECT_API_READY=true API_FLOW_EXPECT_BACKEND_MODE=dual_write npm run smoke:aliyun:api-flow to verify record save, immediate verification log visibility, and history list.',
     'Run npm run backup:supabase before any one-off Supabase backfill; keep the generated backup directory outside the browser-visible H5 root.',
     'Optionally run npm run storage:migrate:supabase-to-oss and npm run db:migrate:supabase-to-aliyun for one-off Supabase backfills with SUPABASE_SERVICE_ROLE_KEY set only in the shell session.',
-    'Run BACKUP_DIR=/path/to/backup VERIFY_OSS=true npm run migration:verify:aliyun after backfill to compare backup counts and OSS objects.'
+    'Run BACKUP_DIR=/path/to/backup VERIFY_OSS=true npm run migration:verify:aliyun after backfill to compare backup counts and OSS objects.',
+    'After unpacking the release, run cd api && SUPABASE_DECOMMISSION_PHASE=preflight SUPABASE_DECOMMISSION_DIST_DIR=../h5 npm run decommission:supabase:gate to confirm the packaged PR24 gate can scan the bundled H5.',
+    'Before PR24 disables Supabase, run SUPABASE_DECOMMISSION_PHASE=final SUPABASE_DECOMMISSION_ENV_FILE=/www/wwwroot/medical-credit-api/.env SUPABASE_DECOMMISSION_DIST_DIR=/www/wwwroot/medical-credit-assessment/current SUPABASE_DECOMMISSION_OUTPUT_FILE=/var/www/medical-credit-api/reports/pr24-supabase-decommission-final.json SUPABASE_DECOMMISSION_MARKDOWN_FILE=/var/www/medical-credit-api/reports/pr24-supabase-decommission-final.md npm run decommission:supabase:gate, then archive the report with the release SHA256, RDS backup ID, and OSS verification evidence.'
   ]
 };
 

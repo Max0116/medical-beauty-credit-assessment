@@ -56,6 +56,7 @@ describe('Aliyun release manifest helpers', () => {
     expect(releaseScript).toContain("'handoff:aliyun:generate': 'node scripts/generate-aliyun-it-handoff-bundle.mjs'");
     expect(releaseScript).toContain('api/scripts/generate-aliyun-nginx-vhost.mjs');
     expect(releaseScript).toContain('api/scripts/aliyun-nginx-entry-gate.mjs');
+    expect(releaseScript).toContain('api/scripts/verify-dist-no-secrets.mjs');
     expect(releaseScript).toContain('without switching traffic or reloading services');
   });
 
@@ -70,6 +71,16 @@ describe('Aliyun release manifest helpers', () => {
     const releaseScript = await readFile(new URL('./build-aliyun-release.mjs', import.meta.url), 'utf8');
     expect(releaseScript).toContain("audit:supabase");
     expect(releaseScript).toContain('api/scripts/audit-supabase-dependencies.mjs');
+    expect(releaseScript).toContain("decommission:supabase:gate");
+    expect(releaseScript).toContain('api/scripts/aliyun-env-guard.mjs');
+    expect(releaseScript).toContain('api/scripts/supabase-decommission-readiness.mjs');
+    expect(releaseScript).toContain('SUPABASE_DECOMMISSION_DIST_DIR=../h5');
+    expect(releaseScript).toContain('SUPABASE_DECOMMISSION_OUTPUT_FILE=/var/www/medical-credit-api/reports/pr24-supabase-decommission-final.json');
+    expect(releaseScript).toContain('SUPABASE_DECOMMISSION_MARKDOWN_FILE=/var/www/medical-credit-api/reports/pr24-supabase-decommission-final.md');
+
+    const auditDoc = await readFile(new URL('../docs/pr24-supabase-decommission-audit.md', import.meta.url), 'utf8');
+    expect(auditDoc).toContain('SUPABASE_DECOMMISSION_DIST_DIR=../h5');
+    expect(auditDoc).toContain('SUPABASE_DECOMMISSION_OUTPUT_FILE=/var/www/medical-credit-api/reports/pr24-supabase-decommission-final.json');
   });
 
   it('keeps generic Postgres/MySQL RDS migration support in the release package', async () => {

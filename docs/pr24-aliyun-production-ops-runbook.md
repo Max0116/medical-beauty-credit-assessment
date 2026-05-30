@@ -156,6 +156,7 @@ verification-evidence/<clientInstanceId>/<recordId>/<fileName>
 
 - `npm test` 通过。
 - `npm run release:aliyun` 通过。
+- `SUPABASE_DECOMMISSION_PHASE=final ... npm run decommission:supabase:gate` 已通过或已形成人工复核记录，并已保存 JSON / Markdown gate 报告。
 - 发布包 SHA256 已记录。
 - RDS 手动备份或自动备份时间已确认。
 - OSS bucket 权限未变更。
@@ -184,6 +185,19 @@ verification-evidence/<clientInstanceId>/<recordId>/<fileName>
 | 原因 |  |
 | 验证命令 |  |
 | 业务影响 |  |
+
+PR24 去 Supabase 证据归档：
+
+| 项目 | 记录 |
+| --- | --- |
+| release 名称 |  |
+| release SHA256 |  |
+| final gate JSON |  |
+| final gate Markdown |  |
+| RDS 备份 ID / 路径 |  |
+| OSS 验收记录 |  |
+| 人工复核人 |  |
+| 是否保留 Supabase 只读周期 |  |
 
 ## 八、密钥轮换
 

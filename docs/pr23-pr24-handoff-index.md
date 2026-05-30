@@ -68,11 +68,13 @@ PR23 `aliyun` 线上验收后看：
 
 - `docs/pr24-supabase-decommission-audit.md`
 - `scripts/audit-supabase-dependencies.mjs`
+- `scripts/supabase-decommission-readiness.mjs`
 
 目的：
 
 - 找出生产路径中的 Supabase 依赖。
 - 用 `SUPABASE_AUDIT_EXPECT=no-production npm run audit:supabase` 作为 PR24 Ready 闸门。
+- 用 `SUPABASE_DECOMMISSION_PHASE=final ... npm run decommission:supabase:gate` 判断 Supabase 是否可控下线。
 - 删除生产路径依赖前，先确认迁移备份和回滚策略。
 
 ### 5. 生产运维
@@ -146,7 +148,23 @@ npm run smoke:aliyun:api-flow
 ### PR24 闸门
 
 ```bash
+SUPABASE_DECOMMISSION_PHASE=preflight \
+SUPABASE_DECOMMISSION_DIST_DIR=dist \
+npm run decommission:supabase:gate
+
+cd <release-package>/api
+SUPABASE_DECOMMISSION_PHASE=preflight \
+SUPABASE_DECOMMISSION_DIST_DIR=../h5 \
+npm run decommission:supabase:gate
+
 SUPABASE_AUDIT_EXPECT=no-production npm run audit:supabase
+
+SUPABASE_DECOMMISSION_PHASE=final \
+SUPABASE_DECOMMISSION_ENV_FILE=/www/wwwroot/medical-credit-api/.env \
+SUPABASE_DECOMMISSION_DIST_DIR=/www/wwwroot/medical-credit-assessment/current \
+SUPABASE_DECOMMISSION_OUTPUT_FILE=/var/www/medical-credit-api/reports/pr24-supabase-decommission-final.json \
+SUPABASE_DECOMMISSION_MARKDOWN_FILE=/var/www/medical-credit-api/reports/pr24-supabase-decommission-final.md \
+npm run decommission:supabase:gate
 ```
 
 ## 四、严禁事项
@@ -173,6 +191,8 @@ PR23 完成需要：
 
 PR24 完成需要：
 
+- `decommission:supabase:gate` final 阶段通过或已形成明确人工复核记录。
+- final gate JSON / Markdown 报告已随 release、RDS 备份和 OSS 验收记录归档。
 - 生产路径 Supabase 依赖清零。
 - 发布包不再携带 Supabase 运行依赖。
 - 关闭 Supabase Function 后核心链路可用。
