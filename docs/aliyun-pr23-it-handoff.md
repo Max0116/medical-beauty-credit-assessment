@@ -39,10 +39,11 @@
 | 智谱 Key | 仅配置在服务器 `.env`，不进入前端 |
 | Supabase 迁移 Key | 仅用于一次性备份/回填 shell，会后清理 |
 | 出网能力 | 服务器可访问 Supabase、OSS、智谱 API |
+| Node 运行时 | 当前 shell 未检测到 `node` / `npm`，需要 IT 安装 Node LTS、启用宝塔 Node 项目，或确认 Docker 部署路线 |
 
 ## 三、当前入口解锁请求
 
-2026-05-30 已确认宝塔面板 `https://101.132.137.25:29119/home` 可登录。当前下一步不是继续解锁入口，而是完成服务器 shell 级只读盘点、独立数据库 / OSS 资源创建和 staging 部署。
+2026-05-30 已确认宝塔面板 `https://101.132.137.25:29119/home` 可登录，且宝塔终端可用。当前下一步不是继续解锁入口，而是准备 Node 运行时、独立数据库 / OSS 资源创建和 staging 部署。
 
 如后续开发侧再次只能看到宝塔“安全入口校验失败”，或 SSH 连接在认证前被服务器关闭，请 IT 先完成以下最小动作之一：
 
@@ -106,6 +107,7 @@ INVENTORY_REPORT_FILE=release/inventory/<report>.json npm run inventory:aliyun:g
 - `medical-credit-assessment` 是否可以使用独立 H5 目录。
 - `medical-credit-api` 是否可以使用独立 Node API 目录。
 - `127.0.0.1:8787` 是否可作为本项目独立 API 端口。
+- `node` / `npm` 是否已安装；若未安装，使用 Node LTS、宝塔 Node 项目或 Docker 哪一种路线。
 - 新增 Nginx server 或 location 是否会覆盖已有站点。
 - 是否已有 `medical-credit-api.service` 或 PM2 同名服务需要避让。
 
