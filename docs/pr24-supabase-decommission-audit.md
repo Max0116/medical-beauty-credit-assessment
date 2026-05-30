@@ -8,6 +8,27 @@ PR24 开始前可先运行：
 npm run audit:supabase
 ```
 
+也可以先运行 PR24 去 Supabase readiness gate。`preflight` 会检查浏览器构建产物和前端/生产路径的 Supabase 残留，但允许 PR23 期间仍保留回滚所需的 Supabase 迁移/上游线索：
+
+```bash
+npm run build:aliyun
+SUPABASE_DECOMMISSION_PHASE=preflight \
+SUPABASE_DECOMMISSION_DIST_DIR=dist \
+npm run decommission:supabase:gate
+```
+
+注意：在 PR23 阶段运行该命令可能返回 `blocked`，这通常表示前端仍保留 Supabase 直连或回退逻辑。该结果不是部署失败，而是 PR24 的待清理证据；只有进入 PR24 Ready / final 前才要求阻断项清零。
+
+如果要先验证阿里云 release 包内的 gate 是否能运行，可在解包后的 `api` 目录执行：
+
+```bash
+SUPABASE_DECOMMISSION_PHASE=preflight \
+SUPABASE_DECOMMISSION_DIST_DIR=../h5 \
+npm run decommission:supabase:gate
+```
+
+该命令用于确认发布包自带脚本、依赖脚本和 H5 构建产物路径完整；PR23 阶段返回 `manual_review` 属于预期，因为 `proxy` / `dual_write` 回滚链路仍会保留 Supabase 上游引用。
+
 当 PR24 准备标记 Ready 时，应运行阻断模式：
 
 ```bash
@@ -15,6 +36,21 @@ SUPABASE_AUDIT_EXPECT=no-production npm run audit:supabase
 ```
 
 阻断模式要求生产路径里不再包含 Supabase 依赖；迁移脚本、历史文档和归档源码可以按下文策略保留。
+
+最终下线 Supabase 前必须运行 `final` gate：
+
+```bash
+SUPABASE_DECOMMISSION_PHASE=final \
+SUPABASE_DECOMMISSION_ENV_FILE=/www/wwwroot/medical-credit-api/.env \
+SUPABASE_DECOMMISSION_DIST_DIR=/www/wwwroot/medical-credit-assessment/current \
+SUPABASE_DECOMMISSION_OUTPUT_FILE=/var/www/medical-credit-api/reports/pr24-supabase-decommission-final.json \
+SUPABASE_DECOMMISSION_MARKDOWN_FILE=/var/www/medical-credit-api/reports/pr24-supabase-decommission-final.md \
+npm run decommission:supabase:gate
+```
+
+`final` gate 要求 API 已处于 `MEDICAL_CREDIT_BACKEND_MODE=aliyun`，服务端 `.env` 不再包含 `ASSESSMENT_UPSTREAM_*` 或 Supabase service role，且前端构建产物不含 Supabase URL / key。
+
+`final` gate 的 JSON / Markdown 输出必须和当次 release 名称、SHA256、RDS 备份 ID、OSS 验收记录一起归档。若 gate 返回 `manual_review`，只能在人工复核确认剩余 Supabase 引用均为历史文档 / 迁移归档后继续；若返回 `blocked`，不得关闭 Supabase 或删除回滚链路。
 
 ## 一、PR24 进入条件
 
@@ -78,6 +114,7 @@ PR24 不能在以下条件缺失时启动：
 | --- | --- |
 | 前端构建产物不含 Supabase URL / key | `npm run verify:dist:aliyun` |
 | 前端源码不再读取 `VITE_SUPABASE_PUBLISHABLE_KEY` | `rg VITE_SUPABASE_PUBLISHABLE_KEY src .env.example .github` 无生产引用 |
+| PR24 readiness gate 通过 | `SUPABASE_DECOMMISSION_PHASE=final ... npm run decommission:supabase:gate` |
 | 生产路径不再包含 Supabase 依赖 | `SUPABASE_AUDIT_EXPECT=no-production npm run audit:supabase` |
 | 阿里云 API 不再需要 `ASSESSMENT_UPSTREAM_*` | preflight 和 `.env` 示例无该变量 |
 | 发布包不包含 Supabase 迁移脚本 | `tar -tzf <release>.tar.gz | rg supabase` 仅允许历史文档或归档文件 |
