@@ -195,6 +195,18 @@ npm run db:bootstrap:mysql
 
 生成后由 IT 复核 `/tmp/medical-credit-mysql-bootstrap.sql`，再在宝塔数据库终端或 RDS 管理端执行。该脚本会拒绝 `gohomesh`、`mediverseai`、`maxfuture` 等既有业务库名。
 
+OSS / RAM 权限同样先生成可审核文件，不直接调用阿里云接口：
+
+```bash
+ALIYUN_OSS_BUCKET=medical-credit-verification-evidence \
+ALIYUN_OSS_REGION=oss-cn-shanghai \
+ALIYUN_OSS_POLICY_OUTPUT_FILE=/tmp/medical-credit-oss-policy.json \
+ALIYUN_OSS_POLICY_MARKDOWN_FILE=/tmp/medical-credit-oss-policy.md \
+npm run oss:policy:generate
+```
+
+生成后由 IT 在阿里云控制台创建私有 OSS bucket，并把 `/tmp/medical-credit-oss-policy.json` 绑定到本项目专用 RAM 身份。策略仅允许 `medical-credit-verification-evidence/verification-evidence/*` 前缀对象的上传和读取，不包含删除对象、列出全部 bucket 等权限。
+
 执行只读预检：
 
 ```bash
@@ -213,6 +225,7 @@ bash /www/wwwroot/medical-credit-api/ops/aliyun/docker-run-medical-credit-api.sh
 - `dual_write` 所需 RDS / OSS / 智谱 / Supabase 旁路配置缺失。
 - `resources:aliyun:check` 输出 `blocked`。
 - MySQL bootstrap SQL 指向既有业务库，或将含真实密码 SQL 打印到终端。
+- OSS policy 未限定到 `verification-evidence/` 前缀，或包含删除 / 全局列举权限。
 - preflight 输出任何密钥明文。
 - `.env` 被放进 H5 目录。
 

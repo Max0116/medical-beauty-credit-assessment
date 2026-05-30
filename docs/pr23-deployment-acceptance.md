@@ -85,6 +85,24 @@ npm run db:bootstrap:mysql
 | SQL 未引用 `gohomesh` / `mediverseai` / `maxfuture` |  |  |
 | IT 已确认 MySQL user host 与 Docker/RDS 网络路径匹配 |  |  |
 
+如使用 OSS 附件存储，先生成并复核 RAM 最小权限策略：
+
+```bash
+ALIYUN_OSS_BUCKET=medical-credit-verification-evidence \
+ALIYUN_OSS_REGION=oss-cn-shanghai \
+ALIYUN_OSS_POLICY_OUTPUT_FILE=/tmp/medical-credit-oss-policy.json \
+ALIYUN_OSS_POLICY_MARKDOWN_FILE=/tmp/medical-credit-oss-policy.md \
+npm run oss:policy:generate
+```
+
+| 验收项 | 结果 | 证据 |
+| --- | --- | --- |
+| `oss:policy:generate` 生成 RAM Policy JSON 和 Markdown 交接文件 |  |  |
+| RAM Policy 只允许 `medical-credit-verification-evidence/verification-evidence/*` 前缀 |  |  |
+| RAM Policy 不包含 `oss:DeleteObject` 或 `oss:ListBuckets` |  |  |
+| Bucket 权限保持私有，未开启公共读写 |  |  |
+| OSS AccessKey 只写入 API `.env`，未进入 H5 目录或前端构建产物 |  |  |
+
 ## 三、发布包检查
 
 | 验收项 | 结果 | 证据 |
@@ -99,6 +117,7 @@ npm run db:bootstrap:mysql
 | 发布包包含只读盘点记录表 |  | `docs/aliyun-pr23-server-inventory-checklist.md` |
 | 发布包包含 `backup:supabase` |  |  |
 | 发布包包含 `db:bootstrap:mysql` |  |  |
+| 发布包包含 `oss:policy:generate` |  |  |
 | 发布包包含 `db:migrate:supabase-to-aliyun` |  |  |
 | 发布包包含 `storage:migrate:supabase-to-oss` |  |  |
 | 发布包包含 `migration:verify:aliyun` |  |  |
